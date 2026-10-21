@@ -1,0 +1,66 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} | WillAI Operaciones{% endblock %}
+
+{% block extrahead %}
+<style>
+    /* Styling del panel de admin de WillAI */
+    #header {
+        background: #0f172a !important;
+        border-bottom: 2px solid #ef4444 !important;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 20px;
+    }
+    #branding h1 {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+    }
+    #branding h1 a:link, #branding h1 a:visited {
+        color: #f8fafc !important;
+    }
+    .btn-mando-directo {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: white !important;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+        transition: all 0.2s ease;
+    }
+    .btn-mando-directo:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(239, 68, 68, 0.5);
+    }
+</style>
+{% endblock %}
+
+{% block branding %}
+<div style="display: flex; align-items: center; gap: 15px;">
+    <img src="{% static 'images/logo.jpeg' %}" alt="Logo WillAI" style="height: 38px; width: 38px; border-radius: 8px; object-fit: cover; border: 1.5px solid #ef4444;">
+    <h1 id="site-name">
+        <a href="{% url 'admin:index' %}">
+            <strong>WillAI</strong> — Centro de Operaciones de Emergencia (Coracora)
+        </a>
+    </h1>
+</div>
+{% endblock %}
+
+{% block userlinks %}
+<div style="display: flex; align-items: center; gap: 16px;">
+    <a href="{% url 'panel:dashboard' %}" class="btn-mando-directo">
+        <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 6px #22c55e;"></span>
+        🛰️ Centro de Mando Táctico
+    </a>
+    {{ block.super }}
+</div>
+{% endblock %}
