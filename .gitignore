@@ -1,0 +1,48 @@
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+backend/.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+
+# Django & Database
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+backend/media/
+staticfiles/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+backend/.env
+
+# Node & Mobile (Expo / React Native)
+node_modules/
+.expo/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Reference Archives & Large Zips
+*.zip
+*.tar.gz
+*.rar
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
