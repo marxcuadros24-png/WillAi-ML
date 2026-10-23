@@ -1,6 +1,6 @@
 export type SeveridadType = 'baja' | 'media' | 'alta' | 'critica';
-export type EstadoIncidente = 'pendiente' | 'en_combate' | 'controlado' | 'extinguido';
-export type EstadoBrigada = 'disponible' | 'en_operacion' | 'en_descanso' | 'inactiva';
+export type EstadoIncidente = 'pendiente' | 'en_combate' | 'controlado' | 'extinguido' | 'cerrado';
+export type EstadoBrigada = 'disponible' | 'en_operacion' | 'en_descanso' | 'inactiva' | 'desplegada';
 
 export interface Incidente {
   id: number;
@@ -48,6 +48,10 @@ export interface MetricasFWI {
   fwi: number;  // Fire Weather Index
   nivel_peligro: 'Bajo' | 'Moderado' | 'Alto' | 'Muy Alto' | 'Extremo';
   recomendacion: string;
+  diagnostico?: string;
+  probabilidad_ml?: number;
+  clase_ml?: string;
+  estado_combustible?: string;
 }
 
 export interface Brigada {
@@ -66,7 +70,7 @@ export interface Brigada {
 export interface AlertaComunitaria {
   id: number;
   titulo: string;
-  nivel: 'informativa' | 'preventiva' | 'evacuacion';
+  nivel: 'informativa' | 'preventiva' | 'evacuacion' | 'alta' | 'muy_alta';
   comunidad: string;
   fecha: string;
   mensaje: string;
@@ -120,3 +124,97 @@ export interface HistorialFirmsResponse {
   total_detecciones: number;
   historial_mensual: HistorialMensualItem[];
 }
+
+// Modelos del Panel Administrativo Integrado
+export interface ReporteCiudadano {
+  id: number;
+  usuario: string;
+  comunidad: string;
+  tipo_incendio: string;
+  estado: string; // 'recibido' | 'en_evaluacion' | 'confirmado' | 'validado' | 'rechazado' | 'observado'
+  latitud: number;
+  longitud: number;
+  descripcion: string;
+  fecha: string;
+  evidencia_url?: string | null;
+}
+
+export interface DonacionItem {
+  id: number;
+  descripcion: string;
+  cantidad: number;
+  unidad: string;
+  categoria: string;
+}
+
+export interface DonacionComunitaria {
+  id: number;
+  titulo: string;
+  donante: string;
+  estado: string; // 'pendiente' | 'publicada' | 'rechazada' | 'entregada'
+  descripcion: string;
+  fecha: string;
+  items: DonacionItem[];
+}
+
+export interface LoteSatelital {
+  id: number;
+  fuente: string;
+  sensor: string;
+  estado: string;
+  iniciado_en: string;
+  registros_nuevos: number;
+  registros_duplicados: number;
+}
+
+export interface MetricasKPI {
+  incidentes_activos: number;
+  incidentes_en_combate: number;
+  reportes_pendientes: number;
+  brigadas_disponibles: number;
+  alertas_activas: number;
+  donaciones_pendientes: number;
+  detecciones_recientes: number;
+  fwi_score?: number | null;
+  fwi_nivel: string;
+}
+
+export interface RolSistema {
+  codigo: string;
+  nombre: string;
+}
+
+export interface UsuarioSistema {
+  id: number;
+  uuid: string;
+  username: string;
+  nombre: string;
+  email: string;
+  telefono: string;
+  estado: 'activo' | 'suspendido' | 'pendiente';
+  is_staff: boolean;
+  is_superuser: boolean;
+  roles: string[];
+  roles_codigos: string[];
+  creado_en: string;
+  ultimo_acceso: string;
+}
+
+export interface UsuarioAuth {
+  id: number;
+  username: string;
+  nombre: string;
+  email: string;
+  roles: string[];
+  is_staff: boolean;
+  is_superuser: boolean;
+}
+
+export interface LoginResponse {
+  success: boolean;
+  user?: UsuarioAuth;
+  token?: string;
+  error?: string;
+}
+
+

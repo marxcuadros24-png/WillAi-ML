@@ -32,31 +32,30 @@ def calcular_riesgo_fwi_task(lat=CORACORA_LAT, lon=CORACORA_LON):
         parametros={"latitud": lat, "longitud": lon}
     )
 
-    # Obtener última observación meteorológica real o consultar Open-Meteo
-    obs = ObservacionMeteorologica.objects.first()
-    if not obs:
-        try:
-            from apps.meteorologia.tasks import importar_openmeteo_task
-            importar_openmeteo_task(lat=lat, lon=lon)
-            obs = ObservacionMeteorologica.objects.first()
-        except Exception:
-            pass
+    # 1. Siempre consultar o refrescar con la última observación real de Open-Meteo
+    try:
+        from apps.meteorologia.tasks import importar_openmeteo_task
+        importar_openmeteo_task(lat=lat, lon=lon)
+    except Exception:
+        pass
+
+    obs = ObservacionMeteorologica.objects.order_by('-observada_en').first()
 
     ahora = timezone.now()
 
     if obs:
-        temp = float(obs.temperatura_c or 20.0)
-        rh = float(obs.humedad_relativa_pct or 40.0)
-        viento = float(obs.viento_kmh or 15.0)
-        lluvia = float(obs.precipitacion_mm or 0.0)
-        wind_dir = float(obs.direccion_viento_grados or 0.0)
+        temp = float(obs.temperatura_c if obs.temperatura_c is not None else 18.0)
+        rh = float(obs.humedad_relativa_pct if obs.humedad_relativa_pct is not None else 60.0)
+        viento = float(obs.viento_kmh if obs.viento_kmh is not None else 10.0)
+        lluvia = float(obs.precipitacion_mm if obs.precipitacion_mm is not None else 0.0)
+        wind_dir = float(obs.direccion_viento_grados if obs.direccion_viento_grados is not None else 0.0)
         obs_dt = obs.observada_en.isoformat() if obs.observada_en else ahora.isoformat()
     else:
-        temp, rh, viento, lluvia = 18.0, 45.0, 12.0, 0.0
+        temp, rh, viento, lluvia = 18.0, 50.0, 10.0, 0.0
         wind_dir = 270.0
         obs_dt = ahora.isoformat()
 
-    # Ejecutar cálculo FWI
+    # 2. Ejecutar cálculo físico estándar FWI canadiense
     fwi_res = calcular_sistema_fwi_completo(
         temp=temp,
         rh=rh,
@@ -65,12 +64,44 @@ def calcular_riesgo_fwi_task(lat=CORACORA_LAT, lon=CORACORA_LON):
         month=ahora.month,
         lat=lat
     )
+
+    # 3. Ejecutar predicción de Machine Learning (Random Forest entrenado con AWP)
+    try:
+        from .ml_incendio import predecir_ignicion_ml
+        ml_res = predecir_ignicion_ml(
+            temperatura=temp,
+            humedad=rh,
+            viento=viento,
+            lluvia=lluvia,
+            fwi=fwi_res['fwi']
+        )
+    except Exception as e:
+        ml_res = {
+            'probabilidad_fuego': min(1.0, round(fwi_res['fwi'] / 50.0, 4)),
+            'probabilidad_pct': round(min(1.0, fwi_res['fwi'] / 50.0) * 100, 1),
+            'clase_ml': 'not fire' if fwi_res['fwi'] < 5.2 else 'fire',
+            'nivel_ml': fwi_res['nivel_peligro'],
+            'estado_combustible': 'Normal',
+            'diagnostico': fwi_res.get('diagnostico', ''),
+            'error': str(e)
+        }
+
+    # Si hay lluvia activa o humedad saturada, el nivel de peligro combinado es bajo
+    if lluvia > 0.0 or rh >= 75.0:
+        nivel_final = 'bajo'
+        prob_final = ml_res.get('probabilidad_fuego', 0.02)
+    else:
+        nivel_final = fwi_res['nivel_peligro']
+        prob_final = max(ml_res.get('probabilidad_fuego', 0.0), min(1.0, round(fwi_res['fwi'] / 50.0, 4)))
+
     fwi_res['temp'] = temp
     fwi_res['rh'] = rh
     fwi_res['wind'] = viento
     fwi_res['rain'] = lluvia
     fwi_res['wind_dir_deg'] = wind_dir
     fwi_res['observada_en'] = obs_dt
+    fwi_res['nivel_peligro'] = nivel_final
+    fwi_res['ml_prediccion'] = ml_res
 
     # Crear polígono referencial del cuadrante de Coracora
     delta = 0.05
@@ -90,8 +121,8 @@ def calcular_riesgo_fwi_task(lat=CORACORA_LAT, lon=CORACORA_LON):
         geometria_geojson=geojson_area,
         horizonte_desde=ahora,
         horizonte_hasta=ahora + timedelta(hours=24),
-        probabilidad=min(1.0, round(fwi_res['fwi'] / 50.0, 4)),
-        nivel=fwi_res['nivel_peligro'],
+        probabilidad=prob_final,
+        nivel=nivel_final,
         incertidumbre=fwi_res
     )
 
@@ -100,7 +131,7 @@ def calcular_riesgo_fwi_task(lat=CORACORA_LAT, lon=CORACORA_LON):
     ejecucion.save()
 
     # Si el peligro es alto o crítico, desencadenar evaluación de viviendas y alertas
-    if fwi_res['nivel_peligro'] in ['alto', 'critico']:
+    if nivel_final in ['alto', 'critico']:
         try:
             from apps.alertas.tasks import evaluar_exposicion_y_alertar_task
             evaluar_exposicion_y_alertar_task.delay(id_prediccion=prediccion.id_prediccion)
@@ -111,8 +142,12 @@ def calcular_riesgo_fwi_task(lat=CORACORA_LAT, lon=CORACORA_LON):
         "status": "ok",
         "id_prediccion": prediccion.id_prediccion,
         "fwi": fwi_res['fwi'],
-        "nivel": fwi_res['nivel_peligro'],
-        "indices": fwi_res
+        "nivel": nivel_final,
+        "probabilidad_ml": ml_res.get('probabilidad_pct', 0),
+        "lluvia": lluvia,
+        "humedad": rh,
+        "temperatura": temp,
+        "viento": viento
     }
 
 

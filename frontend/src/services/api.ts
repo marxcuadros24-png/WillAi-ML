@@ -5,7 +5,9 @@ import type {
   Brigada,
   AlertaComunitaria,
   PrediccionViento12hData,
-  HistorialFirmsResponse
+  HistorialFirmsResponse,
+  UsuarioSistema,
+  RolSistema
 } from '../types';
 
 const API_BASE = 'http://127.0.0.1:8000/api/v1';
@@ -195,7 +197,7 @@ export async function entrenarModeloViento(lat: number = -15.0189, lon: number =
  * Consulta las métricas meteorológicas en tiempo real de Open-Meteo y el cálculo
  * de peligro de incendios FWI del Sistema Canadiense (CFFDRS).
  */
-export async function fetchFWI(): Promise<MetricasFWI> {
+export async function fetchFWI(forzarRefresco: boolean = false): Promise<MetricasFWI> {
   try {
     let obsData: any = null;
     try {
@@ -203,23 +205,42 @@ export async function fetchFWI(): Promise<MetricasFWI> {
       if (resObs.ok) obsData = await resObs.json();
     } catch {}
 
-    const resPred = await fetch(`${API_BASE}/predicciones/predicciones/actual/`, { cache: 'no-store' });
+    const resPred = await fetch(`${API_BASE}/predicciones/predicciones/actual/${forzarRefresco ? '?refresco=1' : ''}`, { cache: 'no-store' });
     let predData: any = null;
     if (resPred.ok) predData = await resPred.json();
 
     const inc = predData?.incertidumbre || {};
-    const temp = obsData?.temperatura_c ? parseFloat(obsData.temperatura_c) : (inc.temp ?? 0);
-    const rh = obsData?.humedad_relativa_pct ? parseFloat(obsData.humedad_relativa_pct) : (inc.rh ?? 0);
-    const wind = obsData?.viento_kmh ? parseFloat(obsData.viento_kmh) : (inc.wind ?? 0);
-    const windDirDeg = obsData?.direccion_viento_grados ? parseFloat(obsData.direccion_viento_grados) : (inc.wind_dir_deg ?? 0);
-    const rain = obsData?.precipitacion_mm ? parseFloat(obsData.precipitacion_mm) : (inc.rain ?? 0);
+    const ml = inc.ml_prediccion || {};
+    const temp = inc.temp ?? (obsData?.temperatura_c ? parseFloat(obsData.temperatura_c) : 0);
+    const rh = inc.rh ?? (obsData?.humedad_relativa_pct ? parseFloat(obsData.humedad_relativa_pct) : 0);
+    const wind = inc.wind ?? (obsData?.viento_kmh ? parseFloat(obsData.viento_kmh) : 0);
+    const windDirDeg = inc.wind_dir_deg ?? (obsData?.direccion_viento_grados ? parseFloat(obsData.direccion_viento_grados) : 0);
+    const rain = inc.rain ?? (obsData?.precipitacion_mm ? parseFloat(obsData.precipitacion_mm) : 0);
 
     const fwiVal = inc.fwi ? parseFloat(inc.fwi) : 0;
+    const rawNivel = (predData?.nivel || inc.nivel_peligro || 'bajo').toLowerCase();
+
     let nivelPeligro: 'Bajo' | 'Moderado' | 'Alto' | 'Muy Alto' | 'Extremo' = 'Bajo';
-    if (fwiVal >= 21.3) nivelPeligro = 'Extremo';
-    else if (fwiVal >= 11.2) nivelPeligro = 'Alto';
-    else if (fwiVal >= 5.2) nivelPeligro = 'Moderado';
-    else nivelPeligro = 'Bajo';
+    if (rain > 0.0 || rh >= 75.0) {
+      nivelPeligro = 'Bajo';
+    } else if (rawNivel === 'critico' || fwiVal >= 21.3) {
+      nivelPeligro = 'Extremo';
+    } else if (rawNivel === 'alto' || fwiVal >= 11.2) {
+      nivelPeligro = 'Alto';
+    } else if (rawNivel === 'moderado' || fwiVal >= 5.2) {
+      nivelPeligro = 'Moderado';
+    } else {
+      nivelPeligro = 'Bajo';
+    }
+
+    let recomendacion = 'Condiciones normales de bajo peligro.';
+    if (rain > 0.0) {
+      recomendacion = `🌧️ Lluvia activa en Coracora (${rain} mm). Combustible vegetal saturado; peligro de fuego nulo o mínimo.`;
+    } else if (rh >= 75.0) {
+      recomendacion = `💧 Alta humedad ambiental (${rh}%). Inhibición natural de focos de ignición.`;
+    } else if (nivelPeligro === 'Extremo' || nivelPeligro === 'Alto') {
+      recomendacion = '🔥 Alerta Meteorológica: Precaución ante viento y baja humedad en Parinacochas.';
+    }
 
     return {
       temperatura: temp,
@@ -234,9 +255,11 @@ export async function fetchFWI(): Promise<MetricasFWI> {
       bui: inc.bui ? parseFloat(inc.bui) : 0,
       fwi: fwiVal,
       nivel_peligro: nivelPeligro,
-      recomendacion: fwiVal >= 21.3
-        ? 'Alerta Roja: Condiciones críticas en Parinacochas. Humedad baja y peligro severo de ignición y propagación rápida.'
-        : (fwiVal >= 11.2 ? 'Alerta Amarilla: Precaución ante viento y sequedad de vegetación.' : 'Condiciones normales de bajo peligro.')
+      recomendacion,
+      diagnostico: inc.diagnostico || ml.diagnostico,
+      probabilidad_ml: ml.probabilidad_pct ?? (predData?.probabilidad ? Math.round(predData.probabilidad * 100) : 0),
+      clase_ml: ml.clase_ml,
+      estado_combustible: ml.estado_combustible
     };
   } catch (err) {
     console.warn('Error al consultar FWI real:', err);
@@ -296,3 +319,237 @@ export async function fetchAlertas(): Promise<AlertaComunitaria[]> {
     return [];
   }
 }
+
+/**
+ * Consulta métricas KPI, reportes ciudadanos, donaciones y lotes satelitales
+ * para el Centro de Mando Táctico y Panel Administrativo Unificado.
+ */
+export async function fetchDashboardCompleto(): Promise<{
+  metricas: any;
+  reportes: any[];
+  donaciones: any[];
+  lotes_satelitales: any[];
+}> {
+  try {
+    const res = await fetch('http://127.0.0.1:8000/panel/api/datos/', { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('Error al consultar datos completos del panel:', err);
+    return {
+      metricas: {
+        incidentes_activos: 0,
+        incidentes_en_combate: 0,
+        reportes_pendientes: 0,
+        brigadas_disponibles: 0,
+        alertas_activas: 0,
+        donaciones_pendientes: 0,
+        detecciones_recientes: 0,
+        fwi_score: null,
+        fwi_nivel: 'MODERADO'
+      },
+      reportes: [],
+      donaciones: [],
+      lotes_satelitales: []
+    };
+  }
+}
+
+/**
+ * Valida un reporte ciudadano (confirmado / rechazado / observado).
+ */
+export async function validarReporte(idReporte: number, resultado: 'validado' | 'rechazado' | 'observado', comentario: string) {
+  const res = await fetch(`http://127.0.0.1:8000/panel/api/reportes/${idReporte}/validar/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ resultado, comentario })
+  });
+  if (!res.ok) throw new Error('Error al validar reporte');
+  return await res.json();
+}
+
+/**
+ * Crea un incidente táctico directamente desde el Centro de Mando.
+ */
+export async function crearIncidente(datos: {
+  titulo: string;
+  tipo_incendio?: string;
+  prioridad?: string;
+  latitud?: number;
+  longitud?: number;
+  id_reporte?: number;
+}) {
+  const res = await fetch('http://127.0.0.1:8000/panel/api/incidentes/crear/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(datos)
+  });
+  if (!res.ok) throw new Error('Error al crear incidente');
+  return await res.json();
+}
+
+/**
+ * Actualiza el estado operativo de un incidente.
+ */
+export async function cambiarEstadoIncidente(idIncidente: number, estado: string, nota: string) {
+  const res = await fetch(`http://127.0.0.1:8000/panel/api/incidentes/${idIncidente}/cambiar-estado/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ estado, nota })
+  });
+  if (!res.ok) throw new Error('Error al actualizar estado del incidente');
+  return await res.json();
+}
+
+/**
+ * Despacha una brigada al incidente de manera inmediata.
+ */
+export async function asignarBrigada(idIncidente: number, idBrigada: number, rolOperativo: string = 'combate_directo') {
+  const res = await fetch(`http://127.0.0.1:8000/panel/api/incidentes/${idIncidente}/asignar-brigada/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id_brigada: idBrigada, rol_operativo: rolOperativo })
+  });
+  if (!res.ok) throw new Error('Error al asignar brigada');
+  return await res.json();
+}
+
+/**
+ * Cierra formalmente un incidente con acta final y libera brigadas asignadas.
+ */
+export async function cerrarIncidente(idIncidente: number, motivo: string, evidenciaUri: string = '') {
+  const res = await fetch(`http://127.0.0.1:8000/panel/api/incidentes/${idIncidente}/cerrar/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ motivo, evidencia_uri: evidenciaUri })
+  });
+  if (!res.ok) throw new Error('Error al cerrar incidente');
+  return await res.json();
+}
+
+/**
+ * Emite una alerta de emergencia a la población y brigadas.
+ */
+export async function emitirAlerta(datos: {
+  titulo: string;
+  mensaje: string;
+  instrucciones: string;
+  prioridad: string;
+  tipo: string;
+  id_incidente?: number;
+}) {
+  const res = await fetch('http://127.0.0.1:8000/panel/api/alertas/emitir/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(datos)
+  });
+  if (!res.ok) throw new Error('Error al emitir alerta');
+  return await res.json();
+}
+
+/**
+ * Modera una donación solidaria comunitaria (aprobar / rechazar).
+ */
+export async function moderarDonacion(idOferta: number, accion: 'aprobar' | 'rechazar', comentario: string = '') {
+  const res = await fetch(`http://127.0.0.1:8000/panel/api/donaciones/${idOferta}/moderar/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accion, comentario })
+  });
+  if (!res.ok) throw new Error('Error al moderar donación');
+  return await res.json();
+}
+
+/**
+ * Dispara una sincronización manual en vivo de FIRMS, Open-Meteo o cálculo FWI.
+ */
+export async function dispararSincronizacion(tipo: 'firms' | 'meteo' | 'fwi') {
+  const res = await fetch('http://127.0.0.1:8000/panel/api/sincronizar/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tipo })
+  });
+  if (!res.ok) throw new Error('Error al disparar sincronización');
+  return await res.json();
+}
+
+/**
+ * Consulta la lista de usuarios y roles del sistema desde el panel.
+ */
+export async function fetchUsuarios(): Promise<{ usuarios: UsuarioSistema[]; roles: RolSistema[] }> {
+  try {
+    const res = await fetch('http://127.0.0.1:8000/panel/api/usuarios/', { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('Error al consultar usuarios:', err);
+    return { usuarios: [], roles: [] };
+  }
+}
+
+export async function cambiarEstadoUsuario(idUsuario: number, estado: string): Promise<any> {
+  const res = await fetch(`http://127.0.0.1:8000/panel/api/usuarios/${idUsuario}/cambiar-estado/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ estado })
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return await res.json();
+}
+
+export async function asignarRolUsuario(idUsuario: number, codigoRol: string, accion: 'asignar' | 'remover'): Promise<any> {
+  const res = await fetch(`http://127.0.0.1:8000/panel/api/usuarios/${idUsuario}/asignar-rol/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ codigo_rol: codigoRol, accion })
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return await res.json();
+}
+
+export async function crearUsuarioOperativo(payload: {
+  username: string;
+  email?: string;
+  password?: string;
+  nombre?: string;
+  telefono?: string;
+  codigo_rol?: string;
+}): Promise<any> {
+  const res = await fetch('http://127.0.0.1:8000/panel/api/usuarios/crear/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return await res.json();
+}
+
+/**
+ * Autenticación de Operadores y Administradores en el Centro de Mando Táctico.
+ */
+export async function loginApi(username: string, password: string): Promise<any> {
+  const res = await fetch('http://127.0.0.1:8000/panel/api/login/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Credenciales incorrectas');
+  }
+  return data;
+}
+
+export async function logoutApi(): Promise<any> {
+  try {
+    const res = await fetch('http://127.0.0.1:8000/panel/api/logout/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    return await res.json();
+  } catch {
+    return { success: true };
+  }
+}
+
+

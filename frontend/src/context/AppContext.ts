@@ -1,0 +1,65 @@
+import { useOutletContext } from 'react-router-dom';
+import type {
+  Incidente,
+  FocoCalor,
+  MetricasFWI,
+  Brigada,
+  AlertaComunitaria,
+  PrediccionViento12hData,
+  ReporteCiudadano,
+  DonacionComunitaria,
+  LoteSatelital,
+  MetricasKPI
+} from '../types';
+
+export interface AppContextType {
+  metricas: MetricasKPI | null;
+  fwi: MetricasFWI;
+  incidentes: Incidente[];
+  focos: FocoCalor[];
+  brigadas: Brigada[];
+  alertas: AlertaComunitaria[];
+  viento12h: PrediccionViento12hData;
+  reportes: ReporteCiudadano[];
+  donaciones: DonacionComunitaria[];
+  lotesSatelitales: LoteSatelital[];
+  loadAllData: () => Promise<void>;
+  onOpenCreateIncident: () => void;
+  onOpenAlertModal: () => void;
+  onOpenDispatch: (inc: Incidente) => void;
+  onOpenChangeStatus: (inc: Incidente) => void;
+  onOpenCloseIncident: (inc: Incidente) => void;
+  handleValidarReporteAction: (reporte: ReporteCiudadano, resultado: 'validado' | 'rechazado' | 'observado') => Promise<void>;
+  handleConvertirReporteAIncidente: (reporte: ReporteCiudadano) => void;
+  handleModerarDonacionAction: (oferta: DonacionComunitaria, accion: 'aprobar' | 'rechazar') => Promise<void>;
+  handleDispararSyncManual: (tipo: 'firms' | 'meteo' | 'fwi') => Promise<void>;
+  handleEntrenarVientoManual: () => Promise<void>;
+  // Map specific state
+  showModis: boolean;
+  setShowModis: (v: boolean) => void;
+  showViirs: boolean;
+  setShowViirs: (v: boolean) => void;
+  showSerfor: boolean;
+  setShowSerfor: (v: boolean) => void;
+  showVientoML: boolean;
+  setShowVientoML: (v: boolean) => void;
+  showIncidentes: boolean;
+  setShowIncidentes: (v: boolean) => void;
+  showBrigadas: boolean;
+  setShowBrigadas: (v: boolean) => void;
+  timeRange: 'today' | '24h' | '7d' | '30d' | '3m' | '6m' | 'custom';
+  handleTimeRangeChange: (newRange: 'today' | '24h' | '7d' | '30d' | '3m' | '6m' | 'custom') => Promise<void>;
+  customDesde: string;
+  customHasta: string;
+  handleApplyCustomDates: (desde: string, hasta: string) => Promise<void>;
+  selectedWindHourIdx: number;
+  setSelectedWindHourIdx: (idx: number) => void;
+  selectedIncidente: Incidente | null;
+  setSelectedIncidente: (inc: Incidente | null) => void;
+  sidebarTab: 'incidentes' | 'firms' | 'viento' | 'meteo' | 'brigadas';
+  setSidebarTab: (tab: 'incidentes' | 'firms' | 'viento' | 'meteo' | 'brigadas') => void;
+}
+
+export function useAppContext(): AppContextType {
+  return useOutletContext<AppContextType>();
+}

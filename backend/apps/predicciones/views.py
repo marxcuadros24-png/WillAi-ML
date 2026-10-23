@@ -22,8 +22,30 @@ class PrediccionViewSet(viewsets.ReadOnlyModelViewSet):
     def actual(self, request):
         """
         Retorna la predicción de riesgo FWI más reciente para Coracora.
+        Calcula o actualiza en tiempo real consumiendo Open-Meteo.
         """
-        pred = Prediccion.objects.filter(ejecucion__modelo__nombre__icontains="FWI").first() or Prediccion.objects.first()
+        from django.utils import timezone
+        refrescar = request.query_params.get('refresco') in ['1', 'true', 'True']
+        pred = Prediccion.objects.filter(
+            ejecucion__modelo__nombre__icontains="FWI"
+        ).order_by('-creada_en').first()
+
+        ahora = timezone.now()
+        # Si no existe, si se solicita refresco o si tiene más de 20 minutos de antigüedad:
+        if not pred or refrescar or (ahora - pred.creada_en).total_seconds() > 1200:
+            from .tasks import calcular_riesgo_fwi_task
+            try:
+                res = calcular_riesgo_fwi_task()
+                if res.get("id_prediccion"):
+                    pred = Prediccion.objects.get(id_prediccion=res["id_prediccion"])
+            except Exception:
+                pass
+
+        if not pred:
+            pred = Prediccion.objects.filter(
+                ejecucion__modelo__nombre__icontains="FWI"
+            ).order_by('-creada_en').first() or Prediccion.objects.order_by('-creada_en').first()
+
         if not pred:
             return Response({"mensaje": "No hay predicciones registradas."}, status=404)
         return Response(PrediccionSerializer(pred).data)

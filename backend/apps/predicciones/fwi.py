@@ -15,9 +15,9 @@ def calcular_ffmc(temp: float, rh: float, wind: float, rain: float, ffmc_prev: f
     # Contenido de humedad previo del combustible
     w_o = 147.2 * (101.0 - ffmc_prev) / (59.5 + ffmc_prev)
 
-    # Efecto de la lluvia
-    if rain > 0.5:
-        r_f = rain - 0.5
+    # Efecto de la lluvia (considera llovizna desde 0.05 mm)
+    if rain > 0.05:
+        r_f = max(0.01, rain - 0.05)
         if w_o > 150.0:
             mr = w_o + 42.5 * r_f * math.exp(-100.0 / (251.0 - w_o)) * (1.0 - math.exp(-6.93 / r_f)) + (0.0015 * (w_o - 150.0) ** 2) * math.sqrt(r_f)
         else:
@@ -136,14 +136,19 @@ def calcular_fwi(isi: float, bui: float) -> float:
     return max(0.0, fwi)
 
 
-def clasificar_nivel_peligro(fwi: float) -> str:
+def clasificar_nivel_peligro(fwi: float, rain: float = 0.0, rh: float = 0.0) -> str:
     """
     Clasifica el nivel de riesgo de incendio según escala estándar FWI:
     - Bajo: < 5.2
     - Moderado: 5.2 - 11.2
     - Alto: 11.2 - 21.3
     - Crítico / Extremo: >= 21.3
+
+    Si hay lluvia activa (rain > 0) o humedad ambiental muy alta (rh >= 75%),
+    la inflamabilidad se inhibe físicamente, limitando el peligro a 'bajo'.
     """
+    if rain > 0.0 or rh >= 75.0:
+        return 'bajo'
     if fwi < 5.2:
         return 'bajo'
     elif fwi < 11.2:
@@ -157,7 +162,8 @@ def clasificar_nivel_peligro(fwi: float) -> str:
 def calcular_sistema_fwi_completo(temp: float, rh: float, wind: float, rain: float, month: int, lat: float = -15.02,
                                   ffmc_prev: float = 85.0, dmc_prev: float = 6.0, dc_prev: float = 15.0) -> dict:
     """
-    Ejecuta el cálculo completo de los 6 índices del sistema FWI canadiense.
+    Ejecuta el cálculo completo de los 6 índices del sistema FWI canadiense
+    con diagnóstico meteorológico.
     """
     ffmc = calcular_ffmc(temp, rh, wind, rain, ffmc_prev)
     dmc = calcular_dmc(temp, rh, rain, month, lat, dmc_prev)
@@ -165,7 +171,14 @@ def calcular_sistema_fwi_completo(temp: float, rh: float, wind: float, rain: flo
     isi = calcular_isi(wind, ffmc)
     bui = calcular_bui(dmc, dc)
     fwi = calcular_fwi(isi, bui)
-    nivel = clasificar_nivel_peligro(fwi)
+    nivel = clasificar_nivel_peligro(fwi, rain=rain, rh=rh)
+
+    if rain > 0.0:
+        diagnostico = f"Lluvia activa ({rain} mm) en Parinacochas con humedad de {rh}%. Combustible húmedo; riesgo de fuego nulo o bajo."
+    elif rh >= 75.0:
+        diagnostico = f"Humedad ambiental alta ({rh}%). Probabilidad de fuego baja."
+    else:
+        diagnostico = f"Condición ambiental: {temp}°C, {rh}% humedad, viento {wind} km/h."
 
     return {
         'ffmc': round(ffmc, 2),
@@ -175,4 +188,5 @@ def calcular_sistema_fwi_completo(temp: float, rh: float, wind: float, rain: flo
         'bui': round(bui, 2),
         'fwi': round(fwi, 2),
         'nivel_peligro': nivel,
+        'diagnostico': diagnostico,
     }

@@ -66,7 +66,7 @@
 | **3** | **APIs Externas Reales** | ✅ COMPLETADO | `apps.firms` (NASA FIRMS autenticado con MAP_KEY real consumiendo **VIIRS + MODIS**, histórico real de 180 días descargado en BD y SERFOR MapServer) y `apps.meteorologia` (Open-Meteo en vivo con temperatura, humedad, viento y lluvia real de Coracora). |
 | **4** | **Predicciones FWI + ML Viento 12h + Alertas** | ✅ COMPLETADO | `apps.predicciones` (Motor FWI canadiense alimentado por Open-Meteo real + **Modelo ML Random Forest a 12 horas de propagación de viento y conos de dispersión**) y `apps.alertas` (Evaluador de viviendas expuestas, generación automática de alertas y confirmación de lectura). |
 | **5** | **Complementarios** | ✅ COMPLETADO | `apps.gamificacion` (insignias, actividades comunitarias, auto-otorgamiento al validar reportes), `apps.donaciones` (ofertas moderadas, inventario de ítems, asignaciones a incidentes/brigadas), `apps.auditoria` (trazabilidad forense, hash SHA-256 anónimo de IP, middleware de logging). |
-| **6** | **Centro de Mando Táctico Web** | ✅ COMPLETADO | Panel web en Django (`/panel/`) + **Frontend SPA** (`frontend/`) en React + Vite + TypeScript con conexión 100% a endpoints reales de backend (NASA FIRMS MODIS [1km] y VIIRS [375m] con barra temporal TODAY, 24HRS, 7D, 30D, 3M, 6M, cono de propagación ML 12h y re-entrenamiento en vivo con Open-Meteo). |
+| **6** | **Centro de Mando Táctico Web** | ✅ COMPLETADO | Frontend SPA desacoplado en React + Vite + TS con arquitectura modular multi-ruta (`react-router-dom`), autenticación de operadores/admin (`/login`), páginas dedicadas (`/panel`, `/mapa`, `/incidentes`, `/reportes`, `/usuarios`, `/alertas`, `/donaciones`, `/satelites`), modales tácticos operativos (despacho, cierre con acta, emisión de alerta), calibración FWI + ML anti-lluvia, diseño anti-slop (`taste-skill`) y conexión 100% a endpoints reales de PostgreSQL. |
 | **7** | **App Móvil React Native** | ⏳ SIGUIENTE | Aplicación móvil principal en Expo/React Native para todos los usuarios (ciudadanos, brigadistas y verificadores comunales). |
 
 ---
@@ -81,11 +81,14 @@ cd backend
 # Ejecutar chequeo del sistema
 python manage.py check
 
-# Ejecutar las 32 pruebas unitarias completas (100% passing)
+# Ejecutar las pruebas unitarias completas (100% passing)
 python manage.py test apps.usuarios.test_usuarios apps.geografia.test_geografia apps.respuesta.test_respuesta apps.reportes.test_reportes apps.incidentes.test_incidentes apps.firms.test_firms apps.meteorologia.test_meteorologia apps.predicciones.test_predicciones apps.alertas.test_alertas apps.gamificacion.test_gamificacion apps.donaciones.test_donaciones apps.auditoria.test_auditoria apps.panel.test_panel
 
-# Sembrar estructura geográfica base y entidades operacionales
+# Sembrar estructura geográfica base y superusuario admin
 python manage.py seed_base
+
+# Sembrar datos operacionales de Coracora (Brigadas B-12/Huallhua/OGRD/SERFOR, Incidentes, Reportes, Alertas, Donaciones)
+python manage.py seed_operativo
 
 # Consultar meteorología en tiempo real desde Open-Meteo
 python manage.py importar_meteo
