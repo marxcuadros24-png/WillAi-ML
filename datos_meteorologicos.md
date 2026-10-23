@@ -446,22 +446,19 @@ sequenceDiagram
 
 ---
 
-## 📋 Resumen: todas las APIs del sistema
+## 📋 Resumen: todas las fuentes y motores analíticos del sistema
 
-| API / Fuente | Datos | Frecuencia | API Key | En Django |
+| API / Motor | Datos | Frecuencia | API Key | En Django |
 |---|---|---|---|---|
-| **NASA FIRMS** | Focos de calor satelitales | Cada 3h | ✅ MAP_KEY (gratis) | `apps.firms.tasks` |
-| **SERFOR** | Focos + alertas + incendios Perú | Cada 30min | ❌ No necesita | `apps.firms.tasks` |
-| **Open-Meteo** | Temperatura, humedad, viento, precipitación | Cada 1h | ❌ No necesita | `apps.meteorologia.tasks` |
-| **cffdrs (local)** | Fire Weather Index | Cada 6h | N/A (librería Python) | `apps.predicciones.tasks` |
+| **NASA FIRMS** | Focos satelitales MODIS (1km) y VIIRS (375m) con historial de 180 días | Cada 3h / On demand | ✅ MAP_KEY (gratis) | `apps.firms.tasks` |
+| **SERFOR** | Focos + alertas de incendios oficiales Perú | Cada 30min | ❌ No necesita | `apps.firms.tasks` |
+| **Open-Meteo** | Temperatura, humedad, viento, ráfagas, presión, lluvia (en vivo y series horarias) | Cada 1h | ❌ No necesita | `apps.meteorologia.tasks` |
+| **FWI Canadiense (local)** | Canadian Forest Fire Weather Index (FFMC, DMC, DC, ISI, BUI, FWI) | Automático / Cada hora | N/A (Python puro) | `apps.predicciones.fwi` |
+| **WindProphet ML (local)** | Random Forest Multi-Output 12h de viento y conos de dispersión de fuego | Re-entrenable bajo demanda / Cada 6h | N/A (scikit-learn) | `apps.predicciones.ml_viento` |
 
 > [!IMPORTANT]
-> **Total de APIs externas: 3** (NASA FIRMS, SERFOR, Open-Meteo). Todas gratuitas. Solo NASA FIRMS necesita key. El cálculo de FWI es **local** con la librería `cffdrs` — no necesitas un servicio externo para predicciones.
+> **Consumo 100% Real y Cero Mock:**
+> - El sistema consume datos meteorológicos y satelitales auténticos. No se inyectan coordenadas ni valores aleatorios.
+> - Si un intervalo temporal no presenta anomalías térmicas en NASA FIRMS, el sistema reporta con exactitud 0 detecciones.
+> - El cálculo de FWI y la predicción vectorial de viento se ejecutan localmente en el backend Django sobre las lecturas reales de Open-Meteo.
 
-### ¿Y SENAMHI?
-Se puede integrar como **fuente secundaria** opcional vía web scraping del portal `observatorio.senamhi.gob.pe`, pero no como fuente principal porque:
-- No tiene API REST
-- El scraping es frágil (cambian el HTML)
-- Open-Meteo ya cubre las mismas variables con mejor disponibilidad
-
-Si en el futuro SENAMHI libera una API oficial, se agrega como un proveedor más en `observaciones_meteorologicas` sin cambiar nada.

@@ -147,9 +147,9 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
 CELERY_BEAT_SCHEDULE = {
-    'importar_firms_cada_3h': {
-        'task': 'importar_firms_task',
-        'schedule': 3 * 3600,  # cada 3 horas
+    'importar_firms_multi_sensor_cada_3h': {
+        'task': 'importar_firms_multi_sensor_task',
+        'schedule': 3 * 3600,  # cada 3 horas (VIIRS + MODIS)
     },
     'importar_serfor_cada_30min': {
         'task': 'importar_serfor_task',
@@ -157,6 +157,14 @@ CELERY_BEAT_SCHEDULE = {
     },
     'importar_meteo_cada_1h': {
         'task': 'importar_openmeteo_task',
+        'schedule': 3600,  # cada 1 hora
+    },
+    'entrenar_y_predecir_viento_cada_2h': {
+        'task': 'entrenar_y_predecir_viento_task',
+        'schedule': 2 * 3600,  # cada 2 horas
+    },
+    'calcular_fwi_cada_1h': {
+        'task': 'calcular_riesgo_fwi_task',
         'schedule': 3600,  # cada 1 hora
     },
 }

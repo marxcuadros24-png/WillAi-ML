@@ -40,6 +40,10 @@ yarn-error.log*
 *.tar.gz
 *.rar
 
+# Other projects / external folders
+AWP-main/
+AWP-main.zip
+
 # OS & Editor files
 .DS_Store
 Thumbs.db

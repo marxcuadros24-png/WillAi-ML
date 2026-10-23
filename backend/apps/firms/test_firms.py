@@ -33,3 +33,19 @@ class FirmsModelAndTasksTests(TestCase):
         response = self.client.get('/api/v1/firms/detecciones/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(response.data['count'], 1)
+
+    def test_importar_modis_task_and_history(self):
+        res = importar_firms_task(sensor="MODIS_NRT", days=3)
+        self.assertEqual(res['status'], 'ok')
+        fuente_modis = FuenteSatelital.objects.filter(sensor='MODIS').first()
+        self.assertIsNotNone(fuente_modis)
+
+        # Probar filtro por sensor
+        resp_sensor = self.client.get('/api/v1/firms/detecciones/?sensor=MODIS')
+        self.assertEqual(resp_sensor.status_code, status.HTTP_200_OK)
+
+        # Probar endpoint de historial mensual (hasta 6 meses)
+        resp_hist = self.client.get('/api/v1/firms/detecciones/historial_meses/?meses=6')
+        self.assertEqual(resp_hist.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp_hist.data['periodo_meses'], 6)
+        self.assertIn('historial_mensual', resp_hist.data)

@@ -23,12 +23,23 @@ def importar_openmeteo_task(lat=CORACORA_LAT, lon=CORACORA_LON):
         "timezone": "America/Lima"
     }
 
-    try:
-        resp = requests.get(url, params=params, timeout=20)
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as e:
-        return {"status": "error", "error": str(e)}
+    import time
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) WillAI/1.0"}
+    data = None
+    ultimo_error = None
+
+    for intento in range(3):
+        try:
+            resp = requests.get(url, params=params, headers=headers, timeout=20)
+            resp.raise_for_status()
+            data = resp.json()
+            break
+        except Exception as e:
+            ultimo_error = e
+            time.sleep(1.5)
+
+    if not data:
+        return {"status": "error", "error": str(ultimo_error)}
 
     current = data.get("current", {})
     obs_time_str = current.get("time")

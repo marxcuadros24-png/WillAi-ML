@@ -198,28 +198,30 @@
 
 ---
 
-### FASE 6 — Panel web administrativo ✅
-**Objetivo:** Panel de operaciones web **solo para administradores y operadores de emergencia**
+### FASE 6 — Centro de Mando Táctico Web (Admin & Operaciones) ✅ (COMPLETADO)
+**Objetivo:** Panel de operaciones web **solo para administradores y operadores de emergencia** (COEP/COEL/OGRD) conectado 100% a APIs oficiales reales sin datos sintéticos ni mock.
 
-> ⚠️ **El web NO es para usuarios finales.** Ciudadanos y brigadistas usan exclusivamente la app móvil.
+> ⚠️ **El web NO es para usuarios finales.** Ciudadanos y brigadistas usarán la app móvil React Native.
 
-**Tecnología:** Django Admin extendido + Django Templates + Leaflet.js (Centro de Mando Táctico)
+**Tecnología:** Django Admin extendido + Django Templates + **Frontend SPA React + Vite + TypeScript (`frontend/`)** con Leaflet.js y Lucide Icons.
 
 **Tareas completadas:**
 - [x] Extender Django Admin con vistas personalizadas y acceso directo al Centro de Mando Táctico
-- [x] Dashboard administrativo táctico (`/panel/`):
-  - Mapa de operaciones (Leaflet con imágenes satelitales ESRI en vivo de Coracora) con capas de incidentes, focos FIRMS, reportes y viviendas rurales
-  - Indicadores KPI: incidentes activos, peligro FWI actual, focos satelitales 72h, reportes pendientes y brigadas disponibles
-- [x] Gestión de reportes: validación/rechazo rápido con un clic (otorgando insignias a pobladores en tiempo real)
-- [x] Gestión de incidentes: crear incidente táctico, despachar brigadas, transicionar estados (`en_combate`, `controlado`, `extinguido`) y **cierre formal con acta de liquidación y liberación automática de brigadas**
-- [x] Gestión de alertas: redacción, aprobación y despacho urgente de alertas comunitarias hacia la población
-- [x] Moderación de donaciones: aprobación/rechazo rápido de ofertas con actualización reactiva
-- [x] Gestión de usuarios y permisos en Django Admin personalizado
-- [x] Monitoreo y ejecución manual de importaciones satelitales (NASA FIRMS, SERFOR, Open-Meteo)
-- [x] Monitoreo de predicciones de peligro FWI con widget meteorológico en vivo
-- [x] 30 pruebas unitarias completas pasando al 100%
+- [x] Dashboard administrativo táctico (`/panel/`) y Frontend SPA interactivo (`http://localhost:5173/`):
+  - Mapa de operaciones táctico con imágenes satelitales ESRI en vivo de Coracora
+  - Capas satelitales NASA FIRMS independientes: **MODIS [1km]** con huella circular y **VIIRS [375m]** con pulso de precisión
+  - Capa de **SERFOR Perú** conectada directamente al MapServer oficial
+  - **Barra de tiempo histórica de NASA FIRMS**: filtros rápidos `TODAY`, `24HRS`, `7D`, `30D`, `3M`, `6M` y modal de rango de fechas personalizado
+  - **Descarga histórica oficial de 180 días**: comando `importar_firms_historico --dias 180 --paso 5` con 252 detecciones satelitales reales almacenadas en PostgreSQL
+  - **Motor de Machine Learning de Viento (12 horas)**: modelo Random Forest Multi-Output (`WindProphet ML`) entrenado sobre series reales de Open-Meteo proyectando vector direccional, rumbo de propagación $(\theta + 180)^\circ$ y conos GeoJSON de dispersión
+  - Botón de re-entrenamiento en tiempo real del modelo ML con Open-Meteo
+  - Widget meteorológico en vivo con temperatura, humedad, ráfagas y cálculo Canadiense FWI
+- [x] Paginación satelital cartográfica (`DeteccionPagination`) permitiendo consultar hasta 3000-5000 puntos en mapa sin truncamiento
+- [x] Gestión de reportes, despacho de brigadas, cierre formal con acta de liquidación
+- [x] Eliminación completa de datos simulados y fallbacks mock en todo el frontend y backend
+- [x] 32 pruebas unitarias completas pasando al 100% (`Ran 32 tests in 64.325s OK`)
 
-**Criterio de completitud:** Un operador puede gestionar todo el ciclo desde el navegador: ver detecciones → crear incidente → asignar brigada → enviar alerta → cerrar incidente con acta. ✅ CUMPLIDO.
+**Criterio de completitud:** Un operador visualiza detecciones satelitales reales de NASA FIRMS (MODIS + VIIRS hasta 6 meses), el cono de dispersión ML de viento a 12 horas, meteorología en vivo de Open-Meteo y gestiona incidentes y brigadas desde el Centro de Mando. ✅ CUMPLIDO.
 
 **Dependencias:** Fases 2-5 (API completa)
 

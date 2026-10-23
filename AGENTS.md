@@ -9,7 +9,7 @@
 ## 📌 1. Visión y Alcance del Proyecto
 * **Propósito:** Plataforma integral para la detección satelital temprana, predicción meteorológica de peligro (FWI), reporte ciudadano georreferenciado y coordinación de brigadas ante incendios forestales en Coracora, Parinacochas, Ayacucho, Perú.
 * **Usuarios Finales & Interfaces:**
-  - **Panel Web (Django Admin + Templates/HTMX):** **Únicamente para Administradores y Operadores de Emergencia** (COEP/COEL/OGRD).
+  - **Panel Web (Django Admin + Centro de Mando Táctico SPA en React/Vite/TS):** **Únicamente para Administradores y Operadores de Emergencia** (COEP/COEL/OGRD).
   - **App Móvil (React Native con Expo):** **Interfaz principal para TODOS los usuarios** (pobladores/ciudadanos, brigadistas y verificadores comunales).
 
 ---
@@ -17,25 +17,42 @@
 ## 🏛️ 2. Stack Tecnológico Unificado (Sin Microservicios)
 * **Backend:** Django 5.1.x (Python 3.13) con Django REST Framework.
 * **Base de Datos:** PostgreSQL local (puerto 5432, base de datos `alerta_incendios_coracora`).
-* **Cálculos Espaciales:** Coordenadas lat/lon de alta precisión, polígonos GeoJSON y distancias geodésicas (Haversine/GeoDjango).
+* **Cálculos Espaciales:** Coordenadas lat/lon de alta precisión, polígonos GeoJSON y distancias geodésicas (Haversine/GeoDjango). Paginación cartográfica extensible hasta 3000-5000 puntos en capa satelital (`DeteccionPagination`).
 * **Tareas Asíncronas & Schedule:** Celery + Redis (en desarrollo `CELERY_TASK_ALWAYS_EAGER=True` para ejecución inmediata sin dependencias).
 * **Documentación Interactiva:** OpenAPI 3.0 / Swagger UI (`drf-spectacular`) en `/api/docs/`.
 * **Motor Predictivo FWI:** Implementación en Python puro del Canadian Forest Fire Weather Index (`apps/predicciones/fwi.py`) sin librerías binarias nativas externas.
 
 ---
 
-## 🌐 3. Integración de APIs Externas (100% Gratuitas)
-1. **NASA FIRMS (Focos de calor satelitales VIIRS / MODIS):**
-   - API Key del usuario: `a84d23a9aab653f18f15991290bd093e` (configurada en `backend/.env`).
-   - Tarea Celery: `importar_firms_task` (cada 3 horas).
-   - Comando manual: `python manage.py importar_firms --sensor VIIRS_NOAA20_NRT --days 3`.
+## 🌐 3. Integración de APIs Externas (100% REALES — CERO DATOS SINTÉTICOS O MOCK)
+1. **NASA FIRMS (Focos de calor satelitales VIIRS [375m] y MODIS [1km]):**
+   - API Key real configurada en `backend/.env`: `a84d23a9aab653f18f15991290bd093e`.
+   - Sensores consumidos: `VIIRS_NOAA20_NRT`, `VIIRS_NOAA21_NRT`, `MODIS_NRT` (Aqua y Terra).
+   - Tarea Celery: `importar_firms_multi_sensor_task` (cada 3 horas) y tarea unitaria `importar_firms_task`.
+   - Descarga histórica 100% satelital: ventanas oficiales de 5 días con fecha específica hasta 6 meses (180 días).
+   - Endpoints: `GET /api/v1/firms/detecciones/` y `GET /api/v1/firms/detecciones/historial_meses/?meses=6`.
+   - Comando de importación histórica real:
+     ```powershell
+     python manage.py importar_firms_historico --dias 180 --paso 5
+     ```
+   - Comandos de importación puntual:
+     - `python manage.py importar_firms --todos --days 3`
+     - `python manage.py importar_firms --modis --days 5`
 2. **SERFOR Perú (ArcGIS MapServer de incendios oficiales):**
    - Endpoint: `https://geo.serfor.gob.pe/geoservicios/rest/services/Visor/Incendios_Forestales/MapServer/0/query`.
    - No requiere clave. Tarea: `importar_serfor_task` (cada 30 min).
-3. **Open-Meteo (Meteorología en tiempo real e histórica):**
+   - Comando manual: `python manage.py importar_firms --serfor`.
+3. **Open-Meteo (Meteorología en tiempo real y serie horaria pasada):**
    - Endpoint: `https://api.open-meteo.com/v1/forecast` para Coracora (`lat=-15.0189, lon=-73.7806`).
-   - No requiere clave. Tarea: `importar_openmeteo_task` (cada 1 hora).
+   - Retries automáticos, User-Agent explícito y tolerancia a fallos.
+   - Endpoint: `GET /api/v1/meteorologia/observaciones/actual/`.
    - Comando manual: `python manage.py importar_meteo`.
+4. **Motor de Machine Learning de Viento (12 Horas):**
+   - Implementación: `apps/predicciones/ml_viento.py` (Random Forest Multi-Output Regressor descomponiendo vectores $u, v$).
+   - Consume series horarias pasadas (14 días) y de pronóstico reales de Open-Meteo.
+   - Predice velocidad, dirección meteorológica, rumbo de propagación del fuego/humo ($(\theta + 180)^\circ$), ráfagas y conos GeoJSON de dispersión para las próximas 12 horas.
+   - Endpoints: `GET /api/v1/predicciones/predicciones/viento_12h/` y `POST /api/v1/predicciones/predicciones/entrenar_viento/`.
+   - Comando manual: `python manage.py entrenar_viento`.
 
 ---
 
@@ -43,13 +60,13 @@
 
 | Fase | Nombre | Estado | Resumen |
 |:---:|---|:---:|---|
-| **0** | **Entorno de desarrollo** | ✅ COMPLETADO | Python 3.13 en `backend/.venv`, PostgreSQL en puerto 5432, settings modular (`base`, `development`, `production`), Celery, Swagger UI. |
+| **0** | **Entorno de desarrollo** | ✅ COMPLETADO | Python 3.11 en `backend/.venv` (vía `uv`), PostgreSQL en puerto 5432, settings modular, Celery, Swagger UI, scikit-learn, numpy, scipy. |
 | **1** | **Modelos Base** | ✅ COMPLETADO | `apps.usuarios` (Usuario personalizado, Roles, Permisos, registro de ciudadanos) y `apps.geografia` (Distrito Coracora, Comunidades). Seed cargado con `python manage.py seed_base`. |
-| **2** | **Core Operativo** | ✅ COMPLETADO | `apps.respuesta` (Entidades, Brigadas, Recursos), `apps.reportes` (Reportes ciudadanos con fotos, validaciones, sync offline), `apps.incidentes` (Flujo de incidentes, despacho de brigadas, bitácora de acciones, actas de cierre). |
-| **3** | **APIs Externas** | ✅ COMPLETADO | `apps.firms` (NASA FIRMS autenticado con MAP_KEY real + SERFOR) y `apps.meteorologia` (Open-Meteo en vivo, catálogo de viviendas rurales, zonas de riesgo). |
-| **4** | **Predicciones FWI + Alertas** | ✅ COMPLETADO | `apps.predicciones` (Motor FWI canadiense calculando FFMC, DMC, DC, ISI, BUI, FWI) y `apps.alertas` (Evaluador de viviendas expuestas, generación automática de alertas y confirmación de lectura). |
+| **2** | **Core Operativo** | ✅ COMPLETADO | `apps.respuesta` (Entidades operativas: Bomberos B-12, SERFOR, OGRD, Brigada Comunal Huaccana; Brigadas y Recursos), `apps.reportes` (Reportes ciudadanos con fotos, validaciones, sync offline), `apps.incidentes` (Flujo de incidentes, despacho de brigadas, bitácora de acciones, actas de cierre). |
+| **3** | **APIs Externas Reales** | ✅ COMPLETADO | `apps.firms` (NASA FIRMS autenticado con MAP_KEY real consumiendo **VIIRS + MODIS**, histórico real de 180 días descargado en BD y SERFOR MapServer) y `apps.meteorologia` (Open-Meteo en vivo con temperatura, humedad, viento y lluvia real de Coracora). |
+| **4** | **Predicciones FWI + ML Viento 12h + Alertas** | ✅ COMPLETADO | `apps.predicciones` (Motor FWI canadiense alimentado por Open-Meteo real + **Modelo ML Random Forest a 12 horas de propagación de viento y conos de dispersión**) y `apps.alertas` (Evaluador de viviendas expuestas, generación automática de alertas y confirmación de lectura). |
 | **5** | **Complementarios** | ✅ COMPLETADO | `apps.gamificacion` (insignias, actividades comunitarias, auto-otorgamiento al validar reportes), `apps.donaciones` (ofertas moderadas, inventario de ítems, asignaciones a incidentes/brigadas), `apps.auditoria` (trazabilidad forense, hash SHA-256 anónimo de IP, middleware de logging). |
-| **6** | **Panel Web Administrativo** | ✅ COMPLETADO | Centro de Mando Táctico (`/panel/`) + Django Admin (`/admin/`) con Leaflet satelital ESRI en vivo, validación de reportes con 1 clic, despacho de brigadas, acta y modal de cierre de incidentes con liberación automática de brigadas, emisión rápida de alertas comunitarias, moderación de donaciones y sincronización de APIs en tiempo real. 30 pruebas unitarias pasando al 100%. |
+| **6** | **Centro de Mando Táctico Web** | ✅ COMPLETADO | Panel web en Django (`/panel/`) + **Frontend SPA** (`frontend/`) en React + Vite + TypeScript con conexión 100% a endpoints reales de backend (NASA FIRMS MODIS [1km] y VIIRS [375m] con barra temporal TODAY, 24HRS, 7D, 30D, 3M, 6M, cono de propagación ML 12h y re-entrenamiento en vivo con Open-Meteo). |
 | **7** | **App Móvil React Native** | ⏳ SIGUIENTE | Aplicación móvil principal en Expo/React Native para todos los usuarios (ciudadanos, brigadistas y verificadores comunales). |
 
 ---
@@ -64,23 +81,36 @@ cd backend
 # Ejecutar chequeo del sistema
 python manage.py check
 
-# Ejecutar las 30 pruebas unitarias completas
+# Ejecutar las 32 pruebas unitarias completas (100% passing)
 python manage.py test apps.usuarios.test_usuarios apps.geografia.test_geografia apps.respuesta.test_respuesta apps.reportes.test_reportes apps.incidentes.test_incidentes apps.firms.test_firms apps.meteorologia.test_meteorologia apps.predicciones.test_predicciones apps.alertas.test_alertas apps.gamificacion.test_gamificacion apps.donaciones.test_donaciones apps.auditoria.test_auditoria apps.panel.test_panel
 
-# Sembrar insignias base
-python manage.py seed_insignias
+# Sembrar estructura geográfica base y entidades operacionales
+python manage.py seed_base
 
-# Importar datos satelitales NASA FIRMS reales
-python manage.py importar_firms --bbox="-81.3,-18.4,-68.6,0.0" --days=3
-
-# Consultar meteorología en tiempo real
+# Consultar meteorología en tiempo real desde Open-Meteo
 python manage.py importar_meteo
 
-# Calcular índice FWI de peligro
+# Calcular índice FWI Canadiense con datos meteorológicos reales
 python manage.py calcular_fwi
 
-# Iniciar servidor de desarrollo
+# Entrenar modelo Machine Learning de viento (12 horas) con series Open-Meteo
+python manage.py entrenar_viento
+
+# Importar datos satelitales NASA FIRMS recientes (VIIRS + MODIS)
+python manage.py importar_firms --todos --days 3
+
+# Descargar histórico oficial de 180 días (6 meses) de NASA FIRMS (MODIS + VIIRS)
+python manage.py importar_firms_historico --dias 180 --paso 5
+
+# Importar focos de calor oficiales de SERFOR Perú
+python manage.py importar_firms --serfor
+
+# Iniciar servidor backend Django
 python manage.py runserver 127.0.0.1:8000
+
+# Iniciar servidor frontend SPA (Centro de Mando)
+cd frontend
+npm run dev
 ```
 
 ---
@@ -91,3 +121,4 @@ python manage.py runserver 127.0.0.1:8000
 * **NASA FIRMS MAP_KEY:** `a84d23a9aab653f18f15991290bd093e`.
 * **Swagger UI Docs:** `http://127.0.0.1:8000/api/docs/`.
 * **Django Admin:** `http://127.0.0.1:8000/admin/`.
+* **Centro de Mando Web SPA:** `http://localhost:5173/`.

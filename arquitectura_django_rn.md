@@ -320,8 +320,28 @@ Tu esquema SQL actual está escrito para MySQL. Los cambios principales serían:
 | Antes (Laravel + microservicios) | Ahora (Django monolito) |
 |---|---|
 | 2 lenguajes backend (PHP + Python) | **1 solo lenguaje (Python)** |
-| Microservicio FastAPI para ML | **ML integrado en el mismo proyecto** |
+| Microservicio FastAPI para ML | **ML integrado en el mismo proyecto (`RandomForestRegressor Multi-Output`)** |
 | Paquete externo para spatial | **GeoDjango oficial, nativo** |
-| Laravel Nova ($199/sitio) para admin | **Django Admin gratis** |
+| Laravel Nova ($199/sitio) para admin | **Django Admin gratis + Centro de Mando Táctico SPA (React + Vite)** |
 | 2+ servicios que desplegar | **1 solo servicio + workers Celery** |
 | Coordinar comunicación inter-servicios | **Import directo entre módulos** |
+
+---
+
+## 🛰️ Implementación Real de APIs Externas y Machine Learning
+
+1. **NASA FIRMS (MODIS [1km] + VIIRS [375m]):**
+   - Consumo auténtico mediante `MAP_KEY` oficial.
+   - Paginación cartográfica `DeteccionPagination` (`page_size` de hasta 3000-5000 puntos).
+   - Consulta histórica de 180 días (6 meses) con ventanas deslizantes de 5 días (`python manage.py importar_firms_historico --dias 180 --paso 5`).
+   - Cero datos simulados en base de datos ni frontend.
+
+2. **Open-Meteo & Motor Canadiense FWI:**
+   - Consumo en vivo de variables meteorológicas horarias (`temperatura_2m`, `relative_humidity_2m`, `precipitation`, `wind_speed_10m`, `wind_direction_10m`).
+   - Cálculo determinista del Canadian Forest Fire Weather Index (FFMC, DMC, DC, ISI, BUI, FWI) sin dependencias nativas.
+
+3. **Machine Learning de Viento (12 Horas):**
+   - Descomposición vectorial ortogonal $u = -w \cdot \sin(\theta)$, $v = -w \cdot \cos(\theta)$.
+   - Entrenamiento con `RandomForestRegressor Multi-Output` sobre series pasadas y futuras de Open-Meteo.
+   - Proyección de conos GeoJSON de dispersión del fuego/humo según el rumbo de propagación $(\theta + 180)^\circ$.
+
