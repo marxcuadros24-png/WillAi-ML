@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CheckCircle2, XCircle, Flame, MapPin, User, Calendar, Image as ImageIcon, Trash2 } from 'lucide-react';
 import type { ReporteCiudadano } from '../types';
+import { Pagination } from './Pagination';
 
 interface ReportesAdminProps {
   reportes: ReporteCiudadano[];
@@ -17,6 +18,14 @@ export const ReportesAdmin: React.FC<ReportesAdminProps> = ({
 }) => {
   const [filterEstado, setFilterEstado] = useState<string>('pendientes');
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+
+  // Paginación Táctica
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(6);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterEstado]);
 
   const filtered = reportes.filter((rep) => {
     if (filterEstado === 'todos') return true;
@@ -63,6 +72,13 @@ export const ReportesAdmin: React.FC<ReportesAdminProps> = ({
   const countConfirmados = reportes.filter((r) => r.estado === 'confirmado' || r.estado === 'validado').length;
   const countRechazados = reportes.filter((r) => r.estado === 'rechazado').length;
 
+  // Paginación Táctica
+  const totalFiltrados = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltrados / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const reportesPaginados = filtered.slice(startIndex, startIndex + pageSize);
+
   return (
     <div className="admin-tab-view">
       <div className="admin-header-actions">
@@ -80,16 +96,10 @@ export const ReportesAdmin: React.FC<ReportesAdminProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>FILTRAR:</span>
             <select
+              className="admin-select"
               value={filterEstado}
               onChange={(e) => setFilterEstado(e.target.value)}
-              style={{
-                background: 'rgba(3, 7, 18, 0.8)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-sm)',
-                padding: '6px 12px',
-                color: '#ffffff',
-                fontSize: '0.8rem',
-              }}
+              style={{ fontSize: '12px', padding: '6px 30px 6px 10px', width: 'auto' }}
             >
               <option value="pendientes">🔔 Pendientes de Validación ({countPendientes})</option>
               <option value="confirmado">✅ Confirmados / Validados ({countConfirmados})</option>
@@ -116,7 +126,7 @@ export const ReportesAdmin: React.FC<ReportesAdminProps> = ({
             No se encontraron reportes ciudadanos en esta categoría.
           </div>
         ) : (
-          filtered.map((rep) => (
+          reportesPaginados.map((rep) => (
             <div key={rep.id} className="report-card">
               <div className="report-card-header">
                 <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#fb923c', fontSize: '0.85rem' }}>
@@ -273,6 +283,20 @@ export const ReportesAdmin: React.FC<ReportesAdminProps> = ({
           ))
         )}
       </div>
+
+      {totalFiltrados > 0 && (
+        <div style={{ marginTop: '16px' }}>
+          <Pagination
+            currentPage={safeCurrentPage}
+            totalItems={totalFiltrados}
+            pageSize={pageSize}
+            onPageChange={(page) => setCurrentPage(page)}
+            onPageSizeChange={(newSize) => setPageSize(newSize)}
+            pageSizeOptions={[6, 12, 24, 48]}
+            itemLabel="reportes"
+          />
+        </div>
+      )}
 
       {/* Photo Viewer Modal */}
       {selectedPhoto && (

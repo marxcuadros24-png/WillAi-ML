@@ -60,6 +60,14 @@
    - Predice velocidad, dirección meteorológica, rumbo de propagación del fuego/humo ($(\theta + 180)^\circ$), ráfagas y conos GeoJSON de dispersión para las próximas 12 horas.
    - Endpoints: `GET /api/v1/predicciones/predicciones/viento_12h/` y `POST /api/v1/predicciones/predicciones/entrenar_viento/`.
    - Comando manual: `python manage.py entrenar_viento`.
+5. **Motor de Machine Learning de Riesgo de Ocurrencia / Susceptibilidad Territorial:**
+   - Implementación: `apps/predicciones/ml_ocurrencia.py` (RandomForestClassifier Calibrado con sigmoide/Platt scaling + comparación frente a Línea Base de Regresión Logística).
+   - Prevención de fuga de información: División temporal estricta (70% días iniciales para entrenamiento, 30% cronológico final para prueba) y buffer espacial de 6 km para pseudo-negativos.
+   - Variables explicativas: Temperatura máxima, humedad media, viento máximo, precipitación diaria, lluvia previa de 3 días, FWI canadiense, ISI, elevación andina real (2,200 - 4,800 msnm), pendiente y distancia a comunidades de Parinacochas.
+   - Datos de entrenamiento: 765 detecciones históricas reales de NASA FIRMS (VIIRS + MODIS) + serie histórica diaria real de Open-Meteo Archive.
+   - Endpoints: `GET /api/v1/predicciones/predicciones/riesgo_ocurrencia/` y `POST /api/v1/predicciones/predicciones/entrenar_ocurrencia/`.
+   - Comando manual: `python manage.py entrenar_ocurrencia --test-ratio 0.30`.
+   - Visualización: Capa independiente en Leaflet (`showRiesgoOcurrencia`) con cuadrícula de 72 celdas vectoriales, probabilidades calibradas, nivel de riesgo y control toggle desacoplado.
 
 ---
 
@@ -105,6 +113,9 @@ python manage.py calcular_fwi
 
 # Entrenar modelo Machine Learning de viento (12 horas) con series Open-Meteo
 python manage.py entrenar_viento
+
+# Entrenar modelo Machine Learning de riesgo de ocurrencia (NASA FIRMS + Open-Meteo)
+python manage.py entrenar_ocurrencia --test-ratio 0.30
 
 # Importar datos satelitales NASA FIRMS recientes (VIIRS + MODIS)
 python manage.py importar_firms --todos --days 3

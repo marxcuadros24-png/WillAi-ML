@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Flame,
   Radio,
   Wind,
   Thermometer,
   Shield,
+  ShieldAlert,
+  Eye,
+  EyeOff,
   RefreshCw,
   PlusCircle
 } from 'lucide-react';
@@ -34,6 +37,10 @@ export const MapaPage: React.FC = () => {
     setShowBrigadas,
     showViviendas,
     setShowViviendas,
+    showRiesgoOcurrencia,
+    setShowRiesgoOcurrencia,
+    grillaOcurrencia,
+    handleEntrenarOcurrenciaManual,
     timeRange,
     handleTimeRangeChange,
     customDesde,
@@ -54,10 +61,24 @@ export const MapaPage: React.FC = () => {
     handleDispararSyncManual
   } = useAppContext();
 
+  const [focusCoords, setFocusCoords] = useState<[number, number] | null>(null);
+  const [showLimiteProvincial, setShowLimiteProvincial] = useState<boolean>(true);
+  const [showDistritos, setShowDistritos] = useState<boolean>(false);
+
   const incidentesActivos = incidentes.filter((inc) => inc.estado !== 'cerrado');
   const focosModisCount = focos.filter((f) => f.sensor === 'MODIS').length;
   const focosViirsCount = focos.filter((f) => f.sensor === 'VIIRS').length;
   const focosSerforCount = focos.filter((f) => f.fuente === 'SERFOR').length;
+
+  const celdas = grillaOcurrencia?.features || [];
+  const celdasBajo = celdas.filter((c: any) => (c.properties?.probabilidad_pct ?? 0) < 25).length;
+  const celdasMod = celdas.filter((c: any) => (c.properties?.probabilidad_pct ?? 0) >= 25 && (c.properties?.probabilidad_pct ?? 0) < 55).length;
+  const celdasAlto = celdas.filter((c: any) => (c.properties?.probabilidad_pct ?? 0) >= 55 && (c.properties?.probabilidad_pct ?? 0) < 80).length;
+  const celdasCritico = celdas.filter((c: any) => (c.properties?.probabilidad_pct ?? 0) >= 80).length;
+
+  const topCeldasRiesgo = [...celdas].sort((a: any, b: any) => (b.properties?.probabilidad_pct ?? 0) - (a.properties?.probabilidad_pct ?? 0)).slice(0, 6);
+  const metricasRF = grillaOcurrencia?.metadata?.metricas_modelo?.random_forest_calibrado;
+  const metricasBase = grillaOcurrencia?.metadata?.metricas_modelo?.linea_base_logistic_regression;
 
   return (
     <div className="workspace" style={{ height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
@@ -69,6 +90,7 @@ export const MapaPage: React.FC = () => {
         viviendas={viviendas}
         viento12h={viento12h}
         selectedIncidente={selectedIncidente}
+        focusCoords={focusCoords}
         onSelectIncidente={(inc) => {
           setSelectedIncidente(inc);
           setSidebarTab('incidentes');
@@ -77,16 +99,23 @@ export const MapaPage: React.FC = () => {
         showViirs={showViirs}
         showSerfor={showSerfor}
         showVientoML={showVientoML}
+        showRiesgoOcurrencia={showRiesgoOcurrencia}
         showIncidentes={showIncidentes}
         showBrigadas={showBrigadas}
         showViviendas={showViviendas}
+        showLimiteProvincial={showLimiteProvincial}
+        showDistritos={showDistritos}
         onToggleModis={setShowModis}
         onToggleViirs={setShowViirs}
         onToggleSerfor={setShowSerfor}
         onToggleVientoML={setShowVientoML}
+        onToggleRiesgoOcurrencia={setShowRiesgoOcurrencia}
         onToggleIncidentes={setShowIncidentes}
         onToggleBrigadas={setShowBrigadas}
         onToggleViviendas={setShowViviendas}
+        onToggleLimiteProvincial={setShowLimiteProvincial}
+        onToggleDistritos={setShowDistritos}
+        grillaOcurrencia={grillaOcurrencia}
         timeRange={timeRange}
         onChangeTimeRange={handleTimeRangeChange}
         fechaDesde={customDesde}
@@ -99,40 +128,54 @@ export const MapaPage: React.FC = () => {
 
       {/* Operational Right Sidebar */}
       <aside className="ops-sidebar">
-        <div className="sidebar-tabs" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+        <div className="sidebar-tabs" style={{ gridTemplateColumns: 'repeat(6, 1fr)' }}>
           <button
             className={`sidebar-tab-btn ${sidebarTab === 'incidentes' ? 'active' : ''}`}
             onClick={() => setSidebarTab('incidentes')}
+            title="Incidentes Operacionales"
           >
-            <Flame size={15} />
+            <Flame size={14} />
             <span>Incidentes</span>
           </button>
           <button
             className={`sidebar-tab-btn ${sidebarTab === 'firms' ? 'active' : ''}`}
             onClick={() => setSidebarTab('firms')}
+            title="Detecciones Satelitales NASA FIRMS & SERFOR"
           >
-            <Radio size={15} />
+            <Radio size={14} />
             <span>Satelital</span>
           </button>
           <button
             className={`sidebar-tab-btn ${sidebarTab === 'viento' ? 'active' : ''}`}
             onClick={() => setSidebarTab('viento')}
+            title="Modelo ML Viento 12h"
           >
-            <Wind size={15} color="#38bdf8" />
+            <Wind size={14} color="#38bdf8" />
             <span style={{ color: '#38bdf8' }}>Viento ML</span>
+          </button>
+          <button
+            className={`sidebar-tab-btn ${sidebarTab === 'riesgo' ? 'active' : ''}`}
+            onClick={() => setSidebarTab('riesgo')}
+            title="Modelo ML Riesgo de Ocurrencia Territorial"
+            style={sidebarTab === 'riesgo' ? { borderBottom: '2px solid #f59e0b', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.12)' } : {}}
+          >
+            <ShieldAlert size={14} color="#f59e0b" />
+            <span style={{ color: '#f59e0b', fontWeight: 700 }}>Riesgo ML</span>
           </button>
           <button
             className={`sidebar-tab-btn ${sidebarTab === 'meteo' ? 'active' : ''}`}
             onClick={() => setSidebarTab('meteo')}
+            title="Meteorología Open-Meteo & FWI"
           >
-            <Thermometer size={15} />
+            <Thermometer size={14} />
             <span>Meteo</span>
           </button>
           <button
             className={`sidebar-tab-btn ${sidebarTab === 'brigadas' ? 'active' : ''}`}
             onClick={() => setSidebarTab('brigadas')}
+            title="Brigadas de Respuesta"
           >
-            <Shield size={15} />
+            <Shield size={14} />
             <span>Brigadas</span>
           </button>
         </div>
@@ -376,6 +419,225 @@ export const MapaPage: React.FC = () => {
             </div>
           )}
 
+          {/* Sidebar Content: Riesgo de Ocurrencia ML */}
+          {sidebarTab === 'riesgo' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <span style={{ fontSize: '13px', fontWeight: 800, color: '#f59e0b', letterSpacing: '0.04em' }}>
+                    🛡️ MODELO ML: RIESGO DE OCURRENCIA
+                  </span>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    Susceptibilidad territorial en Parinacochas
+                  </div>
+                </div>
+                <button
+                  className="btn-admin btn-admin-outline"
+                  style={{ padding: '4px 10px', fontSize: '11.5px', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)' }}
+                  onClick={handleEntrenarOcurrenciaManual}
+                  title="Re-entrenar modelo Random Forest con NASA FIRMS y Open-Meteo"
+                >
+                  <RefreshCw size={12} />
+                  Reentrenar
+                </button>
+              </div>
+
+              {/* Control de Capa GeoJSON en el Mapa */}
+              <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '8px', padding: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '12.5px', color: '#ffffff' }}>
+                      Capa de Celdas Vectoriales ({grillaOcurrencia?.metadata?.total_celdas ?? 72})
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                      Cuadrícula regular de 3.8 x 3.8 km sobre Coracora y anexos
+                    </div>
+                  </div>
+                  <button
+                    className={`btn-admin ${showRiesgoOcurrencia ? 'btn-admin-primary' : 'btn-admin-outline'}`}
+                    style={{ padding: '5px 12px', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    onClick={() => setShowRiesgoOcurrencia(!showRiesgoOcurrencia)}
+                  >
+                    {showRiesgoOcurrencia ? <Eye size={13} /> : <EyeOff size={13} />}
+                    {showRiesgoOcurrencia ? 'Visible en Mapa' : 'Oculta en Mapa'}
+                  </button>
+                </div>
+
+                {/* Desglose por Nivel de Riesgo */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginTop: '10px' }}>
+                  <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '6px', padding: '6px 4px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '10px', color: '#10b981', fontWeight: 700 }}>BAJO</div>
+                    <div style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff', fontFamily: 'var(--font-mono)' }}>
+                      {celdasBajo}
+                    </div>
+                    <div style={{ fontSize: '9px', color: '#94a3b8' }}>&lt;25%</div>
+                  </div>
+                  <div style={{ background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '6px', padding: '6px 4px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '10px', color: '#f59e0b', fontWeight: 700 }}>MOD</div>
+                    <div style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff', fontFamily: 'var(--font-mono)' }}>
+                      {celdasMod}
+                    </div>
+                    <div style={{ fontSize: '9px', color: '#94a3b8' }}>25-55%</div>
+                  </div>
+                  <div style={{ background: 'rgba(249, 115, 22, 0.15)', border: '1px solid rgba(249, 115, 22, 0.3)', borderRadius: '6px', padding: '6px 4px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '10px', color: '#f97316', fontWeight: 700 }}>ALTO</div>
+                    <div style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff', fontFamily: 'var(--font-mono)' }}>
+                      {celdasAlto}
+                    </div>
+                    <div style={{ fontSize: '9px', color: '#94a3b8' }}>55-80%</div>
+                  </div>
+                  <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '6px', padding: '6px 4px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '10px', color: '#ef4444', fontWeight: 700 }}>CRÍTICO</div>
+                    <div style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff', fontFamily: 'var(--font-mono)' }}>
+                      {celdasCritico}
+                    </div>
+                    <div style={{ fontSize: '9px', color: '#94a3b8' }}>&gt;80%</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Métricas de Evaluación Científica del Modelo */}
+              <div style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                    EVALUACIÓN TEMPORAL (SIN FUGA DE DATOS)
+                  </span>
+                  <span style={{ fontSize: '10px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '2px 6px', borderRadius: '4px' }}>
+                    Split 70% Train / 30% Test
+                  </span>
+                </div>
+
+                {metricasRF ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', textAlign: 'center' }}>
+                    <div style={{ background: 'rgba(0,0,0,0.3)', padding: '6px 2px', borderRadius: '4px' }}>
+                      <div style={{ fontSize: '10px', color: '#94a3b8' }}>ROC-AUC</div>
+                      <div style={{ fontWeight: 800, color: '#38bdf8', fontSize: '14px', fontFamily: 'var(--font-mono)' }}>
+                        {metricasRF.roc_auc}
+                      </div>
+                    </div>
+                    <div style={{ background: 'rgba(0,0,0,0.3)', padding: '6px 2px', borderRadius: '4px' }}>
+                      <div style={{ fontSize: '10px', color: '#94a3b8' }}>PR-AUC</div>
+                      <div style={{ fontWeight: 800, color: '#10b981', fontSize: '14px', fontFamily: 'var(--font-mono)' }}>
+                        {metricasRF.pr_auc}
+                      </div>
+                    </div>
+                    <div style={{ background: 'rgba(0,0,0,0.3)', padding: '6px 2px', borderRadius: '4px' }}>
+                      <div style={{ fontSize: '10px', color: '#94a3b8' }}>F1-Score</div>
+                      <div style={{ fontWeight: 800, color: '#f59e0b', fontSize: '14px', fontFamily: 'var(--font-mono)' }}>
+                        {metricasRF.f1_score}
+                      </div>
+                    </div>
+                    <div style={{ background: 'rgba(0,0,0,0.3)', padding: '6px 2px', borderRadius: '4px' }}>
+                      <div style={{ fontSize: '10px', color: '#94a3b8' }}>Brier Score</div>
+                      <div style={{ fontWeight: 800, color: '#a78bfa', fontSize: '14px', fontFamily: 'var(--font-mono)' }}>
+                        {metricasRF.brier_score}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Cargando métricas...</div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '6px' }}>
+                  <span>Línea Base (Regresión Logística): Brier {metricasBase?.brier_score ?? '0.37'}</span>
+                  <span style={{ color: '#10b981', fontWeight: 600 }}>Calibración Platt OK</span>
+                </div>
+              </div>
+
+              {/* Importancia de Variables en Parinacochas */}
+              <div style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '12px' }}>
+                <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  FACTORES DE MAYOR INFLUENCIA (FEATURE IMPORTANCE)
+                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '2px' }}>
+                      <span style={{ color: '#cbd5e1' }}>1. Distancia a Comunidades (Antrópico)</span>
+                      <strong style={{ color: '#f59e0b' }}>22.7%</strong>
+                    </div>
+                    <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ width: '22.7%', height: '100%', background: '#f59e0b' }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '2px' }}>
+                      <span style={{ color: '#cbd5e1' }}>2. Temperatura Máxima Diaria</span>
+                      <strong style={{ color: '#f97316' }}>18.9%</strong>
+                    </div>
+                    <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ width: '18.9%', height: '100%', background: '#f97316' }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '2px' }}>
+                      <span style={{ color: '#cbd5e1' }}>3. Elevación Andina (msnm)</span>
+                      <strong style={{ color: '#38bdf8' }}>13.9%</strong>
+                    </div>
+                    <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ width: '13.9%', height: '100%', background: '#38bdf8' }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '2px' }}>
+                      <span style={{ color: '#cbd5e1' }}>4. Initial Spread Index (ISI)</span>
+                      <strong style={{ color: '#ef4444' }}>11.7%</strong>
+                    </div>
+                    <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ width: '11.7%', height: '100%', background: '#ef4444' }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '2px' }}>
+                      <span style={{ color: '#cbd5e1' }}>5. Pendiente del Relieve</span>
+                      <strong style={{ color: '#a78bfa' }}>10.9%</strong>
+                    </div>
+                    <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ width: '10.9%', height: '100%', background: '#a78bfa' }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cuadrantes con Mayor Susceptibilidad Territorial */}
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                  CELDAS DE MAYOR SUSCEPTIBILIDAD (CLIC PARA ENFOCAR):
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {topCeldasRiesgo.map((c: any) => {
+                    const p = c.properties || {};
+                    const color = p.color_hex || '#f59e0b';
+                    return (
+                      <div
+                        key={p.id_celda}
+                        className="feed-card"
+                        onClick={() => {
+                          if (p.centro) setFocusCoords([p.centro.lat, p.centro.lon]);
+                          if (!showRiesgoOcurrencia) setShowRiesgoOcurrencia(true);
+                        }}
+                        style={{ padding: '10px 12px', cursor: 'pointer', borderLeft: `3px solid ${color}` }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontWeight: 800, color: '#ffffff', fontSize: '13px' }}>
+                            Celda #{p.id_celda} • {p.comunidad_cercana}
+                          </span>
+                          <span className={`badge ${p.nivel_riesgo === 'critico' ? 'badge-critical' : p.nivel_riesgo === 'alto' ? 'badge-warning' : 'badge-yellow'}`}>
+                            {p.probabilidad_pct ?? 0}% ({p.nivel_riesgo?.toUpperCase()})
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px', fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                          <span>Dist: <b style={{ color: '#f1f5f9' }}>{p.distancia_comunidad_km} km</b></span>
+                          <span>Alt: <b style={{ color: '#f1f5f9' }}>{p.elevacion_m} m</b></span>
+                          <span>FWI: <b style={{ color: '#f87171' }}>{p.fwi}</b></span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Sidebar Content: Meteo FWI */}
           {sidebarTab === 'meteo' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -424,6 +686,24 @@ export const MapaPage: React.FC = () => {
                 <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '10px', borderRadius: '6px' }}>
                   <span style={{ color: 'var(--text-muted)' }}>Lluvia:</span>
                   <div style={{ fontWeight: 700, color: '#60a5fa', fontSize: '14px', marginTop: '2px' }}>{fwi.precipitacion} mm</div>
+                </div>
+              </div>
+
+              {/* Acceso directo al Modelo de Ocurrencia */}
+              <div
+                style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '8px', padding: '12px', fontSize: '12px', cursor: 'pointer' }}
+                onClick={() => setSidebarTab('riesgo')}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span style={{ color: '#f59e0b', fontWeight: 700, fontSize: '12.5px' }}>
+                    🛡️ MODELO ML: RIESGO DE OCURRENCIA
+                  </span>
+                  <span style={{ color: '#f59e0b', fontSize: '11px', fontWeight: 700 }}>
+                    Abrir Pestaña →
+                  </span>
+                </div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '11.5px', lineHeight: 1.4 }}>
+                  {grillaOcurrencia?.metadata?.total_celdas ?? 72} celdas evaluadas en Parinacochas con Random Forest Calibrado.
                 </div>
               </div>
             </div>

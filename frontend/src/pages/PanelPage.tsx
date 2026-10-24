@@ -12,6 +12,9 @@ export const PanelPage: React.FC = () => {
     focos,
     reportes,
     brigadas,
+    grillaOcurrencia,
+    setSidebarTab,
+    handleEntrenarOcurrenciaManual,
     loadAllData,
     onOpenCreateIncident,
     onOpenAlertModal,
@@ -30,10 +33,16 @@ export const PanelPage: React.FC = () => {
       focos={focos}
       reportes={reportes}
       brigadas={brigadas}
+      grillaOcurrencia={grillaOcurrencia}
+      onEntrenarOcurrencia={handleEntrenarOcurrenciaManual}
       onNavigateTab={(tab) => navigate(`/${tab}`)}
       onOpenCreateIncident={onOpenCreateIncident}
       onOpenAlertModal={onOpenAlertModal}
       onRefreshMeteo={() => handleDispararSyncManual('meteo')}
+      onOpenRiesgoML={() => {
+        setSidebarTab('riesgo');
+        navigate('/mapa');
+      }}
     />
   );
 };

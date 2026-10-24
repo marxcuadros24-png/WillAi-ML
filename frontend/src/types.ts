@@ -295,4 +295,68 @@ export interface LoginResponse {
   error?: string;
 }
 
+export interface CeldaRiesgoOcurrencia {
+  id_celda: number;
+  centro: { lat: number; lon: number };
+  probabilidad: number;
+  probabilidad_pct: number;
+  nivel_riesgo: 'bajo' | 'moderado' | 'alto' | 'critico';
+  color_hex: string;
+  elevacion_m: number;
+  pendiente_deg: number;
+  comunidad_cercana: string;
+  distancia_comunidad_km: number;
+  fwi: number;
+  temperatura_c: number;
+  humedad_pct: number;
+  viento_kmh: number;
+  fuente: string;
+  fecha_actualizacion: string;
+}
+
+export interface GrillaRiesgoOcurrenciaData {
+  type: 'FeatureCollection';
+  metadata: {
+    modelo: string;
+    algoritmo: string;
+    zona: string;
+    generado_en: string;
+    total_celdas: number;
+    condicion_atmosferica: {
+      temperatura: number;
+      humedad: number;
+      viento: number;
+      lluvia: number;
+      fwi: number;
+      inhibicion_lluvia: boolean;
+    };
+    metricas_modelo?: {
+      random_forest_calibrado?: {
+        precision: number;
+        recall: number;
+        f1_score: number;
+        roc_auc: number;
+        pr_auc: number;
+        brier_score: number;
+      };
+      linea_base_logistic_regression?: {
+        precision: number;
+        recall: number;
+        f1_score: number;
+        roc_auc: number;
+        pr_auc: number;
+        brier_score: number;
+      };
+    };
+  };
+  features: Array<{
+    type: 'Feature';
+    geometry: {
+      type: 'Polygon';
+      coordinates: number[][][];
+    };
+    properties: CeldaRiesgoOcurrencia;
+  }>;
+}
+
 

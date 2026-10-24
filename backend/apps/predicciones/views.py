@@ -103,6 +103,42 @@ class PrediccionViewSet(viewsets.ReadOnlyModelViewSet):
         else:
             return Response({"error": res.get("error", "Error desconocido")}, status=500)
 
+    @action(detail=False, methods=['get'])
+    def riesgo_ocurrencia(self, request):
+        """
+        Retorna la grilla GeoJSON de probabilidad calibrada y nivel de riesgo
+        de ocurrencia de incendios forestales para Parinacochas / Coracora,
+        evaluada por el modelo Random Forest entrenado con NASA FIRMS y Open-Meteo.
+        """
+        from .ml_ocurrencia import generar_grilla_riesgo_ocurrencia
+        try:
+            grilla = generar_grilla_riesgo_ocurrencia()
+            return Response(grilla)
+        except Exception as e:
+            return Response({"error": f"Error al generar grilla de riesgo: {str(e)}"}, status=500)
+
+    @action(detail=False, methods=['post'])
+    def entrenar_ocurrencia(self, request):
+        """
+        Dispara el re-entrenamiento del modelo de Machine Learning de riesgo de ocurrencia
+        utilizando las detecciones satelitales de NASA FIRMS, meteorología de Open-Meteo
+        y validación temporal estricta.
+        """
+        from .tasks import entrenar_y_generar_ocurrencia_task
+        test_ratio = float(request.data.get('test_ratio', 0.30))
+        res = entrenar_y_generar_ocurrencia_task(test_ratio=test_ratio)
+        if res.get("status") == "ok":
+            return Response({
+                "mensaje": "Modelo ML de ocurrencia re-entrenado exitosamente.",
+                "id_prediccion": res["id_prediccion"],
+                "nivel_pico": res["nivel_pico"],
+                "probabilidad_max": res["probabilidad_max"],
+                "metricas": res["metricas"],
+                "total_celdas": res["total_celdas"]
+            })
+        else:
+            return Response({"error": res.get("error", "Error desconocido")}, status=500)
+
 
 class ModeloPredictivoViewSet(viewsets.ReadOnlyModelViewSet):
     """

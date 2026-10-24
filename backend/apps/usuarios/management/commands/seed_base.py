@@ -84,19 +84,33 @@ class Command(BaseCommand):
                 if p_cod in permisos_dict:
                     RolPermiso.objects.get_or_create(rol=poblador_rol, permiso=permisos_dict[p_cod])
 
-        # 3. GEOGRAFÍA DE CORACORA / PARINACOCHAS
-        distrito, created = Distrito.objects.get_or_create(
-            departamento='Ayacucho',
-            provincia='Parinacochas',
-            nombre='Coracora',
-            defaults={
-                'ubigeo': '050701',
-                'latitud_centro': -15.018889,
-                'longitud_centro': -73.780556,
-            }
-        )
-        if created:
-            self.stdout.write(self.style.SUCCESS(f'  [+] Distrito creado: {distrito.nombre}'))
+        # 3. GEOGRAFÍA DE PARINACOCHAS (8 DISTRITOS OFICIALES SEGÚN INEI/IGN)
+        distritos_parinacochas = [
+            ('Coracora', '050701', -15.0189, -73.7806),
+            ('Chumpi', '050702', -15.0667, -73.8333),
+            ('Coronel Castañeda', '050703', -14.8833, -73.6833),
+            ('Pacapausa', '050704', -14.9333, -73.7167),
+            ('Pullo', '050705', -15.2833, -73.7333),
+            ('Puyusca', '050706', -15.2667, -73.6167),
+            ('San Francisco de Ravacayco', '050707', -15.0500, -73.7000),
+            ('Upahuacho', '050708', -14.8167, -73.5500),
+        ]
+        distrito_coracora = None
+        for nom, ubig, lat_c, lon_c in distritos_parinacochas:
+            d_obj, created = Distrito.objects.get_or_create(
+                departamento='Ayacucho',
+                provincia='Parinacochas',
+                nombre=nom,
+                defaults={
+                    'ubigeo': ubig,
+                    'latitud_centro': lat_c,
+                    'longitud_centro': lon_c,
+                }
+            )
+            if nom == 'Coracora':
+                distrito_coracora = d_obj
+            if created:
+                self.stdout.write(self.style.SUCCESS(f'  [+] Distrito creado: {nom} ({ubig})'))
 
         # Comunidades representativas de Coracora
         comunidades_data = [
@@ -108,7 +122,7 @@ class Command(BaseCommand):
         ]
         for nombre_com, tipo, lat, lon in comunidades_data:
             com, created = Comunidad.objects.get_or_create(
-                distrito=distrito,
+                distrito=distrito_coracora or Distrito.objects.get(nombre='Coracora'),
                 nombre=nombre_com,
                 defaults={'tipo': tipo, 'latitud': lat, 'longitud': lon, 'activa': True}
             )

@@ -27,6 +27,7 @@ import {
   asignarMiembrosBrigada,
   eliminarBrigada
 } from '../services/api';
+import { Pagination } from './Pagination';
 
 // Sectores oficiales de Coracora con coordenadas predefinidas
 const COMUNIDADES_CORACORA = [
@@ -64,6 +65,14 @@ export const BrigadasAdmin: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [filterEstado, setFilterEstado] = useState<string>('todos');
   const [filterTipo, setFilterTipo] = useState<string>('todos');
+
+  // Paginación Táctica
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(6);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterEstado, filterTipo]);
 
   // Modal: Crear Brigada
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
@@ -288,6 +297,13 @@ export const BrigadasAdmin: React.FC = () => {
     return true;
   });
 
+  // Paginación Táctica
+  const totalBrigadasFiltradas = brigadasFiltradas.length;
+  const totalPages = Math.max(1, Math.ceil(totalBrigadasFiltradas / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const brigadasPaginadas = brigadasFiltradas.slice(startIndex, startIndex + pageSize);
+
   // Métricas
   const totalBrigadas = brigadas.length;
   const brigadasDisponibles = brigadas.filter((b) => b.estado === 'disponible').length;
@@ -466,16 +482,10 @@ export const BrigadasAdmin: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Filter size={14} color="var(--text-muted)" />
             <select
+              className="admin-select"
               value={filterEstado}
               onChange={(e) => setFilterEstado(e.target.value)}
-              style={{
-                background: 'rgba(0,0,0,0.5)',
-                border: '1px solid rgba(255,255,255,0.12)',
-                borderRadius: '6px',
-                padding: '7px 10px',
-                color: '#ffffff',
-                fontSize: '12px'
-              }}
+              style={{ fontSize: '12px', padding: '7px 32px 7px 10px', width: 'auto' }}
             >
               <option value="todos">Todos los Estados ({brigadas.length})</option>
               <option value="disponible">🟢 Disponibles ({brigadasDisponibles})</option>
@@ -485,16 +495,10 @@ export const BrigadasAdmin: React.FC = () => {
           </div>
 
           <select
+            className="admin-select"
             value={filterTipo}
             onChange={(e) => setFilterTipo(e.target.value)}
-            style={{
-              background: 'rgba(0,0,0,0.5)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              borderRadius: '6px',
-              padding: '7px 10px',
-              color: '#ffffff',
-              fontSize: '12px'
-            }}
+            style={{ fontSize: '12px', padding: '7px 32px 7px 10px', width: 'auto' }}
           >
             <option value="todos">Todos los Tipos</option>
             <option value="comunal">Comunal</option>
@@ -533,8 +537,9 @@ export const BrigadasAdmin: React.FC = () => {
           </button>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '16px' }}>
-          {brigadasFiltradas.map((b) => {
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '16px' }}>
+          {brigadasPaginadas.map((b) => {
             const isDesplegada = b.estado === 'desplegada';
             const isDisponible = b.estado === 'disponible';
             const integrantes = b.integrantes || [];
@@ -889,6 +894,21 @@ export const BrigadasAdmin: React.FC = () => {
             );
           })}
         </div>
+
+          {totalBrigadasFiltradas > 0 && (
+            <div style={{ marginTop: '16px' }}>
+              <Pagination
+                currentPage={safeCurrentPage}
+                totalItems={totalBrigadasFiltradas}
+                pageSize={pageSize}
+                onPageChange={(page) => setCurrentPage(page)}
+                onPageSizeChange={(newSize) => setPageSize(newSize)}
+                pageSizeOptions={[6, 12, 24, 48]}
+                itemLabel="brigadas operativas"
+              />
+            </div>
+          )}
+        </>
       )}
 
       {/* ========================================================

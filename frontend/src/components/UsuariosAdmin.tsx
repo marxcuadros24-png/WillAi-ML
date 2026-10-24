@@ -8,10 +8,14 @@ import {
   XCircle,
   Phone,
   Mail,
-  RefreshCw
+  RefreshCw,
+  X,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import type { UsuarioSistema, RolSistema } from '../types';
 import { fetchUsuarios, cambiarEstadoUsuario, asignarRolUsuario, crearUsuarioOperativo } from '../services/api';
+import { Pagination } from './Pagination';
 
 export const UsuariosAdmin: React.FC = () => {
   const [usuarios, setUsuarios] = useState<UsuarioSistema[]>([]);
@@ -21,6 +25,15 @@ export const UsuariosAdmin: React.FC = () => {
   const [roleFilter, setRoleFilter] = useState<string>('todos');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
 
+  // Paginación Táctica
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
+  // Reiniciar a primera página cuando cambie cualquier filtro
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, roleFilter, statusFilter]);
+
   // Modal crear usuario
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [newUsername, setNewUsername] = useState<string>('');
@@ -28,6 +41,7 @@ export const UsuariosAdmin: React.FC = () => {
   const [newEmail, setNewEmail] = useState<string>('');
   const [newPhone, setNewPhone] = useState<string>('');
   const [newPassword, setNewPassword] = useState<string>('willai2026');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [newRole, setNewRole] = useState<string>('operador_emergencia');
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
@@ -128,6 +142,13 @@ export const UsuariosAdmin: React.FC = () => {
 
     return matchSearch && matchRole && matchStatus;
   });
+
+  // Paginación Táctica
+  const totalUsuariosFiltrados = usuariosFiltrados.length;
+  const totalPages = Math.max(1, Math.ceil(totalUsuariosFiltrados / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const usuariosPaginados = usuariosFiltrados.slice(startIndex, startIndex + pageSize);
 
   const totalActivos = usuarios.filter(u => u.estado === 'activo').length;
   const totalOperadores = usuarios.filter(u => u.is_staff || u.roles_codigos.includes('operador_emergencia') || u.roles_codigos.includes('administrador')).length;
@@ -249,7 +270,7 @@ export const UsuariosAdmin: React.FC = () => {
               className="admin-select"
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              style={{ fontSize: '12px', padding: '6px 10px' }}
+              style={{ fontSize: '12px', padding: '7px 32px 7px 12px', width: 'auto', minWidth: '170px' }}
             >
               <option value="todos">Todos los Roles ({roles.length})</option>
               {roles.map((r) => (
@@ -262,7 +283,7 @@ export const UsuariosAdmin: React.FC = () => {
             className="admin-select"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            style={{ fontSize: '12px', padding: '6px 10px' }}
+            style={{ fontSize: '12px', padding: '7px 32px 7px 12px', width: 'auto', minWidth: '150px' }}
           >
             <option value="todos">Todos los Estados</option>
             <option value="activo">Activos</option>
@@ -294,7 +315,7 @@ export const UsuariosAdmin: React.FC = () => {
                 </td>
               </tr>
             ) : (
-              usuariosFiltrados.map((u) => {
+              usuariosPaginados.map((u) => {
                 const esActivo = u.estado === 'activo';
                 return (
                   <tr key={u.id}>
@@ -372,7 +393,7 @@ export const UsuariosAdmin: React.FC = () => {
                       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '6px' }}>
                         <select
                           className="admin-select"
-                          style={{ padding: '3px 8px', fontSize: '0.72rem', width: 'auto' }}
+                          style={{ padding: '4px 26px 4px 8px', fontSize: '0.75rem', width: 'auto' }}
                           value=""
                           onChange={(e) => {
                             if (e.target.value) {
@@ -407,100 +428,190 @@ export const UsuariosAdmin: React.FC = () => {
             )}
           </tbody>
         </table>
+
+        {totalUsuariosFiltrados > 0 && (
+          <Pagination
+            currentPage={safeCurrentPage}
+            totalItems={totalUsuariosFiltrados}
+            pageSize={pageSize}
+            onPageChange={(page) => setCurrentPage(page)}
+            onPageSizeChange={(newSize) => setPageSize(newSize)}
+            itemLabel="usuarios"
+          />
+        )}
       </div>
 
       {/* Modal Crear Usuario */}
       {isCreateModalOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card" style={{ maxWidth: '520px' }}>
+        <div className="modal active">
+          <div className="modal-box" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div className="modal-header">
-              <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <UserPlus size={18} color="#38bdf8" />
-                Registrar Operador o Brigadista
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    background: 'rgba(56, 189, 248, 0.15)',
+                    border: '1px solid rgba(56, 189, 248, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}
+                >
+                  <UserPlus size={20} color="#38bdf8" />
+                </div>
+                <div>
+                  <h3 className="modal-title" style={{ fontSize: '16px', color: '#ffffff' }}>
+                    Registrar Operador o Brigadista
+                  </h3>
+                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
+                    Alta de credenciales y roles para el Centro de Mando Táctico o brigadas de combate.
+                  </p>
+                </div>
+              </div>
               <button className="btn-icon" onClick={() => setIsCreateModalOpen(false)}>
-                &times;
+                <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleCrearUsuario} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '14px' }}>
-              <div>
-                <label className="admin-form-label">Nombre de Usuario (@username) *</label>
-                <input
-                  type="text"
-                  required
-                  className="admin-input"
-                  placeholder="ej. brigada_huaccana_1"
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="admin-form-label">Nombre Completo / Entidad *</label>
-                <input
-                  type="text"
-                  required
-                  className="admin-input"
-                  placeholder="ej. Juan Carlos Quispe (Bomberos B-12)"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label className="admin-form-label">Correo Electrónico</label>
-                  <input
-                    type="email"
-                    className="admin-input"
-                    placeholder="operador@willai.pe"
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                  />
+            <form onSubmit={handleCrearUsuario} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '6px' }}>
+              {/* Sección 1: Identificación de Cuenta */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: '12px' }}>
+                <div className="form-group">
+                  <label className="form-label">Nombre de Usuario (@username) *</label>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontWeight: 700, fontSize: '13px' }}>@</span>
+                    <input
+                      type="text"
+                      required
+                      className="admin-input"
+                      style={{ paddingLeft: '28px' }}
+                      placeholder="ej. carlos_bomberos"
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value.toLowerCase().trim())}
+                    />
+                  </div>
+                  <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Identificador único de acceso</span>
                 </div>
 
-                <div>
-                  <label className="admin-form-label">Teléfono / WhatsApp</label>
+                <div className="form-group">
+                  <label className="form-label">Nombre Completo e Institución *</label>
                   <input
                     type="text"
+                    required
                     className="admin-input"
-                    placeholder="+51 987 654 321"
-                    value={newPhone}
-                    onChange={(e) => setNewPhone(e.target.value)}
+                    placeholder="ej. Sgto. Carlos Quispe (Cía. Bomberos B-12)"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
                   />
+                  <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Nombre y unidad visible en bitácoras</span>
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label className="admin-form-label">Contraseña Temporal</label>
-                  <input
-                    type="password"
-                    required
-                    className="admin-input"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                  />
+              {/* Sección 2: Comunicaciones y Notificaciones */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px' }}>
+                <div className="form-group">
+                  <label className="form-label">Teléfono Móvil / WhatsApp *</label>
+                  <div style={{ position: 'relative' }}>
+                    <Phone size={14} color="#10b981" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                    <input
+                      type="tel"
+                      required
+                      className="admin-input"
+                      style={{ paddingLeft: '32px' }}
+                      placeholder="+51 966 123 456"
+                      value={newPhone}
+                      onChange={(e) => setNewPhone(e.target.value)}
+                    />
+                  </div>
+                  <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Para alertas SMS y despacho táctico</span>
                 </div>
 
-                <div>
-                  <label className="admin-form-label">Rol Operativo Inicial</label>
+                <div className="form-group">
+                  <label className="form-label">Correo Electrónico</label>
+                  <div style={{ position: 'relative' }}>
+                    <Mail size={14} color="#38bdf8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                    <input
+                      type="email"
+                      className="admin-input"
+                      style={{ paddingLeft: '32px' }}
+                      placeholder="operador@willai.pe"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                    />
+                  </div>
+                  <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Opcional para reportes y avisos</span>
+                </div>
+              </div>
+
+              {/* Sección 3: Credenciales y Rol Operativo */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px' }}>
+                <div className="form-group">
+                  <label className="form-label">Rol Operativo Inicial *</label>
                   <select
                     className="admin-select"
                     value={newRole}
                     onChange={(e) => setNewRole(e.target.value)}
                   >
-                    <option value="operador_emergencia">Operador COEP / COEL</option>
-                    <option value="brigadista">Brigadista Combatiente</option>
-                    <option value="verificador">Verificador Comunal</option>
-                    <option value="administrador">Administrador General</option>
-                    <option value="poblador">Ciudadano / Poblador</option>
+                    {roles.length > 0 ? (
+                      roles.map((r) => (
+                        <option key={r.codigo} value={r.codigo}>
+                          {r.nombre}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="operador_emergencia">Operador COEP / COEL</option>
+                        <option value="brigadista">Brigadista Combatiente</option>
+                        <option value="verificador">Verificador Comunal</option>
+                        <option value="administrador">Administrador General</option>
+                        <option value="poblador">Ciudadano / Poblador</option>
+                      </>
+                    )}
                   </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Contraseña Temporal *</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      className="admin-input"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      style={{ paddingRight: '36px' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}
+                      title={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                    >
+                      {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                  <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Clave provisoria de acceso inicial</span>
                 </div>
               </div>
 
-              <div className="modal-actions" style={{ marginTop: '10px' }}>
+              {/* Indicador Táctico de Privilegios */}
+              <div style={{ background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: '8px', padding: '10px 14px', fontSize: '11.5px', color: '#e2e8f0' }}>
+                🛡️ <b>Privilegios del Rol:</b>{' '}
+                {newRole === 'operador_emergencia' || newRole === 'operador'
+                  ? 'Centro de Mando, despacho y movilización de brigadas y emisión de alertas comunitarias.'
+                  : newRole === 'brigadista'
+                  ? 'Respuesta en terreno, bitácora de combate de incendios y solicitud de refuerzos.'
+                  : newRole === 'verificador'
+                  ? 'Fiscalización y validación comunal de reportes ciudadanos de humo o calor.'
+                  : newRole === 'administrador'
+                  ? 'Acceso total y configuración de usuarios, donaciones y parámetros del sistema.'
+                  : 'Reporte ciudadano y visualización de mapa de emergencia.'}
+              </div>
+
+              <div className="modal-actions" style={{ marginTop: '4px' }}>
                 <button
                   type="button"
                   className="btn-admin btn-admin-outline"
@@ -512,8 +623,10 @@ export const UsuariosAdmin: React.FC = () => {
                   type="submit"
                   className="btn-admin btn-admin-primary"
                   disabled={submitting}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
-                  {submitting ? 'Creando...' : 'Crear Usuario'}
+                  <UserPlus size={15} />
+                  {submitting ? 'Creando Usuario...' : 'Crear Usuario Operativo'}
                 </button>
               </div>
             </form>

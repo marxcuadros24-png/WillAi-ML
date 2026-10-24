@@ -10,7 +10,8 @@ import type {
   DonacionComunitaria,
   LoteSatelital,
   MetricasKPI,
-  ViviendaRural
+  ViviendaRural,
+  GrillaRiesgoOcurrenciaData
 } from '../types';
 
 export interface AppContextType {
@@ -22,6 +23,7 @@ export interface AppContextType {
   viviendas: ViviendaRural[];
   alertas: AlertaComunitaria[];
   viento12h: PrediccionViento12hData;
+  grillaOcurrencia: GrillaRiesgoOcurrenciaData | null;
   reportes: ReporteCiudadano[];
   donaciones: DonacionComunitaria[];
   lotesSatelitales: LoteSatelital[];
@@ -39,6 +41,7 @@ export interface AppContextType {
   handleModerarDonacionAction: (oferta: DonacionComunitaria, accion: 'aprobar' | 'rechazar') => Promise<void>;
   handleDispararSyncManual: (tipo: 'firms' | 'meteo' | 'fwi') => Promise<void>;
   handleEntrenarVientoManual: () => Promise<void>;
+  handleEntrenarOcurrenciaManual: () => Promise<void>;
   // Map specific state
   showModis: boolean;
   setShowModis: (v: boolean) => void;
@@ -48,6 +51,8 @@ export interface AppContextType {
   setShowSerfor: (v: boolean) => void;
   showVientoML: boolean;
   setShowVientoML: (v: boolean) => void;
+  showRiesgoOcurrencia: boolean;
+  setShowRiesgoOcurrencia: (v: boolean) => void;
   showIncidentes: boolean;
   setShowIncidentes: (v: boolean) => void;
   showBrigadas: boolean;
@@ -63,8 +68,8 @@ export interface AppContextType {
   setSelectedWindHourIdx: (idx: number) => void;
   selectedIncidente: Incidente | null;
   setSelectedIncidente: (inc: Incidente | null) => void;
-  sidebarTab: 'incidentes' | 'firms' | 'viento' | 'meteo' | 'brigadas';
-  setSidebarTab: (tab: 'incidentes' | 'firms' | 'viento' | 'meteo' | 'brigadas') => void;
+  sidebarTab: 'incidentes' | 'firms' | 'viento' | 'riesgo' | 'meteo' | 'brigadas';
+  setSidebarTab: (tab: 'incidentes' | 'firms' | 'viento' | 'riesgo' | 'meteo' | 'brigadas') => void;
 }
 
 export function useAppContext(): AppContextType {

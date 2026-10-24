@@ -10,7 +10,8 @@ import type {
   RolSistema,
   CrearBrigadaPayload,
   ViviendaRural,
-  CrearViviendaPayload
+  CrearViviendaPayload,
+  GrillaRiesgoOcurrenciaData
 } from '../types';
 
 const API_BASE = 'http://127.0.0.1:8000/api/v1';
@@ -192,6 +193,38 @@ export async function entrenarModeloViento(lat: number = -15.0189, lon: number =
   if (!res.ok) {
     const errText = await res.text();
     throw new Error(`Error en API de entrenamiento: ${errText}`);
+  }
+  return await res.json();
+}
+
+/**
+ * Consulta la grilla GeoJSON de probabilidad calibrada y nivel de riesgo
+ * de ocurrencia estimada por el modelo Machine Learning.
+ */
+export async function fetchRiesgoOcurrencia(): Promise<GrillaRiesgoOcurrenciaData | null> {
+  try {
+    const res = await fetch(`${API_BASE}/predicciones/predicciones/riesgo_ocurrencia/`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('Error al consultar grilla ML de riesgo de ocurrencia:', err);
+    return null;
+  }
+}
+
+/**
+ * Dispara el re-entrenamiento del modelo de Machine Learning de riesgo de ocurrencia
+ * con los datos satelitales NASA FIRMS y meteorología real de Open-Meteo.
+ */
+export async function entrenarModeloOcurrencia(testRatio: number = 0.30): Promise<any> {
+  const res = await fetch(`${API_BASE}/predicciones/predicciones/entrenar_ocurrencia/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ test_ratio: testRatio })
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Error en API de entrenamiento de ocurrencia: ${errText}`);
   }
   return await res.json();
 }

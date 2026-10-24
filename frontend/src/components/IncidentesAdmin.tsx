@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Flame, PlusCircle, Shield, MapPin, Eye, CheckCircle2, Filter, Clock } from 'lucide-react';
 import type { Incidente } from '../types';
+import { Pagination } from './Pagination';
 
 interface IncidentesAdminProps {
   incidentes: Incidente[];
@@ -23,6 +24,14 @@ export const IncidentesAdmin: React.FC<IncidentesAdminProps> = ({
   const [filterPrioridad, setFilterPrioridad] = useState<string>('todos');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
+  // Paginación Táctica
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterEstado, filterPrioridad, searchTerm]);
+
   const filtered = incidentes.filter((inc) => {
     if (filterEstado !== 'todos' && inc.estado !== filterEstado) return false;
     if (filterPrioridad !== 'todos' && inc.severidad !== filterPrioridad) return false;
@@ -36,6 +45,13 @@ export const IncidentesAdmin: React.FC<IncidentesAdminProps> = ({
     }
     return true;
   });
+
+  // Paginación calculada
+  const totalIncidentes = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalIncidentes / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const incidentesPaginados = filtered.slice(startIndex, startIndex + pageSize);
 
   const getSeveridadBadge = (sev: string) => {
     switch (sev) {
@@ -122,16 +138,10 @@ export const IncidentesAdmin: React.FC<IncidentesAdminProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>ESTADO:</span>
           <select
+            className="admin-select"
             value={filterEstado}
             onChange={(e) => setFilterEstado(e.target.value)}
-            style={{
-              background: 'rgba(3, 7, 18, 0.8)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '6px 10px',
-              color: '#ffffff',
-              fontSize: '0.8rem',
-            }}
+            style={{ fontSize: '0.8rem', padding: '6px 30px 6px 10px', width: 'auto' }}
           >
             <option value="todos">Todos los Estados</option>
             <option value="pendiente">Pendientes</option>
@@ -145,16 +155,10 @@ export const IncidentesAdmin: React.FC<IncidentesAdminProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>PRIORIDAD:</span>
           <select
+            className="admin-select"
             value={filterPrioridad}
             onChange={(e) => setFilterPrioridad(e.target.value)}
-            style={{
-              background: 'rgba(3, 7, 18, 0.8)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '6px 10px',
-              color: '#ffffff',
-              fontSize: '0.8rem',
-            }}
+            style={{ fontSize: '0.8rem', padding: '6px 30px 6px 10px', width: 'auto' }}
           >
             <option value="todos">Todas las Prioridades</option>
             <option value="critica">Crítica</option>
@@ -187,7 +191,7 @@ export const IncidentesAdmin: React.FC<IncidentesAdminProps> = ({
                 </td>
               </tr>
             ) : (
-              filtered.map((inc) => (
+              incidentesPaginados.map((inc) => (
                 <tr key={inc.id}>
                   <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#fb923c' }}>
                     {inc.codigo}
@@ -277,6 +281,17 @@ export const IncidentesAdmin: React.FC<IncidentesAdminProps> = ({
             )}
           </tbody>
         </table>
+
+        {totalIncidentes > 0 && (
+          <Pagination
+            currentPage={safeCurrentPage}
+            totalItems={totalIncidentes}
+            pageSize={pageSize}
+            onPageChange={(page) => setCurrentPage(page)}
+            onPageSizeChange={(newSize) => setPageSize(newSize)}
+            itemLabel="incidentes tácticos"
+          />
+        )}
       </div>
     </div>
   );

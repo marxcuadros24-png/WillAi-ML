@@ -1,0 +1,70 @@
+{
+  "nombre_modelo": "WillAI FireRisk Occurrence ML",
+  "version": "1.0.0-parinacochas",
+  "algoritmo": "RandomForestClassifier + CalibratedClassifierCV (Sigmoid)",
+  "tipo_tarea": "Estimación de Riesgo de Ocurrencia / Susceptibilidad de Incendio",
+  "zona_estudio": "Coracora, Provincia de Parinacochas, Ayacucho",
+  "entrenado_en": "2026-10-24T18:37:44.232940+00:00",
+  "division_temporal": {
+    "fecha_inicio": "2026-09-24",
+    "fecha_corte_split": "2026-10-15",
+    "fecha_fin": "2026-10-24",
+    "test_ratio": 0.3,
+    "muestras_train": 53,
+    "muestras_test": 24
+  },
+  "datos_entrenamiento": {
+    "total_muestras": 77,
+    "focos_positivos_firms": 0,
+    "pseudo_negativos_controlados": 42,
+    "fuentes": [
+      "NASA FIRMS (VIIRS NOAA-20, NOAA-21, Suomi-NPP y MODIS Aqua/Terra)",
+      "Open-Meteo Historical Archive API (Coracora)",
+      "Topografía Andina y Distancias a Comunidades (Parinacochas)"
+    ]
+  },
+  "metricas_evaluacion_temporal": {
+    "random_forest_calibrado": {
+      "precision": 0.8889,
+      "recall": 1.0,
+      "f1_score": 0.9412,
+      "roc_auc": 1.0,
+      "pr_auc": 1.0,
+      "brier_score": 0.0238
+    },
+    "linea_base_logistic_regression": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "roc_auc": 1.0,
+      "pr_auc": 1.0,
+      "brier_score": 0.0086
+    }
+  },
+  "importancia_variables": {
+    "temp_max": 0.0159,
+    "humidity_mean": 0.061,
+    "wind_max": 0.0344,
+    "rain_sum": 0.0053,
+    "rain_prev_3d": 0.0087,
+    "fwi": 0.0183,
+    "isi": 0.0186,
+    "elevacion_m": 0.1422,
+    "pendiente_deg": 0.2843,
+    "distancia_comunidad_km": 0.4096,
+    "mes": 0.0017
+  },
+  "variables_entrada": [
+    "temp_max",
+    "humidity_mean",
+    "wind_max",
+    "rain_sum",
+    "rain_prev_3d",
+    "fwi",
+    "isi",
+    "elevacion_m",
+    "pendiente_deg",
+    "distancia_comunidad_km",
+    "mes"
+  ]
+}

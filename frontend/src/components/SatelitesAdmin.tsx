@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Satellite, RefreshCw, CheckCircle2, Radio, CloudSun, Wind, AlertCircle } from 'lucide-react';
 import type { LoteSatelital } from '../types';
+import { Pagination } from './Pagination';
 
 interface SatelitesAdminProps {
   lotes: LoteSatelital[];
@@ -14,6 +15,16 @@ export const SatelitesAdmin: React.FC<SatelitesAdminProps> = ({
   onEntrenarViento,
 }) => {
   const [loadingType, setLoadingType] = useState<string | null>(null);
+
+  // Paginación Táctica
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
+  const totalLotes = lotes.length;
+  const totalPages = Math.max(1, Math.ceil(totalLotes / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const lotesPaginados = lotes.slice(startIndex, startIndex + pageSize);
 
   const handleSync = async (tipo: 'firms' | 'meteo' | 'fwi') => {
     setLoadingType(tipo);
@@ -210,7 +221,7 @@ export const SatelitesAdmin: React.FC<SatelitesAdminProps> = ({
                   </td>
                 </tr>
               ) : (
-                lotes.map((lot) => (
+                lotesPaginados.map((lot) => (
                   <tr key={lot.id}>
                     <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#fb923c' }}>
                       LOTE-{lot.id}
@@ -239,6 +250,17 @@ export const SatelitesAdmin: React.FC<SatelitesAdminProps> = ({
               )}
             </tbody>
           </table>
+
+          {totalLotes > 0 && (
+            <Pagination
+              currentPage={safeCurrentPage}
+              totalItems={totalLotes}
+              pageSize={pageSize}
+              onPageChange={(page) => setCurrentPage(page)}
+              onPageSizeChange={(newSize) => setPageSize(newSize)}
+              itemLabel="lotes satelitales"
+            />
+          )}
         </div>
       </div>
     </div>

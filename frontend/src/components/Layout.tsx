@@ -216,6 +216,41 @@ export const Layout: React.FC<LayoutProps> = ({ context }) => {
               {sidebarOpen && <span>Mapa Táctico en Vivo</span>}
             </NavLink>
 
+            <button
+              onClick={() => {
+                context.setSidebarTab('riesgo');
+                context.setShowRiesgoOcurrencia(true);
+                navigate('/mapa');
+              }}
+              className="sidebar-nav-item"
+              style={{
+                background: location.pathname === '/mapa' && context.sidebarTab === 'riesgo' ? 'rgba(245, 158, 11, 0.18)' : 'transparent',
+                border: location.pathname === '/mapa' && context.sidebarTab === 'riesgo' ? '1px solid rgba(245, 158, 11, 0.35)' : 'none',
+                width: '100%',
+                textAlign: 'left',
+                cursor: 'pointer',
+                color: '#f59e0b',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                marginTop: '2px',
+                marginBottom: '4px'
+              }}
+              title="Módulo de Machine Learning: Riesgo de Ocurrencia"
+            >
+              <ShieldAlert size={18} color="#f59e0b" />
+              {sidebarOpen && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                  <span style={{ fontWeight: 700, fontSize: '13px' }}>Riesgo ML (72)</span>
+                  <span style={{ fontSize: '10px', background: 'rgba(245, 158, 11, 0.25)', color: '#f59e0b', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>
+                    AI
+                  </span>
+                </div>
+              )}
+            </button>
+
             <NavLink
               to="/incidentes"
               className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}

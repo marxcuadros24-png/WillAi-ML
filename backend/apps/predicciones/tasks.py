@@ -231,3 +231,84 @@ def entrenar_y_predecir_viento_task(lat=CORACORA_LAT, lon=CORACORA_LON):
         "metricas": metricas,
         "pronostico_12h": pronostico
     }
+
+
+@shared_task(name="entrenar_y_generar_ocurrencia_task")
+def entrenar_y_generar_ocurrencia_task(test_ratio=0.30):
+    """
+    Entrena el modelo de Machine Learning de riesgo de ocurrencia/susceptibilidad
+    con las detecciones reales de NASA FIRMS y Open-Meteo, y genera la grilla de riesgo.
+    NOTA: No emite alertas operativas automáticas para garantizar supervisión humana.
+    """
+    from .ml_ocurrencia import entrenar_modelo_ocurrencia, generar_grilla_riesgo_ocurrencia
+
+    modelo, _ = ModeloPredictivo.objects.get_or_create(
+        nombre="WillAI FireRisk Occurrence ML",
+        version="1.0.0-parinacochas",
+        defaults={
+            "algoritmo": "RandomForestClassifier Calibrado (Validación Temporal)",
+            "descripcion": "Estimación del riesgo de ocurrencia de incendios forestales en Parinacochas con validación temporal estricta.",
+            "estado": ModeloPredictivo.EstadoModelo.VALIDADO
+        }
+    )
+
+    ejecucion = EjecucionModelo.objects.create(
+        modelo=modelo,
+        estado=EjecucionModelo.EstadoEjecucion.EJECUTANDO,
+        parametros={"test_ratio": test_ratio, "zona": "Parinacochas"}
+    )
+
+    try:
+        metadata = entrenar_modelo_ocurrencia(test_ratio=test_ratio)
+        grilla = generar_grilla_riesgo_ocurrencia()
+    except Exception as e:
+        ejecucion.estado = EjecucionModelo.EstadoEjecucion.FALLIDO
+        ejecucion.resumen_error = str(e)
+        ejecucion.finalizado_en = timezone.now()
+        ejecucion.save()
+        return {"status": "error", "error": str(e)}
+
+    ahora = timezone.now()
+    fin_horizonte = ahora + timedelta(hours=24)
+
+    # Identificar pico de probabilidad en las celdas
+    max_prob = 0.0
+    nivel_max = 'bajo'
+    niveles_orden = {"bajo": 1, "moderado": 2, "alto": 3, "critico": 4}
+    for f in grilla.get("features", []):
+        p = f.get("properties", {})
+        prob = p.get("probabilidad", 0.0)
+        niv = p.get("nivel_riesgo", "bajo")
+        if prob > max_prob:
+            max_prob = prob
+        if niveles_orden.get(niv, 1) > niveles_orden.get(nivel_max, 1):
+            nivel_max = niv
+
+    prediccion = Prediccion.objects.create(
+        ejecucion=ejecucion,
+        geometria_geojson=grilla,
+        horizonte_desde=ahora,
+        horizonte_hasta=fin_horizonte,
+        probabilidad=max_prob,
+        nivel=nivel_max,
+        incertidumbre={
+            "tipo_prediccion": "ocurrencia_ml_grilla",
+            "metricas": metadata.get("metricas_evaluacion_temporal", {}),
+            "importancia_variables": metadata.get("importancia_variables", {}),
+            "total_celdas": len(grilla.get("features", []))
+        }
+    )
+
+    ejecucion.estado = EjecucionModelo.EstadoEjecucion.COMPLETADO
+    ejecucion.finalizado_en = timezone.now()
+    ejecucion.save()
+
+    return {
+        "status": "ok",
+        "id_prediccion": prediccion.id_prediccion,
+        "nivel_pico": nivel_max,
+        "probabilidad_max": max_prob,
+        "metricas": metadata.get("metricas_evaluacion_temporal", {}),
+        "total_celdas": len(grilla.get("features", []))
+    }
+

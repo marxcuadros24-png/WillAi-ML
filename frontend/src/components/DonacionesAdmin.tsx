@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HeartHandshake, CheckCircle2, XCircle, User } from 'lucide-react';
 import type { DonacionComunitaria } from '../types';
+import { Pagination } from './Pagination';
 
 interface DonacionesAdminProps {
   donaciones: DonacionComunitaria[];
@@ -10,10 +11,24 @@ interface DonacionesAdminProps {
 export const DonacionesAdmin: React.FC<DonacionesAdminProps> = ({ donaciones, onModerar }) => {
   const [filterEstado, setFilterEstado] = useState<string>('todos');
 
+  // Paginación Táctica
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterEstado]);
+
   const filtered = donaciones.filter((don) => {
     if (filterEstado === 'todos') return true;
     return don.estado === filterEstado;
   });
+
+  const totalDonaciones = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalDonaciones / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const donacionesPaginadas = filtered.slice(startIndex, startIndex + pageSize);
 
   const getEstadoBadge = (est: string) => {
     switch (est) {
@@ -45,16 +60,10 @@ export const DonacionesAdmin: React.FC<DonacionesAdminProps> = ({ donaciones, on
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>FILTRO:</span>
             <select
+              className="admin-select"
               value={filterEstado}
               onChange={(e) => setFilterEstado(e.target.value)}
-              style={{
-                background: 'rgba(3, 7, 18, 0.8)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-sm)',
-                padding: '6px 12px',
-                color: '#ffffff',
-                fontSize: '0.8rem',
-              }}
+              style={{ fontSize: '0.8rem', padding: '6px 30px 6px 10px', width: 'auto' }}
             >
               <option value="todos">Todas las ofertas ({donaciones.length})</option>
               <option value="pendiente">Pendientes de Aprobación</option>
@@ -85,7 +94,7 @@ export const DonacionesAdmin: React.FC<DonacionesAdminProps> = ({ donaciones, on
                 </td>
               </tr>
             ) : (
-              filtered.map((don) => (
+              donacionesPaginadas.map((don) => (
                 <tr key={don.id}>
                   <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#fb923c' }}>
                     #{don.id}
@@ -160,6 +169,17 @@ export const DonacionesAdmin: React.FC<DonacionesAdminProps> = ({ donaciones, on
             )}
           </tbody>
         </table>
+
+        {totalDonaciones > 0 && (
+          <Pagination
+            currentPage={safeCurrentPage}
+            totalItems={totalDonaciones}
+            pageSize={pageSize}
+            onPageChange={(page) => setCurrentPage(page)}
+            onPageSizeChange={(newSize) => setPageSize(newSize)}
+            itemLabel="ofertas de donación"
+          />
+        )}
       </div>
     </div>
   );

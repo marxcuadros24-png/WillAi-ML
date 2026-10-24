@@ -46,7 +46,9 @@ import {
   cerrarIncidente,
   emitirAlerta,
   moderarDonacion,
-  dispararSincronizacion
+  dispararSincronizacion,
+  fetchRiesgoOcurrencia,
+  entrenarModeloOcurrencia
 } from './services/api';
 import type {
   Incidente,
@@ -60,7 +62,8 @@ import type {
   ReporteCiudadano,
   DonacionComunitaria,
   LoteSatelital,
-  MetricasKPI
+  MetricasKPI,
+  GrillaRiesgoOcurrenciaData
 } from './types';
 
 export const App: React.FC = () => {
@@ -91,7 +94,7 @@ export const App: React.FC = () => {
   });
 
   // Sidebar sub-tab when on '/mapa'
-  const [sidebarTab, setSidebarTab] = useState<'incidentes' | 'firms' | 'viento' | 'meteo' | 'brigadas'>('incidentes');
+  const [sidebarTab, setSidebarTab] = useState<'incidentes' | 'firms' | 'viento' | 'riesgo' | 'meteo' | 'brigadas'>('incidentes');
   const [selectedIncidente, setSelectedIncidente] = useState<Incidente | null>(null);
 
   // Layer toggles on map
@@ -99,6 +102,8 @@ export const App: React.FC = () => {
   const [showViirs, setShowViirs] = useState<boolean>(true);
   const [showSerfor, setShowSerfor] = useState<boolean>(true);
   const [showVientoML, setShowVientoML] = useState<boolean>(true);
+  const [showRiesgoOcurrencia, setShowRiesgoOcurrencia] = useState<boolean>(true);
+  const [grillaOcurrencia, setGrillaOcurrencia] = useState<GrillaRiesgoOcurrenciaData | null>(null);
   const [showIncidentes, setShowIncidentes] = useState<boolean>(true);
   const [showBrigadas, setShowBrigadas] = useState<boolean>(true);
   const [showViviendas, setShowViviendas] = useState<boolean>(true);
@@ -164,7 +169,7 @@ export const App: React.FC = () => {
   // Reload all operational & administrative data
   const loadAllData = async () => {
     try {
-      const [inc, foc, v12h, hist, meteo, bri, alt, dash, vivs] = await Promise.all([
+      const [inc, foc, v12h, hist, meteo, bri, alt, dash, vivs, grilla] = await Promise.all([
         fetchIncidentes(),
         fetchFocosFirms(1),
         fetchPrediccionViento12h(),
@@ -173,7 +178,8 @@ export const App: React.FC = () => {
         fetchBrigadas(),
         fetchAlertas(),
         fetchDashboardCompleto(),
-        fetchViviendas()
+        fetchViviendas(),
+        fetchRiesgoOcurrencia()
       ]);
       setIncidentes(inc);
       setFocos(foc);
@@ -183,6 +189,7 @@ export const App: React.FC = () => {
       setBrigadas(bri);
       setAlertas(alt);
       setViviendas(vivs);
+      if (grilla) setGrillaOcurrencia(grilla);
       if (dash) {
         if (dash.reportes) setReportes(dash.reportes);
         if (dash.donaciones) setDonaciones(dash.donaciones);
@@ -590,6 +597,18 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleEntrenarOcurrenciaManual = async () => {
+    try {
+      showToast('Re-entrenando modelo ML de riesgo de ocurrencia (NASA FIRMS + Open-Meteo)...');
+      const res = await entrenarModeloOcurrencia();
+      const grilla = await fetchRiesgoOcurrencia();
+      if (grilla) setGrillaOcurrencia(grilla);
+      showToast(`Modelo ML Ocurrencia re-entrenado: ${res.total_celdas ?? 0} celdas evaluadas.`);
+    } catch (err: any) {
+      showToast('Error al entrenar modelo ML de ocurrencia');
+    }
+  };
+
   // Compose Shared App Context for Outlet Context
   const appContextValue: AppContextType = {
     metricas,
@@ -600,6 +619,7 @@ export const App: React.FC = () => {
     viviendas,
     alertas,
     viento12h,
+    grillaOcurrencia,
     reportes,
     donaciones,
     lotesSatelitales,
@@ -634,6 +654,7 @@ export const App: React.FC = () => {
     handleModerarDonacionAction,
     handleDispararSyncManual,
     handleEntrenarVientoManual,
+    handleEntrenarOcurrenciaManual,
     showModis,
     setShowModis,
     showViirs,
@@ -642,6 +663,8 @@ export const App: React.FC = () => {
     setShowSerfor,
     showVientoML,
     setShowVientoML,
+    showRiesgoOcurrencia,
+    setShowRiesgoOcurrencia,
     showIncidentes,
     setShowIncidentes,
     showBrigadas,

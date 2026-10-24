@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Send, CheckCircle2, MapPin, Megaphone } from 'lucide-react';
 import type { AlertaComunitaria } from '../types';
+import { Pagination } from './Pagination';
 
 interface AlertasAdminProps {
   alertas: AlertaComunitaria[];
@@ -8,6 +9,16 @@ interface AlertasAdminProps {
 }
 
 export const AlertasAdmin: React.FC<AlertasAdminProps> = ({ alertas, onOpenEmitirAlerta }) => {
+  // Paginación Táctica
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
+  const totalAlertas = alertas.length;
+  const totalPages = Math.max(1, Math.ceil(totalAlertas / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const alertasPaginadas = alertas.slice(startIndex, startIndex + pageSize);
+
   const getNivelBadge = (nivel: string) => {
     switch (nivel) {
       case 'evacuacion':
@@ -62,7 +73,7 @@ export const AlertasAdmin: React.FC<AlertasAdminProps> = ({ alertas, onOpenEmiti
                 </td>
               </tr>
             ) : (
-              alertas.map((alt) => (
+              alertasPaginadas.map((alt) => (
                 <tr key={alt.id}>
                   <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#fb923c' }}>
                     #{alt.id}
@@ -99,6 +110,17 @@ export const AlertasAdmin: React.FC<AlertasAdminProps> = ({ alertas, onOpenEmiti
             )}
           </tbody>
         </table>
+
+        {totalAlertas > 0 && (
+          <Pagination
+            currentPage={safeCurrentPage}
+            totalItems={totalAlertas}
+            pageSize={pageSize}
+            onPageChange={(page) => setCurrentPage(page)}
+            onPageSizeChange={(newSize) => setPageSize(newSize)}
+            itemLabel="alertas comunitarias"
+          />
+        )}
       </div>
     </div>
   );

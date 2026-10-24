@@ -12,7 +12,13 @@ import {
   Trash2,
   Edit,
   X,
-  Crosshair
+  Crosshair,
+  Eye,
+  Copy,
+  Check,
+  ExternalLink,
+  ShieldAlert,
+  Users
 } from 'lucide-react';
 import type { ViviendaRural, CrearViviendaPayload } from '../types';
 import {
@@ -21,6 +27,7 @@ import {
   editarVivienda,
   eliminarVivienda
 } from '../services/api';
+import { Pagination } from './Pagination';
 
 const COMUNIDADES_CORACORA = [
   { id: 1, nombre: 'Coracora Centro', lat: -15.0189, lon: -73.7806 },
@@ -55,6 +62,15 @@ export const ViviendasAdmin: React.FC = () => {
   const [filterMaterial, setFilterMaterial] = useState<string>('todos');
   const [filterVerificada, setFilterVerificada] = useState<string>('todas');
 
+  // Paginación Táctica
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
+  // Reiniciar a primera página cuando cambie cualquier filtro
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterComunidad, filterMaterial, filterVerificada]);
+
   // Modal: Crear Vivienda
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -80,6 +96,10 @@ export const ViviendasAdmin: React.FC = () => {
   const [editVerificada, setEditVerificada] = useState<boolean>(true);
   const [editLat, setEditLat] = useState<number>(-15.0189);
   const [editLon, setEditLon] = useState<number>(-73.7806);
+
+  // Modal: Ficha Técnica / Detalle de Vivienda
+  const [detalleVivienda, setDetalleVivienda] = useState<ViviendaRural | null>(null);
+  const [copiadoGps, setCopiadoGps] = useState<boolean>(false);
 
   const cargarDatos = async () => {
     setLoading(true);
@@ -262,6 +282,13 @@ export const ViviendasAdmin: React.FC = () => {
     return true;
   });
 
+  // Paginación Táctica
+  const totalFiltradas = viviendasFiltradas.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltradas / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const viviendasPaginadas = viviendasFiltradas.slice(startIndex, startIndex + pageSize);
+
   // Métricas
   const totalViviendas = viviendas.length;
   const totalHabitantes = viviendas.reduce((acc, v) => acc + (v.habitantes || 0), 0);
@@ -432,16 +459,10 @@ export const ViviendasAdmin: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Filter size={14} color="var(--text-muted)" />
             <select
+              className="admin-select"
               value={filterComunidad}
               onChange={(e) => setFilterComunidad(e.target.value)}
-              style={{
-                background: 'rgba(0,0,0,0.5)',
-                border: '1px solid rgba(255,255,255,0.12)',
-                borderRadius: '6px',
-                padding: '7px 10px',
-                color: '#ffffff',
-                fontSize: '12px'
-              }}
+              style={{ fontSize: '12px', padding: '7px 32px 7px 10px', width: 'auto' }}
             >
               <option value="todas">Todos los Sectores</option>
               {COMUNIDADES_CORACORA.map((c) => (
@@ -454,16 +475,10 @@ export const ViviendasAdmin: React.FC = () => {
 
           {/* Material */}
           <select
+            className="admin-select"
             value={filterMaterial}
             onChange={(e) => setFilterMaterial(e.target.value)}
-            style={{
-              background: 'rgba(0,0,0,0.5)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              borderRadius: '6px',
-              padding: '7px 10px',
-              color: '#ffffff',
-              fontSize: '12px'
-            }}
+            style={{ fontSize: '12px', padding: '7px 32px 7px 10px', width: 'auto' }}
           >
             <option value="todos">Todos los Materiales</option>
             {MATERIALES_OPCIONES.map((m) => (
@@ -475,16 +490,10 @@ export const ViviendasAdmin: React.FC = () => {
 
           {/* Verificación */}
           <select
+            className="admin-select"
             value={filterVerificada}
             onChange={(e) => setFilterVerificada(e.target.value)}
-            style={{
-              background: 'rgba(0,0,0,0.5)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              borderRadius: '6px',
-              padding: '7px 10px',
-              color: '#ffffff',
-              fontSize: '12px'
-            }}
+            style={{ fontSize: '12px', padding: '7px 32px 7px 10px', width: 'auto' }}
           >
             <option value="todas">Todas</option>
             <option value="si">✅ Verificadas en Campo</option>
@@ -521,195 +530,473 @@ export const ViviendasAdmin: React.FC = () => {
           </button>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '16px' }}>
-          {viviendasFiltradas.map((v) => {
-            const isVulnerable = v.material === 'tapial' || v.material === 'quincha' || v.material === 'madera';
+        <div className="admin-table-container">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Código & Predio</th>
+                <th>Sector / Comunidad</th>
+                <th>Responsable & Contacto</th>
+                <th>Habitantes</th>
+                <th>Material Constructivo</th>
+                <th>Verificación</th>
+                <th style={{ textAlign: 'right' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {viviendasPaginadas.map((v) => {
+                const isVulnerable = v.material === 'tapial' || v.material === 'quincha' || v.material === 'madera';
 
-            return (
-              <div
-                key={v.id}
-                style={{
-                  background: 'var(--panel-bg-dark)',
-                  borderRadius: '12px',
-                  border: isVulnerable ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid rgba(255, 255, 255, 0.08)',
-                  padding: '16px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between'
-                }}
-              >
-                <div>
-                  {/* Card Header: Código y Sector */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div
-                        style={{
-                          width: '36px',
-                          height: '36px',
-                          borderRadius: '8px',
-                          background: 'rgba(245, 158, 11, 0.15)',
-                          border: '1px solid #f59e0b',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0
-                        }}
-                      >
-                        <Home size={18} color="#f59e0b" />
-                      </div>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontSize: '14px', fontWeight: 800, color: '#ffffff' }}>
-                            {v.codigo}
-                          </span>
-                          {v.verificada ? (
-                            <span
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '3px',
-                                background: 'rgba(16, 185, 129, 0.15)',
-                                color: '#10b981',
-                                border: '1px solid #10b981',
-                                borderRadius: '4px',
-                                padding: '1px 5px',
-                                fontSize: '10px',
-                                fontWeight: 700
-                              }}
-                            >
-                              <CheckCircle2 size={10} /> Verificada
-                            </span>
-                          ) : (
-                            <span
-                              style={{
-                                background: 'rgba(156, 163, 175, 0.15)',
-                                color: 'var(--text-muted)',
-                                borderRadius: '4px',
-                                padding: '1px 5px',
-                                fontSize: '10px'
-                              }}
-                            >
-                              Pendiente
-                            </span>
-                          )}
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#38bdf8', fontWeight: 600 }}>
-                          📍 Sector {v.comunidad}
-                        </div>
-                      </div>
-                    </div>
-
-                    <span
-                      className="badge"
-                      style={{
-                        fontSize: '11px',
-                        padding: '2px 8px',
-                        background: 'rgba(56, 189, 248, 0.12)',
-                        color: '#38bdf8',
-                        border: '1px solid rgba(56, 189, 248, 0.3)'
-                      }}
-                    >
-                      👥 {v.habitantes} hab.
-                    </span>
-                  </div>
-
-                  {/* Referencia de Ubicación */}
-                  <p
-                    style={{
-                      fontSize: '12px',
-                      color: 'var(--text-secondary)',
-                      margin: '0 0 12px 0',
-                      lineHeight: 1.4,
-                      background: 'rgba(0,0,0,0.2)',
-                      padding: '8px 10px',
-                      borderRadius: '6px'
-                    }}
+                return (
+                  <tr
+                    key={v.id}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => setDetalleVivienda(v)}
                   >
-                    {v.referencia || 'Sin referencia registrada.'}
-                  </p>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div
+                          style={{
+                            width: '34px',
+                            height: '34px',
+                            borderRadius: '8px',
+                            background: isVulnerable ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                            border: isVulnerable ? '1px solid #ef4444' : '1px solid #f59e0b',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}
+                        >
+                          <Home size={16} color={isVulnerable ? '#ef4444' : '#f59e0b'} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 800, color: '#ffffff' }}>
+                            {v.codigo}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '11px',
+                              color: 'var(--text-muted)',
+                              maxWidth: '240px',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            {v.referencia || 'Sin referencia registrada'}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
 
-                  {/* Metadatos: Responsable, Teléfono, Material */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px', marginBottom: '14px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Responsable / Familia:</span>
-                      <span style={{ fontWeight: 600, color: '#ffffff' }}>
+                    <td>
+                      <span style={{ fontSize: '12px', color: '#38bdf8', fontWeight: 600 }}>
+                        📍 {v.comunidad}
+                      </span>
+                    </td>
+
+                    <td>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#ffffff' }}>
                         {v.nombre_responsable || 'Familia comunera'}
-                      </span>
-                    </div>
+                      </div>
+                      {v.telefono_contacto && (
+                        <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                          <Phone size={11} /> {v.telefono_contacto}
+                        </div>
+                      )}
+                    </td>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Phone size={11} color="#10b981" /> Contacto Emergencia:
-                      </span>
-                      <span style={{ fontWeight: 600, color: '#10b981' }}>
-                        {v.telefono_contacto || 'Sin teléfono'}
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Material Constructivo:</span>
+                    <td>
                       <span
+                        className="badge"
                         style={{
-                          fontWeight: 700,
-                          color: isVulnerable ? '#ef4444' : '#ffffff'
+                          fontSize: '11px',
+                          background: 'rgba(56, 189, 248, 0.12)',
+                          color: '#38bdf8',
+                          border: '1px solid rgba(56, 189, 248, 0.3)'
                         }}
                       >
-                        {v.material_display || v.material}
+                        👥 {v.habitantes} hab.
                       </span>
-                    </div>
+                    </td>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', color: 'var(--text-muted)' }}>
-                      <span>GPS:</span>
-                      <span>
-                        {v.latitud.toFixed(4)}, {v.longitud.toFixed(4)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span
+                          style={{
+                            fontSize: '12px',
+                            fontWeight: isVulnerable ? 700 : 500,
+                            color: isVulnerable ? '#ef4444' : '#ffffff'
+                          }}
+                        >
+                          {v.material_display || v.material}
+                        </span>
+                        {isVulnerable && (
+                          <span
+                            style={{
+                              fontSize: '9px',
+                              fontWeight: 800,
+                              background: 'rgba(239, 68, 68, 0.2)',
+                              color: '#ef4444',
+                              border: '1px solid rgba(239, 68, 68, 0.4)',
+                              borderRadius: '4px',
+                              padding: '1px 5px',
+                              letterSpacing: '0.04em'
+                            }}
+                          >
+                            ALTO RIESGO
+                          </span>
+                        )}
+                      </div>
+                    </td>
 
-                {/* Card Actions */}
+                    <td>
+                      {v.verificada ? (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            background: 'rgba(16, 185, 129, 0.15)',
+                            color: '#10b981',
+                            border: '1px solid #10b981',
+                            borderRadius: '4px',
+                            padding: '2px 7px',
+                            fontSize: '11px',
+                            fontWeight: 700
+                          }}
+                        >
+                          <CheckCircle2 size={11} /> Verificada
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            background: 'rgba(156, 163, 175, 0.15)',
+                            color: 'var(--text-muted)',
+                            borderRadius: '4px',
+                            padding: '2px 7px',
+                            fontSize: '11px'
+                          }}
+                        >
+                          ⏳ Pendiente
+                        </span>
+                      )}
+                    </td>
+
+                    <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          className="btn-admin btn-admin-primary"
+                          style={{
+                            padding: '4px 10px',
+                            fontSize: '11px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            background: 'rgba(245, 158, 11, 0.2)',
+                            color: '#f59e0b',
+                            border: '1px solid #f59e0b'
+                          }}
+                          onClick={() => setDetalleVivienda(v)}
+                          title="Abrir ficha técnica y detalles completos del predio"
+                        >
+                          <Eye size={12} />
+                          Detalles
+                        </button>
+                        <button
+                          className="btn-admin btn-admin-outline"
+                          style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          onClick={() => navigate('/mapa')}
+                          title="Ubicar en Mapa Táctico"
+                        >
+                          <MapPin size={12} color="#06b6d4" />
+                        </button>
+                        <button
+                          className="btn-admin btn-admin-outline"
+                          style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          onClick={() => handleOpenEditModal(v)}
+                          title="Editar datos de la vivienda"
+                        >
+                          <Edit size={12} />
+                        </button>
+                        <button
+                          className="btn-icon"
+                          style={{ color: '#ef4444', padding: '4px 6px' }}
+                          onClick={() => handleEliminarVivienda(v)}
+                          title="Eliminar vivienda del padrón"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {totalFiltradas > 0 && (
+            <Pagination
+              currentPage={safeCurrentPage}
+              totalItems={totalFiltradas}
+              pageSize={pageSize}
+              onPageChange={(page) => setCurrentPage(page)}
+              onPageSizeChange={(newSize) => setPageSize(newSize)}
+              itemLabel="predios rurales"
+            />
+          )}
+        </div>
+      )}
+
+      {/* ========================================================
+          MODAL: FICHA TÉCNICA DETALLADA DE VIVIENDA RURAL
+         ======================================================== */}
+      {detalleVivienda && (
+        <div className="modal active">
+          <div className="modal-box" style={{ maxWidth: '640px' }}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div
                   style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '8px',
+                    background: 'rgba(245, 158, 11, 0.15)',
+                    border: '1px solid #f59e0b',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
-                    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-                    paddingTop: '10px'
+                    justifyContent: 'center'
                   }}
                 >
+                  <Home size={20} color="#f59e0b" />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h3 className="modal-title" style={{ fontSize: '17px', color: '#ffffff', margin: 0 }}>
+                      {detalleVivienda.codigo}
+                    </h3>
+                    {detalleVivienda.verificada ? (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          color: '#10b981',
+                          border: '1px solid #10b981',
+                          borderRadius: '4px',
+                          padding: '2px 6px',
+                          fontSize: '11px',
+                          fontWeight: 700
+                        }}
+                      >
+                        <CheckCircle2 size={12} /> Verificada en Campo
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          background: 'rgba(156, 163, 175, 0.15)',
+                          color: 'var(--text-muted)',
+                          borderRadius: '4px',
+                          padding: '2px 6px',
+                          fontSize: '11px'
+                        }}
+                      >
+                        ⏳ Pendiente de Verificación
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ fontSize: '11px', color: '#38bdf8', margin: '2px 0 0 0', fontWeight: 600 }}>
+                    📍 Sector / Comunidad: {detalleVivienda.comunidad} (Distrito Coracora)
+                  </p>
+                </div>
+              </div>
+              <button className="btn-icon" onClick={() => setDetalleVivienda(null)} title="Cerrar Ficha">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '14px' }}>
+              {/* Sección: Ubicación y Coordenadas */}
+              <div style={{ background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '8px', padding: '14px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <MapPin size={14} color="#38bdf8" /> Geolocalización Táctica
+                </div>
+                
+                <div style={{ fontSize: '13px', color: '#ffffff', marginBottom: '10px', background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: '6px' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '11px', display: 'block', marginBottom: '3px' }}>Referencia registrada:</span>
+                  {detalleVivienda.referencia || 'Sin referencia registrada en el catastro.'}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', background: 'rgba(0,0,0,0.5)', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: '#38bdf8' }}>
+                    Lat: <strong>{detalleVivienda.latitud.toFixed(6)}</strong> · Lon: <strong>{detalleVivienda.longitud.toFixed(6)}</strong>
+                  </div>
+
                   <div style={{ display: 'flex', gap: '6px' }}>
                     <button
                       className="btn-admin btn-admin-outline"
-                      style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                      onClick={() => navigate('/mapa')}
-                      title="Ver ubicación en el Mapa Táctico"
+                      style={{ padding: '4px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${detalleVivienda.latitud}, ${detalleVivienda.longitud}`);
+                        setCopiadoGps(true);
+                        setTimeout(() => setCopiadoGps(false), 2000);
+                      }}
                     >
-                      <MapPin size={12} color="#06b6d4" />
-                      Ver en Mapa
+                      {copiadoGps ? <Check size={12} color="#10b981" /> : <Copy size={12} />}
+                      {copiadoGps ? '¡Copiado!' : 'Copiar GPS'}
                     </button>
+
                     <button
                       className="btn-admin btn-admin-outline"
-                      style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                      onClick={() => handleOpenEditModal(v)}
-                      title="Editar datos de la vivienda"
+                      style={{ padding: '4px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      onClick={() => {
+                        setDetalleVivienda(null);
+                        navigate('/mapa');
+                      }}
                     >
-                      <Edit size={12} />
-                      Editar
+                      <MapPin size={12} color="#06b6d4" />
+                      Abrir Mapa Táctico
                     </button>
-                  </div>
 
-                  <button
-                    className="btn-icon"
-                    style={{ color: '#ef4444', padding: '6px' }}
-                    onClick={() => handleEliminarVivienda(v)}
-                    title="Eliminar vivienda del padrón"
+                    <a
+                      href={`https://www.google.com/maps?q=${detalleVivienda.latitud},${detalleVivienda.longitud}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn-admin btn-admin-outline"
+                      style={{ padding: '4px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}
+                    >
+                      <ExternalLink size={12} />
+                      Google Maps
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sección: Habitantes y Contacto */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '8px', padding: '12px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>
+                    Responsable / Familia
+                  </span>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff' }}>
+                    {detalleVivienda.nombre_responsable || 'Familia comunera no especificada'}
+                  </div>
+                  <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+                    <Users size={14} color="#38bdf8" />
+                    <span style={{ color: 'var(--text-secondary)' }}>Carga poblacional:</span>
+                    <strong style={{ color: '#38bdf8' }}>{detalleVivienda.habitantes} habitantes</strong>
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '8px', padding: '12px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>
+                    Contacto de Emergencia
+                  </span>
+                  {detalleVivienda.telefono_contacto ? (
+                    <div>
+                      <a
+                        href={`tel:${detalleVivienda.telefono_contacto}`}
+                        style={{ fontSize: '14px', fontWeight: 700, color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+                      >
+                        <Phone size={14} /> {detalleVivienda.telefono_contacto}
+                      </a>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginTop: '6px' }}>
+                        Llamada directa o despacho de brigadista
+                      </span>
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                      Sin teléfono registrado
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Sección: Análisis de Material y Vulnerabilidad */}
+              {(() => {
+                const isVulnerable = detalleVivienda.material === 'tapial' || detalleVivienda.material === 'quincha' || detalleVivienda.material === 'madera';
+                return (
+                  <div
+                    style={{
+                      background: isVulnerable ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)',
+                      border: isVulnerable ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid rgba(16, 185, 129, 0.35)',
+                      borderRadius: '8px',
+                      padding: '14px'
+                    }}
                   >
-                    <Trash2 size={15} />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <ShieldAlert size={16} color={isVulnerable ? '#ef4444' : '#10b981'} />
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: isVulnerable ? '#ef4444' : '#10b981', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          {isVulnerable ? 'Alto Riesgo ante Incendio Forestal' : 'Resistencia Estructural Favorable'}
+                        </span>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          background: isVulnerable ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+                          color: isVulnerable ? '#ef4444' : '#10b981'
+                        }}
+                      >
+                        {detalleVivienda.material_display || detalleVivienda.material}
+                      </span>
+                    </div>
+
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                      {isVulnerable
+                        ? 'Material altamente combustible o vulnerable a pavesas (tapial/quincha/madera). En caso de frente de fuego a menos de 2.0 km con viento andino superior a 15 km/h, este predio debe recibir prioridad inmediata de evacuación o cortafuegos preventivo.'
+                        : 'Estructura construida en adobe/teja o material noble. Presenta mayor inercia térmica frente a pavesas directas. Mantener franja perimetral de pastizales desbrozada.'}
+                    </p>
+                  </div>
+                );
+              })()}
+
+              {/* Modal Footer Actions */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '14px', marginTop: '4px' }}>
+                <button
+                  type="button"
+                  className="btn-admin btn-admin-danger"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  onClick={() => {
+                    const toDelete = detalleVivienda;
+                    setDetalleVivienda(null);
+                    handleEliminarVivienda(toDelete);
+                  }}
+                >
+                  <Trash2 size={13} />
+                  Eliminar del Padrón
+                </button>
+
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    type="button"
+                    className="btn-admin btn-admin-outline"
+                    onClick={() => {
+                      const toEdit = detalleVivienda;
+                      setDetalleVivienda(null);
+                      handleOpenEditModal(toEdit);
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Edit size={13} />
+                    Editar Predio
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-admin btn-admin-primary"
+                    onClick={() => setDetalleVivienda(null)}
+                  >
+                    Cerrar Ficha
                   </button>
                 </div>
               </div>
-            );
-          })}
+            </div>
+          </div>
         </div>
       )}
 
@@ -768,15 +1055,12 @@ export const ViviendasAdmin: React.FC = () => {
                 </div>
 
                 <select
+                  className="admin-select"
                   value={newComunidadId}
                   onChange={(e) => handleSectorChange(Number(e.target.value))}
                   style={{
                     width: '100%',
-                    background: '#030712',
                     border: '1px solid #f59e0b',
-                    borderRadius: '6px',
-                    padding: '8px 12px',
-                    color: '#ffffff',
                     fontSize: '13px',
                     fontWeight: 600
                   }}
@@ -913,17 +1197,10 @@ export const ViviendasAdmin: React.FC = () => {
                     Material Predominante de Construcción
                   </label>
                   <select
+                    className="admin-select"
                     value={newMaterial}
                     onChange={(e) => setNewMaterial(e.target.value)}
-                    style={{
-                      width: '100%',
-                      background: 'rgba(0,0,0,0.5)',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                      borderRadius: '6px',
-                      padding: '8px 10px',
-                      color: '#ffffff',
-                      fontSize: '12px'
-                    }}
+                    style={{ width: '100%', fontSize: '12px' }}
                   >
                     {MATERIALES_OPCIONES.map((m) => (
                       <option key={m.valor} value={m.valor}>
@@ -1094,17 +1371,10 @@ export const ViviendasAdmin: React.FC = () => {
                     Material Constructivo
                   </label>
                   <select
+                    className="admin-select"
                     value={editMaterial}
                     onChange={(e) => setEditMaterial(e.target.value)}
-                    style={{
-                      width: '100%',
-                      background: 'rgba(0,0,0,0.5)',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                      borderRadius: '6px',
-                      padding: '8px 10px',
-                      color: '#ffffff',
-                      fontSize: '12px'
-                    }}
+                    style={{ width: '100%', fontSize: '12px' }}
                   >
                     {MATERIALES_OPCIONES.map((m) => (
                       <option key={m.valor} value={m.valor}>

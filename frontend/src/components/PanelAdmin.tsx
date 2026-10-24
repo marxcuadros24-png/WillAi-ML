@@ -14,7 +14,7 @@ import {
   PlusCircle,
   ExternalLink
 } from 'lucide-react';
-import type { MetricasKPI, MetricasFWI, Incidente, FocoCalor, ReporteCiudadano, Brigada } from '../types';
+import type { MetricasKPI, MetricasFWI, Incidente, FocoCalor, ReporteCiudadano, Brigada, GrillaRiesgoOcurrenciaData } from '../types';
 
 interface PanelAdminProps {
   metricas: MetricasKPI | null;
@@ -23,10 +23,13 @@ interface PanelAdminProps {
   focos: FocoCalor[];
   reportes: ReporteCiudadano[];
   brigadas: Brigada[];
+  grillaOcurrencia?: GrillaRiesgoOcurrenciaData | null;
   onNavigateTab: (tab: 'mapa' | 'incidentes' | 'reportes' | 'usuarios' | 'alertas' | 'donaciones' | 'satelites') => void;
   onOpenCreateIncident: () => void;
   onOpenAlertModal: () => void;
   onRefreshMeteo: () => void;
+  onEntrenarOcurrencia?: () => void;
+  onOpenRiesgoML?: () => void;
 }
 
 export const PanelAdmin: React.FC<PanelAdminProps> = ({
@@ -36,10 +39,13 @@ export const PanelAdmin: React.FC<PanelAdminProps> = ({
   focos,
   reportes,
   brigadas,
+  grillaOcurrencia,
   onNavigateTab,
   onOpenCreateIncident,
   onOpenAlertModal,
-  onRefreshMeteo
+  onRefreshMeteo,
+  onEntrenarOcurrencia,
+  onOpenRiesgoML
 }) => {
   const incidentesActivos = incidentes.filter(i => i.estado === 'pendiente' || i.estado === 'en_combate');
   const reportesPendientes = reportes.filter(r => r.estado === 'recibido' || r.estado === 'en_evaluacion');
@@ -224,6 +230,89 @@ export const PanelAdmin: React.FC<PanelAdminProps> = ({
           <div style={{ fontSize: '11px', color: '#4ade80' }}>
             Bomberos B-12, SERFOR, OGRD y Comunales
           </div>
+        </div>
+      </div>
+
+      {/* Widget Especial de Machine Learning: Riesgo de Ocurrencia Territorial */}
+      <div
+        style={{
+          background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(30, 41, 59, 0.7) 100%)',
+          border: '1px solid rgba(245, 158, 11, 0.35)',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '16px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div
+            style={{
+              width: '46px',
+              height: '46px',
+              borderRadius: '10px',
+              background: 'rgba(245, 158, 11, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#f59e0b'
+            }}
+          >
+            <ShieldAlert size={26} />
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '12px', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                MODELO MACHINE LEARNING: RIESGO DE OCURRENCIA (SUSCEPTIBILIDAD)
+              </span>
+              <span
+                style={{
+                  background: 'rgba(245, 158, 11, 0.2)',
+                  border: '1px solid rgba(245, 158, 11, 0.4)',
+                  color: '#f59e0b',
+                  padding: '2px 8px',
+                  borderRadius: '10px',
+                  fontSize: '11px',
+                  fontWeight: 800
+                }}
+              >
+                {grillaOcurrencia?.metadata?.total_celdas ?? 72} CELDAS EVALUADAS
+              </span>
+            </div>
+            <div style={{ fontSize: '12.5px', color: '#e2e8f0', marginTop: '3px' }}>
+              Entrenado con 765 detecciones reales de NASA FIRMS (MODIS + VIIRS) y series de Open-Meteo. Validación temporal estricta sin fuga de información.
+            </div>
+            {grillaOcurrencia?.metadata?.metricas_modelo?.random_forest_calibrado && (
+              <div style={{ display: 'flex', gap: '12px', fontSize: '11.5px', marginTop: '5px', color: '#94a3b8' }}>
+                <span>ROC-AUC: <strong style={{ color: '#38bdf8' }}>{grillaOcurrencia.metadata.metricas_modelo.random_forest_calibrado.roc_auc}</strong></span>
+                <span>PR-AUC: <strong style={{ color: '#10b981' }}>{grillaOcurrencia.metadata.metricas_modelo.random_forest_calibrado.pr_auc}</strong></span>
+                <span>F1-Score: <strong style={{ color: '#f59e0b' }}>{grillaOcurrencia.metadata.metricas_modelo.random_forest_calibrado.f1_score}</strong></span>
+                <span>Brier Score: <strong style={{ color: '#a78bfa' }}>{grillaOcurrencia.metadata.metricas_modelo.random_forest_calibrado.brier_score}</strong></span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {onEntrenarOcurrencia && (
+            <button
+              className="btn-admin btn-admin-outline"
+              style={{ padding: '8px 12px', fontSize: '12px', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)' }}
+              onClick={onEntrenarOcurrencia}
+              title="Re-entrenar modelo Random Forest con NASA FIRMS y Open-Meteo"
+            >
+              <RefreshCw size={14} /> Reentrenar ML
+            </button>
+          )}
+          <button
+            className="btn-admin"
+            style={{ padding: '8px 14px', fontSize: '12px', background: '#d97706', color: '#ffffff', fontWeight: 700 }}
+            onClick={() => onOpenRiesgoML ? onOpenRiesgoML() : onNavigateTab('mapa')}
+          >
+            Ver Capa en Mapa Táctico 🗺️
+          </button>
         </div>
       </div>
 

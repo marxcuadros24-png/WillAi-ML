@@ -1,7 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import { Calendar, Wind, Check } from 'lucide-react';
-import type { Incidente, FocoCalor, Brigada, PrediccionViento12hData, ViviendaRural } from '../types';
+import { Calendar, Wind, Check, ShieldAlert, MapPin } from 'lucide-react';
+import type { Incidente, FocoCalor, Brigada, PrediccionViento12hData, ViviendaRural, GrillaRiesgoOcurrenciaData } from '../types';
+import {
+  LIMITE_PROVINCIAL_PARINACOCHAS,
+  LIMITES_DISTRITALES_PARINACOCHAS,
+  REFERENCIAS_PROVINCIAS_LIMITROFES,
+} from '../data/demarcacionParinacochas';
 
 interface TacticalMapProps {
   incidentes: Incidente[];
@@ -15,16 +20,23 @@ interface TacticalMapProps {
   showViirs: boolean;
   showSerfor: boolean;
   showVientoML: boolean;
+  showRiesgoOcurrencia?: boolean;
   showIncidentes: boolean;
   showBrigadas: boolean;
   showViviendas?: boolean;
+  showLimiteProvincial?: boolean;
+  showDistritos?: boolean;
   onToggleModis: (val: boolean) => void;
   onToggleViirs: (val: boolean) => void;
   onToggleSerfor: (val: boolean) => void;
   onToggleVientoML: (val: boolean) => void;
+  onToggleRiesgoOcurrencia?: (val: boolean) => void;
   onToggleIncidentes: (val: boolean) => void;
   onToggleBrigadas: (val: boolean) => void;
   onToggleViviendas?: (val: boolean) => void;
+  onToggleLimiteProvincial?: (val: boolean) => void;
+  onToggleDistritos?: (val: boolean) => void;
+  grillaOcurrencia?: GrillaRiesgoOcurrenciaData | null;
   // Timeline filter states
   timeRange: 'today' | '24h' | '7d' | '30d' | '3m' | '6m' | 'custom';
   onChangeTimeRange: (val: 'today' | '24h' | '7d' | '30d' | '3m' | '6m' | 'custom') => void;
@@ -34,6 +46,7 @@ interface TacticalMapProps {
   // Selected hour in 12h forecast
   selectedHourIdx?: number;
   selectedIncidente?: Incidente | null;
+  focusCoords?: [number, number] | null;
   onMapCreateIncident?: (lat: number, lon: number) => void;
   onMapCreateVivienda?: (lat: number, lon: number) => void;
 }
@@ -49,16 +62,23 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   showViirs,
   showSerfor,
   showVientoML,
+  showRiesgoOcurrencia = true,
   showIncidentes,
   showBrigadas,
   showViviendas = true,
+  showLimiteProvincial = true,
+  showDistritos = false,
   onToggleModis,
   onToggleViirs,
   onToggleSerfor,
   onToggleVientoML,
+  onToggleRiesgoOcurrencia,
   onToggleIncidentes,
   onToggleBrigadas,
   onToggleViviendas,
+  onToggleLimiteProvincial,
+  onToggleDistritos,
+  grillaOcurrencia = null,
   timeRange,
   onChangeTimeRange,
   fechaDesde,
@@ -66,6 +86,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   onApplyCustomDates,
   selectedHourIdx = 0,
   selectedIncidente = null,
+  focusCoords = null,
   onMapCreateIncident,
   onMapCreateVivienda
 }) => {
@@ -94,18 +115,24 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   const [inputHasta, setInputHasta] = useState(fechaHasta || '2026-10-22');
 
   const layersRef = useRef<{
+    limiteProvincial: L.LayerGroup;
+    distritos: L.LayerGroup;
     modis: L.LayerGroup;
     viirs: L.LayerGroup;
     serfor: L.LayerGroup;
     vientoML: L.LayerGroup;
+    riesgoOcurrencia: L.LayerGroup;
     incidentes: L.LayerGroup;
     brigadas: L.LayerGroup;
     viviendas: L.LayerGroup;
   }>({
+    limiteProvincial: L.layerGroup(),
+    distritos: L.layerGroup(),
     modis: L.layerGroup(),
     viirs: L.layerGroup(),
     serfor: L.layerGroup(),
     vientoML: L.layerGroup(),
+    riesgoOcurrencia: L.layerGroup(),
     incidentes: L.layerGroup(),
     brigadas: L.layerGroup(),
     viviendas: L.layerGroup(),
@@ -144,11 +171,14 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       }
     ).addTo(map);
 
-    // Attach layers
+    // Attach layers (boundaries underneath overlays and markers)
+    layersRef.current.limiteProvincial.addTo(map);
+    layersRef.current.distritos.addTo(map);
     layersRef.current.modis.addTo(map);
     layersRef.current.viirs.addTo(map);
     layersRef.current.serfor.addTo(map);
     layersRef.current.vientoML.addTo(map);
+    layersRef.current.riesgoOcurrencia.addTo(map);
     layersRef.current.incidentes.addTo(map);
     layersRef.current.brigadas.addTo(map);
     layersRef.current.viviendas.addTo(map);
@@ -251,6 +281,13 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       mapInstanceRef.current.flyTo([selectedIncidente.latitud, selectedIncidente.longitud], 14, { duration: 1.0 });
     }
   }, [selectedIncidente]);
+
+  // Smooth flyTo when specific coordinates are focused (e.g. from ML Occurrence panel)
+  useEffect(() => {
+    if (focusCoords && mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo(focusCoords, 14, { duration: 1.0 });
+    }
+  }, [focusCoords]);
 
   // Filter focos by sensor
   const focosModis = focos.filter((f) => f.sensor?.toUpperCase().includes('MODIS'));
@@ -536,6 +573,76 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     }
   }, [viento12h, showVientoML, selectedHourIdx]);
 
+  // Update Occurrence Risk Grid Layer (Machine Learning Susceptibility Grid)
+  useEffect(() => {
+    const layer = layersRef.current.riesgoOcurrencia;
+    layer.clearLayers();
+    if (!showRiesgoOcurrencia || !grillaOcurrencia || !grillaOcurrencia.features) return;
+
+    try {
+      const geoJsonLayer = L.geoJSON(grillaOcurrencia as any, {
+        style: (feat) => {
+          const p = feat?.properties || {};
+          const color = p.color_hex || '#f59e0b';
+          return {
+            color: color,
+            weight: 1.8,
+            opacity: 0.95,
+            fillColor: color,
+            fillOpacity: 0.32,
+            dashArray: '4, 4'
+          };
+        },
+        onEachFeature: (feat, layerItem: any) => {
+          const p = feat.properties || {};
+          const color = p.color_hex || '#f59e0b';
+
+          layerItem.on({
+            mouseover: () => {
+              layerItem.setStyle({
+                weight: 3,
+                fillOpacity: 0.65,
+                dashArray: ''
+              });
+            },
+            mouseout: () => {
+              geoJsonLayer.resetStyle(layerItem);
+            }
+          });
+
+          layerItem.bindPopup(`
+            <div style="font-family: inherit; font-size: 12px; color: #f8fafc; padding: 4px; min-width: 240px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 4px;">
+                <strong style="color: ${color}; text-transform: uppercase; font-size: 12.5px;">
+                  🛡️ Riesgo ML: ${(p.nivel_riesgo || 'bajo').toUpperCase()} (${p.probabilidad_pct ?? 0}%)
+                </strong>
+                <span style="font-size: 10px; color: #94a3b8; font-family: monospace;">#Celda ${p.id_celda}</span>
+              </div>
+              <div style="grid-template-columns: 1fr 1fr; display: grid; gap: 4px; font-size: 11px; margin-bottom: 6px;">
+                <div><span style="color: #94a3b8;">Elevación:</span> <b style="color: #fff;">${p.elevacion_m} m</b></div>
+                <div><span style="color: #94a3b8;">Pendiente:</span> <b style="color: #fff;">${p.pendiente_deg}°</b></div>
+                <div><span style="color: #94a3b8;">C. Poblado:</span> <b style="color: #fb923c;">${p.comunidad_cercana}</b></div>
+                <div><span style="color: #94a3b8;">Distancia:</span> <b style="color: #fff;">${p.distancia_comunidad_km} km</b></div>
+                <div><span style="color: #94a3b8;">FWI Canadiense:</span> <b style="color: #f87171;">${p.fwi}</b></div>
+                <div><span style="color: #94a3b8;">Temperatura:</span> <b style="color: #fb923c;">${p.temperatura_c} °C</b></div>
+              </div>
+              <div style="font-size: 10px; color: #cbd5e1; background: rgba(0,0,0,0.4); padding: 5px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.08);">
+                <span>🛰️ Modelo: Random Forest Calibrado (Platt)</span><br/>
+                <span>⏱️ Actualizado: ${p.fecha_actualizacion}</span>
+              </div>
+            </div>
+          `);
+        }
+      });
+      layer.addLayer(geoJsonLayer);
+      if (mapInstanceRef.current && !mapInstanceRef.current.hasLayer(layer)) {
+        layer.addTo(mapInstanceRef.current);
+      }
+    } catch (e) {
+      console.warn('Error al renderizar capa GeoJSON de ocurrencia:', e);
+    }
+  }, [grillaOcurrencia, showRiesgoOcurrencia]);
+
   // Update Incidentes Layer (Generic Circular Markers, excluding closed incidents)
   useEffect(() => {
     const layer = layersRef.current.incidentes;
@@ -799,9 +906,105 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     });
   }, [viviendas, showViviendas]);
 
+  // Update Parinacochas Provincial Boundary Layer (Official IGN / INEI Demarcation)
+  // Purely territorial reference with other provinces - zero hover tooltips or mouse capture
+  useEffect(() => {
+    const layer = layersRef.current.limiteProvincial;
+    layer.clearLayers();
+    if (!showLimiteProvincial) return;
+
+    try {
+      const provGeoJson = L.geoJSON(LIMITE_PROVINCIAL_PARINACOCHAS as any, {
+        interactive: false, // Disables all hover events, tooltips, and pointer capture
+        style: {
+          color: '#38bdf8', // Tactical Sky Cyan border
+          weight: 2.4,
+          opacity: 0.92,
+          dashArray: '8, 6',
+          fillColor: '#0284c7',
+          fillOpacity: 0.02,
+        },
+      });
+
+      layer.addLayer(provGeoJson);
+
+      // Subtle, non-intrusive boundary references indicating neighboring provinces
+      REFERENCIAS_PROVINCIAS_LIMITROFES.forEach((ref) => {
+        const badgeHtml = `
+          <div style="
+            pointer-events: none;
+            user-select: none;
+            font-family: monospace;
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(4px);
+            border: 1px dashed rgba(56, 189, 248, 0.45);
+            border-radius: 4px;
+            padding: 2px 7px;
+            white-space: nowrap;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+          ">
+            ${ref.nombre}
+          </div>
+        `;
+
+        const icon = L.divIcon({
+          html: badgeHtml,
+          className: 'tactical-border-ref',
+          iconSize: [160, 20],
+          iconAnchor: [80, 10],
+        });
+
+        const marker = L.marker([ref.lat, ref.lon], { icon, interactive: false, zIndexOffset: 200 });
+        layer.addLayer(marker);
+      });
+    } catch (e) {
+      console.warn('Error al renderizar límite provincial de Parinacochas:', e);
+    }
+  }, [showLimiteProvincial]);
+
+  // Update Parinacochas Internal District Boundaries (Optional subtle lines)
+  // Completely passive reference lines - zero hover tooltips or popups
+  useEffect(() => {
+    const layer = layersRef.current.distritos;
+    layer.clearLayers();
+    if (!showLimiteProvincial || !showDistritos) return;
+
+    try {
+      const distGeoJson = L.geoJSON(LIMITES_DISTRITALES_PARINACOCHAS as any, {
+        interactive: false, // Completely passive, no hover events or tooltips
+        style: {
+          color: '#475569', // Subtle slate interior division
+          weight: 1.1,
+          opacity: 0.55,
+          dashArray: '3, 4',
+          fillColor: 'transparent',
+          fillOpacity: 0,
+        },
+      });
+
+      layer.addLayer(distGeoJson);
+    } catch (e) {
+      console.warn('Error al renderizar distritos de Parinacochas:', e);
+    }
+  }, [showLimiteProvincial, showDistritos]);
+
   const handleCenterCoracora = () => {
     if (mapInstanceRef.current) {
       mapInstanceRef.current.flyTo(CORACORA_COORDS, 13, { duration: 1.2 });
+    }
+  };
+
+  const handleFitParinacochas = () => {
+    if (mapInstanceRef.current) {
+      const bounds = L.latLngBounds(
+        [-15.60, -74.20],
+        [-14.50, -73.35]
+      );
+      mapInstanceRef.current.fitBounds(bounds, { padding: [25, 25], duration: 1.2 });
     }
   };
 
@@ -891,19 +1094,30 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
       {/* Floating Tactical Layer Toggles (Matching Screenshot Layers) */}
       <div className="map-floating-panel">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px', marginBottom: '6px' }}>
-          <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-accent)', letterSpacing: '0.04em', fontFamily: 'var(--font-mono)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px', marginBottom: '6px', gap: '8px' }}>
+          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-accent)', letterSpacing: '0.04em', fontFamily: 'var(--font-mono)' }}>
             CAPAS & SENSORES
           </span>
-          <button
-            id="btn-recenter"
-            className="btn-admin btn-admin-outline"
-            style={{ padding: '3px 8px', fontSize: '11.5px' }}
-            onClick={handleCenterCoracora}
-            title="Centrar en Coracora"
-          >
-            🎯 Coracora
-          </button>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <button
+              id="btn-fit-parinacochas"
+              className="btn-admin btn-admin-outline"
+              style={{ padding: '2px 6px', fontSize: '10.5px', borderColor: 'rgba(56, 189, 248, 0.4)', color: '#38bdf8' }}
+              onClick={handleFitParinacochas}
+              title="Encuadrar todo el territorio de la Provincia de Parinacochas"
+            >
+              🇵🇪 Parinacochas
+            </button>
+            <button
+              id="btn-recenter"
+              className="btn-admin btn-admin-outline"
+              style={{ padding: '2px 6px', fontSize: '10.5px' }}
+              onClick={handleCenterCoracora}
+              title="Centrar en Coracora (Capital)"
+            >
+              🎯 Coracora
+            </button>
+          </div>
         </div>
 
         {/* MODIS Sensor Toggle */}
@@ -956,6 +1170,26 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           </span>
         </label>
 
+        {/* Occurrence Risk ML Grid Layer Toggle */}
+        <label className="map-layer-toggle" id="layer-ocurrencia-ml-toggle" style={{ color: '#f59e0b' }}>
+          <input
+            type="checkbox"
+            checked={showRiesgoOcurrencia}
+            onChange={(e) => onToggleRiesgoOcurrencia?.(e.target.checked)}
+          />
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
+            <ShieldAlert size={14} color="#f59e0b" /> Riesgo Ocurrencia ML ({grillaOcurrencia?.features?.length || 0})
+          </span>
+        </label>
+        {showRiesgoOcurrencia && (
+          <div style={{ display: 'flex', gap: '6px', fontSize: '10px', paddingLeft: '22px', marginTop: '-3px', marginBottom: '2px', color: '#94a3b8' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><span style={{ width: '7px', height: '7px', borderRadius: '2px', background: '#10b981', display: 'inline-block' }}></span> &lt;25%</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><span style={{ width: '7px', height: '7px', borderRadius: '2px', background: '#f59e0b', display: 'inline-block' }}></span> 25-55%</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><span style={{ width: '7px', height: '7px', borderRadius: '2px', background: '#f97316', display: 'inline-block' }}></span> 55-80%</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><span style={{ width: '7px', height: '7px', borderRadius: '2px', background: '#ef4444', display: 'inline-block' }}></span> &gt;80%</span>
+          </div>
+        )}
+
         {/* Incidentes & Brigadas */}
         <label className="map-layer-toggle" id="layer-inc-toggle">
           <input
@@ -989,6 +1223,33 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             <span style={{ color: '#f59e0b' }}>🏠</span> Viviendas ({viviendas.length})
           </span>
         </label>
+
+        {/* Límite Territorial Oficial de Parinacochas (IGN / INEI) */}
+        <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '4px 0' }} />
+
+        <label className="map-layer-toggle" id="layer-limite-prov-toggle" style={{ color: '#38bdf8' }}>
+          <input
+            type="checkbox"
+            checked={showLimiteProvincial}
+            onChange={(e) => onToggleLimiteProvincial?.(e.target.checked)}
+          />
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
+            <MapPin size={14} color="#38bdf8" /> Límite Parinacochas (IGN)
+          </span>
+        </label>
+
+        {showLimiteProvincial && (
+          <label className="map-layer-toggle" id="layer-distritos-toggle" style={{ paddingLeft: '22px', fontSize: '11px', color: '#94a3b8' }}>
+            <input
+              type="checkbox"
+              checked={showDistritos}
+              onChange={(e) => onToggleDistritos?.(e.target.checked)}
+            />
+            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span>🏛️</span> 8 Distritos e Hitos
+            </span>
+          </label>
+        )}
       </div>
 
       {/* Modal for Custom Date Range */}
