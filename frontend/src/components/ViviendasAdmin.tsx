@@ -28,6 +28,7 @@ import {
   eliminarVivienda
 } from '../services/api';
 import { Pagination } from './Pagination';
+import { useAppContext } from '../context/AppContext';
 
 const COMUNIDADES_CORACORA = [
   { id: 1, nombre: 'Coracora Centro', lat: -15.0189, lon: -73.7806 },
@@ -52,6 +53,14 @@ const MATERIALES_OPCIONES = [
 
 export const ViviendasAdmin: React.FC = () => {
   const navigate = useNavigate();
+  let loadAllData: (() => Promise<void>) | undefined;
+  try {
+    const ctx = useAppContext();
+    loadAllData = ctx?.loadAllData;
+  } catch {
+    // Rendered outside outlet context
+  }
+
   const [viviendas, setViviendas] = useState<ViviendaRural[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
@@ -195,6 +204,7 @@ export const ViviendasAdmin: React.FC = () => {
         setIsCreateModalOpen(false);
         showNotification(`✅ Vivienda "${res.codigo || 'creada'}" registrada exitosamente en el padrón.`);
         await cargarDatos();
+        loadAllData?.();
       }
     } catch (err: any) {
       alert(`Error al registrar vivienda: ${err.message || 'Error de conexión'}`);
@@ -237,6 +247,7 @@ export const ViviendasAdmin: React.FC = () => {
       setIsEditModalOpen(false);
       showNotification(`✅ Vivienda "${editingVivienda.codigo}" actualizada con éxito.`);
       await cargarDatos();
+      loadAllData?.();
     } catch (err: any) {
       alert(`Error al actualizar vivienda: ${err.message}`);
     } finally {
@@ -253,6 +264,7 @@ export const ViviendasAdmin: React.FC = () => {
       await eliminarVivienda(v.id);
       showNotification(`🗑️ Vivienda "${v.codigo}" eliminada.`);
       await cargarDatos();
+      loadAllData?.();
     } catch (err: any) {
       alert(`Error al eliminar vivienda: ${err.message}`);
     }

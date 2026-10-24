@@ -169,7 +169,7 @@ export const App: React.FC = () => {
   // Reload all operational & administrative data
   const loadAllData = async () => {
     try {
-      const [inc, foc, v12h, hist, meteo, bri, alt, dash, vivs, grilla] = await Promise.all([
+      const results = await Promise.allSettled([
         fetchIncidentes(),
         fetchFocosFirms(1),
         fetchPrediccionViento12h(),
@@ -181,21 +181,23 @@ export const App: React.FC = () => {
         fetchViviendas(),
         fetchRiesgoOcurrencia()
       ]);
-      setIncidentes(inc);
-      setFocos(foc);
-      setViento12h(v12h);
-      setHistorialFirms(hist);
-      setFwi(meteo);
-      setBrigadas(bri);
-      setAlertas(alt);
-      setViviendas(vivs);
-      if (grilla) setGrillaOcurrencia(grilla);
-      if (dash) {
+
+      if (results[0].status === 'fulfilled') setIncidentes(results[0].value);
+      if (results[1].status === 'fulfilled') setFocos(results[1].value);
+      if (results[2].status === 'fulfilled') setViento12h(results[2].value);
+      if (results[3].status === 'fulfilled') setHistorialFirms(results[3].value);
+      if (results[4].status === 'fulfilled') setFwi(results[4].value);
+      if (results[5].status === 'fulfilled') setBrigadas(results[5].value);
+      if (results[6].status === 'fulfilled') setAlertas(results[6].value);
+      if (results[7].status === 'fulfilled' && results[7].value) {
+        const dash = results[7].value;
         if (dash.reportes) setReportes(dash.reportes);
         if (dash.donaciones) setDonaciones(dash.donaciones);
         if (dash.lotes_satelitales) setLotesSatelitales(dash.lotes_satelitales);
         if (dash.metricas) setMetricas(dash.metricas);
       }
+      if (results[8].status === 'fulfilled') setViviendas(results[8].value);
+      if (results[9].status === 'fulfilled' && results[9].value) setGrillaOcurrencia(results[9].value);
     } catch (err) {
       console.error('Error al sincronizar datos con backend:', err);
     }
@@ -297,8 +299,10 @@ export const App: React.FC = () => {
   };
 
   const handleOpenCreateViviendaWithCoords = (lat: number, lon: number) => {
-    setNewVivLat(parseFloat(lat.toFixed(4)));
-    setNewVivLon(parseFloat(lon.toFixed(4)));
+    const latFixed = parseFloat(lat.toFixed(5));
+    const lonFixed = parseFloat(lon.toFixed(5));
+    setNewVivLat(latFixed);
+    setNewVivLon(lonFixed);
 
     let closestSector = SECTORES_CORACORA[0];
     let minDistance = 999999;
@@ -315,7 +319,7 @@ export const App: React.FC = () => {
       setNewVivReferencia(`Vivienda rural en sector ${closestSector.nombre}`);
     } else {
       setNewVivSectorId(0);
-      setNewVivReferencia(`Vivienda en coordenadas (${lat.toFixed(4)}, ${lon.toFixed(4)})`);
+      setNewVivReferencia(`Vivienda en coordenadas (${latFixed}, ${lonFixed})`);
     }
 
     setIsCreateViviendaModalOpen(true);
@@ -340,7 +344,18 @@ export const App: React.FC = () => {
       setIsCreateViviendaModalOpen(false);
       setNewVivReferencia('');
       setNewVivResponsable('');
-      await loadAllData();
+
+      // Asegurar que la capa de viviendas en el mapa esté encendida
+      setShowViviendas(true);
+
+      // Cargar padrón actualizado inmediatamente para refresco instantáneo del mapa
+      const freshVivs = await fetchViviendas();
+      if (freshVivs && freshVivs.length > 0) {
+        setViviendas(freshVivs);
+      }
+
+      // Sincronizar el resto del estado operativo
+      loadAllData();
     } catch (err) {
       showToast('Error al registrar vivienda rural');
     }
@@ -1150,10 +1165,8 @@ export const App: React.FC = () => {
                       const id = Number(e.target.value);
                       setNewVivSectorId(id);
                       const sec = SECTORES_CORACORA.find((s) => s.id === id);
-                      if (sec) {
-                        setNewVivLat(parseFloat(sec.lat.toFixed(4)));
-                        setNewVivLon(parseFloat(sec.lon.toFixed(4)));
-                        setNewVivReferencia(`Vivienda en ${sec.nombre}`);
+                      if (sec && (!newVivReferencia || newVivReferencia.startsWith('Vivienda'))) {
+                        setNewVivReferencia(`Vivienda rural en sector ${sec.nombre}`);
                       }
                     }}
                     style={{
@@ -1172,7 +1185,7 @@ export const App: React.FC = () => {
                         {sec.nombre} ({sec.referencia})
                       </option>
                     ))}
-                    <option value={0}>⚙️ Coordenadas exactas en mapa</option>
+                    <option value={0}>📍 Coordenadas exactas en mapa (Punto GPS personalizado)</option>
                   </select>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
@@ -1180,7 +1193,7 @@ export const App: React.FC = () => {
                       <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>Latitud</label>
                       <input
                         type="number"
-                        step="0.0001"
+                        step="any"
                         required
                         value={newVivLat}
                         onChange={(e) => setNewVivLat(parseFloat(e.target.value))}
@@ -1191,13 +1204,18 @@ export const App: React.FC = () => {
                       <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>Longitud</label>
                       <input
                         type="number"
-                        step="0.0001"
+                        step="any"
                         required
                         value={newVivLon}
                         onChange={(e) => setNewVivLon(parseFloat(e.target.value))}
                         style={{ width: '100%', background: '#030712', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '6px 8px', color: '#fff', fontSize: '12px', fontFamily: 'var(--font-mono)' }}
                       />
                     </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '11px', color: '#38bdf8', background: 'rgba(56, 189, 248, 0.1)', padding: '5px 8px', borderRadius: '4px' }}>
+                    <Crosshair size={12} />
+                    <span>Ubicación GPS capturada del mapa: <strong>{newVivLat}, {newVivLon}</strong></span>
                   </div>
                 </div>
 

@@ -1595,3 +1595,10 @@ select option {
   background: transparent !important;
   border: none !important;
 }
+
+/* Marcadores Tácticos de Viviendas Rurales y Brigadas */
+.custom-vivienda-tactical-marker,
+.custom-brigada-marker {
+  background: transparent !important;
+  border: none !important;
+}

@@ -853,36 +853,44 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
     if (!showViviendas || !viviendas || viviendas.length === 0) return;
 
+    if (mapInstanceRef.current && !mapInstanceRef.current.hasLayer(layer)) {
+      layer.addTo(mapInstanceRef.current);
+    }
+
     viviendas.forEach((viv) => {
+      const lat = typeof viv.latitud === 'string' ? parseFloat(viv.latitud) : Number(viv.latitud);
+      const lon = typeof viv.longitud === 'string' ? parseFloat(viv.longitud) : Number(viv.longitud);
+      if (lat == null || lon == null || isNaN(lat) || isNaN(lon) || lat === 0 || lon === 0) return;
+
       const isVulnerable = viv.material === 'tapial' || viv.material === 'quincha' || viv.material === 'madera';
       const markerBorder = isVulnerable ? '#ef4444' : '#f59e0b';
-      const markerBg = isVulnerable ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)';
+      const markerBg = isVulnerable ? 'rgba(239, 68, 68, 0.35)' : 'rgba(245, 158, 11, 0.35)';
 
       const icon = L.divIcon({
         className: 'custom-vivienda-tactical-marker',
         html: `
           <div style="
-            width: 24px;
-            height: 24px;
+            width: 26px;
+            height: 26px;
             background: #0f172a;
             border: 2px solid ${markerBorder};
             border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
-            box-shadow: 0 0 8px ${markerBg}, 0 2px 8px rgba(0,0,0,0.7);
+            font-size: 13px;
+            box-shadow: 0 0 10px ${markerBg}, 0 2px 8px rgba(0,0,0,0.85);
             cursor: pointer;
             transition: transform 0.15s ease;
           " title="${viv.codigo} (${viv.comunidad}): ${viv.referencia}">
             🏠
           </div>
         `,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
       });
 
-      const marker = L.marker([viv.latitud, viv.longitud], { icon, zIndexOffset: 800 });
+      const marker = L.marker([lat, lon], { icon, zIndexOffset: 950 });
 
       const popupHtml = `
         <div style="font-family: Inter, sans-serif; min-width: 210px; padding: 4px;">
