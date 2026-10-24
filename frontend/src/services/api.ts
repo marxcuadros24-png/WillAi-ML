@@ -7,7 +7,10 @@ import type {
   PrediccionViento12hData,
   HistorialFirmsResponse,
   UsuarioSistema,
-  RolSistema
+  RolSistema,
+  CrearBrigadaPayload,
+  ViviendaRural,
+  CrearViviendaPayload
 } from '../types';
 
 const API_BASE = 'http://127.0.0.1:8000/api/v1';
@@ -87,12 +90,12 @@ export async function fetchIncidentes(): Promise<Incidente[]> {
       titulo: item.titulo,
       descripcion: item.descripcion || '',
       severidad: (item.prioridad === 'critica' ? 'critica' : (item.prioridad === 'alta' ? 'alta' : (item.prioridad === 'baja' ? 'baja' : 'media'))),
-      estado: (item.estado === 'en_atencion' || item.estado === 'confirmado' ? 'en_combate' : (item.estado === 'controlado' ? 'controlado' : (item.estado === 'cerrado' ? 'extinguido' : 'pendiente'))),
+      estado: (item.estado === 'cerrado' ? 'cerrado' : (item.estado === 'en_atencion' || item.estado === 'confirmado' || item.estado === 'asignado' ? 'en_combate' : (item.estado === 'controlado' || item.estado === 'contenido' ? 'controlado' : (item.estado === 'extinguido' ? 'extinguido' : 'pendiente')))),
       latitud: parseFloat(item.latitud_referencia || -15.0189),
       longitud: parseFloat(item.longitud_referencia || -73.7806),
       comunidad: item.comunidad_nombre || 'Coracora',
       fecha_inicio: item.detectado_en || item.creado_en || 'Reciente',
-      brigadas_asignadas: [],
+      brigadas_asignadas: (item.brigadas_asignadas || []).map((b: any) => typeof b === 'string' ? b : b.nombre),
       viviendas_riesgo: item.viviendas_afectadas_conteo || 0,
       reportado_por: item.origen || 'Sistema',
       origen: 'satelital'
@@ -272,23 +275,86 @@ export async function fetchFWI(forzarRefresco: boolean = false): Promise<Metrica
  */
 export async function fetchBrigadas(): Promise<Brigada[]> {
   try {
+    // Primero intentar desde el endpoint del Centro de Mando Táctico que incluye los integrantes
+    const resPanel = await fetch('http://127.0.0.1:8000/panel/api/brigadas/', { cache: 'no-store' });
+    if (resPanel.ok) {
+      const data = await resPanel.json();
+      if (data.success && Array.isArray(data.brigadas)) {
+        return data.brigadas.map((item: any) => ({
+          id: item.id,
+          nombre: item.nombre,
+          entidad: item.entidad || 'Defensa Civil Provincial',
+          entidad_id: item.entidad_id,
+          tipo: item.tipo,
+          tipo_display: item.tipo_display,
+          comunidad: item.comunidad || 'Coracora',
+          comunidad_id: item.comunidad_id,
+          estado: item.estado,
+          estado_display: item.estado_display,
+          numero_efectivos: item.numero_efectivos || (item.integrantes ? item.integrantes.length : 6),
+          lider: item.lider || 'Coordinador OGRD',
+          telefono: item.telefono || '+51 966 321 445',
+          recursos_asignados: item.recursos_asignados || ['Mochilas extintoras', 'Batefuegos', 'Radios portátiles'],
+          latitud: item.latitud,
+          longitud: item.longitud,
+          incidente_asignado: item.incidente_asignado,
+          integrantes: item.integrantes || [],
+          creada_en: item.creada_en || ''
+        }));
+      }
+    }
+
+    // Fallback a API REST DRF
     const res = await fetch(`${API_BASE}/respuesta/brigadas/`, { cache: 'no-store' });
     if (!res.ok) return [];
     const data = await res.json();
     const list = data.results || (Array.isArray(data) ? data : []);
 
-    return list.map((item: any) => ({
-      id: item.id_brigada,
-      nombre: item.nombre,
-      entidad: item.entidad_nombre || 'Defensa Civil Provincial',
-      estado: (item.estado === 'ocupada' ? 'en_operacion' : (item.estado === 'disponible' ? 'disponible' : 'en_descanso')),
-      numero_efectivos: item.cantidad_integrantes || 8,
-      lider: item.lider_nombre || 'Coordinador OGRD',
-      telefono: item.telefono_contacto || '+51 966 321 445',
-      recursos_asignados: ['Mochilas extintoras', 'Batefuegos', 'Radios portátiles'],
-      latitud: item.latitud_base ? parseFloat(item.latitud_base) : -15.0280,
-      longitud: item.longitud_base ? parseFloat(item.longitud_base) : -73.7890
-    }));
+    return list.map((item: any) => {
+      const rawEstado = (item.estado || '').toLowerCase();
+      const hasIncidente = !!item.incidente_asignado;
+      const isDesplegada = rawEstado === 'desplegada' || rawEstado === 'ocupada' || hasIncidente;
+      const estado = isDesplegada ? 'desplegada' : (rawEstado === 'disponible' ? 'disponible' : 'en_descanso');
+
+      return {
+        id: item.id_brigada,
+        nombre: item.nombre,
+        entidad: item.entidad_nombre || 'Defensa Civil Provincial',
+        entidad_id: item.entidad,
+        tipo: item.tipo,
+        tipo_display: item.tipo_display,
+        comunidad: item.comunidad_nombre || 'Coracora',
+        comunidad_id: item.comunidad,
+        estado: estado,
+        estado_display: item.estado_display,
+        numero_efectivos: item.cantidad_integrantes || (item.integrantes ? item.integrantes.length : 6),
+        lider: item.lider_nombre || 'Coordinador OGRD',
+        telefono: item.telefono_contacto || '+51 966 321 445',
+        recursos_asignados: ['Mochilas extintoras', 'Batefuegos', 'Radios portátiles'],
+        latitud: item.latitud_base ? parseFloat(item.latitud_base) : -15.0280,
+        longitud: item.longitud_base ? parseFloat(item.longitud_base) : -73.7890,
+        incidente_asignado: item.incidente_asignado ? {
+          id_asignacion: item.incidente_asignado.id_asignacion,
+          id_incidente: item.incidente_asignado.id_incidente,
+          codigo: item.incidente_asignado.codigo,
+          titulo: item.incidente_asignado.titulo,
+          latitud: parseFloat(item.incidente_asignado.latitud),
+          longitud: parseFloat(item.incidente_asignado.longitud),
+          rol: item.incidente_asignado.rol || 'combate_directo',
+          estado_asignacion: item.incidente_asignado.estado_asignacion || 'asignada',
+          asignada_en: item.incidente_asignado.asignada_en || ''
+        } : null,
+        integrantes: (item.integrantes || []).map((i: any) => ({
+          id_brigadista: i.id,
+          id_usuario: i.usuario,
+          nombre: i.nombre_completo || i.username,
+          username: i.username,
+          funcion: i.funcion,
+          activo: i.activo
+        })),
+        creada_en: item.creada_en || ''
+      };
+    });
   } catch (err) {
     console.warn('Error al consultar brigadas reales:', err);
     return [];
@@ -369,6 +435,37 @@ export async function validarReporte(idReporte: number, resultado: 'validado' | 
 }
 
 /**
+ * Elimina físicamente un reporte falso, descartado o duplicado de la base de datos.
+ */
+export async function eliminarReporte(idReporte: number) {
+  const res = await fetch(`http://127.0.0.1:8000/panel/api/reportes/${idReporte}/eliminar/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) throw new Error('Error al eliminar reporte');
+  return await res.json();
+}
+
+export interface SectorGeografico {
+  id: number;
+  nombre: string;
+  lat: number;
+  lon: number;
+  referencia: string;
+}
+
+export const SECTORES_CORACORA: SectorGeografico[] = [
+  { id: 1, nombre: 'Coracora Centro', lat: -15.0189, lon: -73.7806, referencia: 'Plaza Mayor y casco urbano' },
+  { id: 2, nombre: 'Secce', lat: -15.0450, lon: -73.7620, referencia: 'Sector Quebrada y pastizales altos' },
+  { id: 3, nombre: 'Huallhua', lat: -15.0800, lon: -73.8100, referencia: 'Cerro Huallhua y corrales' },
+  { id: 4, nombre: 'Muchapampa', lat: -15.0250, lon: -73.7400, referencia: 'Camino Vecinal y matorrales' },
+  { id: 5, nombre: 'Paucaray', lat: -15.1100, lon: -73.7900, referencia: 'Bosque de Eucaliptos y quebrada' },
+  { id: 6, nombre: 'Huaccana', lat: -15.0620, lon: -73.8340, referencia: 'Comunidad Campesina de Huaccana' },
+  { id: 7, nombre: 'Baños Termales Pumahuasi', lat: -14.9850, lon: -73.7550, referencia: 'Sector norte / interfaz termal' },
+  { id: 8, nombre: 'Cerro Pumahuasi', lat: -14.9620, lon: -73.7420, referencia: 'Cumbre y pajonales rocosos' }
+];
+
+/**
  * Crea un incidente táctico directamente desde el Centro de Mando.
  */
 export async function crearIncidente(datos: {
@@ -378,6 +475,8 @@ export async function crearIncidente(datos: {
   latitud?: number;
   longitud?: number;
   id_reporte?: number;
+  id_comunidad?: number;
+  comunidad_nombre?: string;
 }) {
   const res = await fetch('http://127.0.0.1:8000/panel/api/incidentes/crear/', {
     method: 'POST',
@@ -550,6 +649,129 @@ export async function logoutApi(): Promise<any> {
   } catch {
     return { success: true };
   }
+}
+
+/**
+ * Crea una nueva brigada de respuesta y asigna los usuarios existentes como dotación.
+ */
+export async function crearBrigada(payload: CrearBrigadaPayload): Promise<{ success: boolean; id_brigada?: number; error?: string; mensaje?: string }> {
+  const res = await fetch('http://127.0.0.1:8000/panel/api/brigadas/crear/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'No se pudo crear la brigada');
+  }
+  return data;
+}
+
+/**
+ * Cambia el estado operacional de una brigada (disponible, ocupada, inactiva).
+ */
+export async function cambiarEstadoBrigada(idBrigada: number, nuevoEstado: string): Promise<{ success: boolean; nuevo_estado?: string }> {
+  const res = await fetch(`http://127.0.0.1:8000/panel/api/brigadas/${idBrigada}/cambiar-estado/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ estado: nuevoEstado })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'No se pudo actualizar el estado de la brigada');
+  }
+  return data;
+}
+
+/**
+ * Actualiza la dotación de miembros de una brigada existente con usuarios del sistema.
+ */
+export async function asignarMiembrosBrigada(idBrigada: number, miembros: { usuario_id: number; funcion: string }[]): Promise<{ success: boolean; mensaje?: string }> {
+  const res = await fetch(`http://127.0.0.1:8000/panel/api/brigadas/${idBrigada}/asignar-miembros/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ miembros })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'No se pudo actualizar la dotación de la brigada');
+  }
+  return data;
+}
+
+/**
+ * Elimina una brigada del sistema.
+ */
+export async function eliminarBrigada(idBrigada: number): Promise<{ success: boolean; mensaje?: string }> {
+  const res = await fetch(`http://127.0.0.1:8000/panel/api/brigadas/${idBrigada}/eliminar/`, {
+    method: 'POST'
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'No se pudo eliminar la brigada');
+  }
+  return data;
+}
+
+/**
+ * Consulta el padrón de viviendas rurales registradas en Coracora.
+ */
+export async function fetchViviendas(): Promise<ViviendaRural[]> {
+  try {
+    const res = await fetch('http://127.0.0.1:8000/panel/api/viviendas/', { cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.viviendas || [];
+  } catch (err) {
+    console.warn('Error al consultar viviendas rurales:', err);
+    return [];
+  }
+}
+
+/**
+ * Registra una nueva vivienda rural manualmente desde el Centro de Mando o Mapa Táctico.
+ */
+export async function crearVivienda(payload: CrearViviendaPayload): Promise<{ success: boolean; id_vivienda?: number; codigo?: string; error?: string; mensaje?: string }> {
+  const res = await fetch('http://127.0.0.1:8000/panel/api/viviendas/crear/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'No se pudo registrar la vivienda');
+  }
+  return data;
+}
+
+/**
+ * Edita los datos de una vivienda rural registrada.
+ */
+export async function editarVivienda(idVivienda: number, payload: Partial<CrearViviendaPayload>): Promise<{ success: boolean; mensaje?: string }> {
+  const res = await fetch(`http://127.0.0.1:8000/panel/api/viviendas/${idVivienda}/editar/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'No se pudo actualizar la vivienda');
+  }
+  return data;
+}
+
+/**
+ * Elimina una vivienda rural del padrón.
+ */
+export async function eliminarVivienda(idVivienda: number): Promise<{ success: boolean; mensaje?: string }> {
+  const res = await fetch(`http://127.0.0.1:8000/panel/api/viviendas/${idVivienda}/eliminar/`, {
+    method: 'POST'
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'No se pudo eliminar la vivienda');
+  }
+  return data;
 }
 
 

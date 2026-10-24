@@ -100,6 +100,11 @@ class Vivienda(models.Model):
         related_name='viviendas',
         verbose_name='Comunidad / Sector'
     )
+    codigo = models.CharField(max_length=50, null=True, blank=True, verbose_name='Código Predial / Catastral')
+    nombre_responsable = models.CharField(max_length=150, null=True, blank=True, verbose_name='Responsable / Propietario')
+    telefono_contacto = models.CharField(max_length=30, null=True, blank=True, verbose_name='Teléfono de Contacto')
+    material_predominante = models.CharField(max_length=80, default='adobe_teja', verbose_name='Material Predominante')
+    habitantes = models.IntegerField(default=4, verbose_name='Cantidad de Habitantes')
     referencia = models.CharField(max_length=255, null=True, blank=True, verbose_name='Referencia de Ubicación')
     latitud = models.DecimalField(max_digits=9, decimal_places=6, verbose_name='Latitud')
     longitud = models.DecimalField(max_digits=9, decimal_places=6, verbose_name='Longitud')

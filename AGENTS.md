@@ -14,6 +14,13 @@
 
 ---
 
+## ⚠️ REGLA CRÍTICA OBLIGATORIA: PROHIBIDO INSPECCIONAR EL DOM EN EL NAVEGADOR
+* **PROHIBICIÓN ESTRICTA:** Queda **terminantemente prohibido** utilizar herramientas de inspección del DOM (`browser_get_dom`), DevTools o subagentes de captura/serialización del DOM sobre este proyecto.
+* **Causa técnica:** La vista `/mapa` contiene mapas interactivos de alta densidad (Leaflet con más de 750 focos satelitales VIIRS/MODIS, polígonos GeoJSON y círculos SVG). La serialización del DOM genera decenas de miles de nodos anidados que saturan la memoria y bloquean/congelan irremediablemente al agente.
+* **Protocolo de trabajo:** Todo desarrollo, auditoría, refactorización y verificación visual se realiza **exclusivamente mediante análisis estático de código fuente** (componentes TSX, CSS, Vite) y comprobación de compilación con `npm run build`. Cero herramientas de navegador para DOM.
+
+---
+
 ## 🏛️ 2. Stack Tecnológico Unificado (Sin Microservicios)
 * **Backend:** Django 5.1.x (Python 3.13) con Django REST Framework.
 * **Base de Datos:** PostgreSQL local (puerto 5432, base de datos `alerta_incendios_coracora`).
@@ -111,9 +118,11 @@ python manage.py importar_firms --serfor
 # Iniciar servidor backend Django
 python manage.py runserver 127.0.0.1:8000
 
-# Iniciar servidor frontend SPA (Centro de Mando)
-cd frontend
+# Iniciar servidor frontend SPA (funciona desde la raíz del proyecto o dentro de frontend/)
 npm run dev
+
+# Compilar frontend para producción
+npm run build
 ```
 
 ---

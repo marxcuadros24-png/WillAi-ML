@@ -9,7 +9,8 @@ import type {
   ReporteCiudadano,
   DonacionComunitaria,
   LoteSatelital,
-  MetricasKPI
+  MetricasKPI,
+  ViviendaRural
 } from '../types';
 
 export interface AppContextType {
@@ -18,6 +19,7 @@ export interface AppContextType {
   incidentes: Incidente[];
   focos: FocoCalor[];
   brigadas: Brigada[];
+  viviendas: ViviendaRural[];
   alertas: AlertaComunitaria[];
   viento12h: PrediccionViento12hData;
   reportes: ReporteCiudadano[];
@@ -25,11 +27,14 @@ export interface AppContextType {
   lotesSatelitales: LoteSatelital[];
   loadAllData: () => Promise<void>;
   onOpenCreateIncident: () => void;
+  onOpenCreateIncidentWithCoords?: (lat: number, lon: number) => void;
+  onOpenCreateViviendaWithCoords?: (lat: number, lon: number) => void;
   onOpenAlertModal: () => void;
   onOpenDispatch: (inc: Incidente) => void;
   onOpenChangeStatus: (inc: Incidente) => void;
   onOpenCloseIncident: (inc: Incidente) => void;
   handleValidarReporteAction: (reporte: ReporteCiudadano, resultado: 'validado' | 'rechazado' | 'observado') => Promise<void>;
+  handleEliminarReporteAction: (reporte: ReporteCiudadano) => Promise<void>;
   handleConvertirReporteAIncidente: (reporte: ReporteCiudadano) => void;
   handleModerarDonacionAction: (oferta: DonacionComunitaria, accion: 'aprobar' | 'rechazar') => Promise<void>;
   handleDispararSyncManual: (tipo: 'firms' | 'meteo' | 'fwi') => Promise<void>;
@@ -47,6 +52,8 @@ export interface AppContextType {
   setShowIncidentes: (v: boolean) => void;
   showBrigadas: boolean;
   setShowBrigadas: (v: boolean) => void;
+  showViviendas: boolean;
+  setShowViviendas: (v: boolean) => void;
   timeRange: 'today' | '24h' | '7d' | '30d' | '3m' | '6m' | 'custom';
   handleTimeRangeChange: (newRange: 'today' | '24h' | '7d' | '30d' | '3m' | '6m' | 'custom') => Promise<void>;
   customDesde: string;

@@ -20,9 +20,11 @@ class Incidente(models.Model):
         VERIFICACION = 'verificacion', _('En Verificación')
         CONFIRMADO = 'confirmado', _('Confirmado Activo')
         ASIGNADO = 'asignado', _('Brigada Asignada')
-        EN_ATENCION = 'en_atencion', _('En Atención / Combate')
+        EN_ATENCION = 'en_atencion', _('En Atención')
+        EN_COMBATE = 'en_combate', _('En Combate')
         CONTENIDO = 'contenido', _('Contenido')
         CONTROLADO = 'controlado', _('Controlado')
+        EXTINGUIDO = 'extinguido', _('Extinguido')
         CERRADO = 'cerrado', _('Extinguido / Cerrado')
         DESCARTADO = 'descartado', _('Descartado / Falsa Alarma')
 

@@ -62,6 +62,7 @@ class Brigada(models.Model):
     class EstadoBrigada(models.TextChoices):
         DISPONIBLE = 'disponible', _('Disponible')
         OCUPADA = 'ocupada', _('Ocupada / En Operación')
+        DESPLEGADA = 'desplegada', _('Desplegada en Incidente')
         INACTIVA = 'inactiva', _('Inactiva')
 
     id_brigada = models.BigAutoField(primary_key=True)

@@ -17,6 +17,7 @@ export interface Incidente {
   viviendas_riesgo: number;
   reportado_por: string;
   origen: 'ciudadano' | 'satelital' | 'verificador';
+  tipo_incendio?: string;
 }
 
 export interface FocoCalor {
@@ -54,17 +55,94 @@ export interface MetricasFWI {
   estado_combustible?: string;
 }
 
+export interface IncidenteAsignadoResumen {
+  id_asignacion: number;
+  id_incidente: number;
+  codigo: string;
+  titulo: string;
+  latitud: number;
+  longitud: number;
+  rol: string;
+  estado_asignacion: string;
+  asignada_en: string;
+}
+
+export interface MiembroBrigadaDetalle {
+  id_brigadista?: number;
+  id_usuario: number;
+  nombre: string;
+  username: string;
+  funcion: string;
+  telefono?: string;
+  activo?: boolean;
+}
+
 export interface Brigada {
   id: number;
   nombre: string;
   entidad: string;
+  entidad_id?: number;
+  tipo?: string;
+  tipo_display?: string;
+  comunidad?: string;
+  comunidad_id?: number;
   estado: EstadoBrigada;
+  estado_display?: string;
   numero_efectivos: number;
   lider: string;
   telefono: string;
   recursos_asignados: string[];
   latitud?: number;
   longitud?: number;
+  incidente_asignado?: IncidenteAsignadoResumen | null;
+  integrantes?: MiembroBrigadaDetalle[];
+  creada_en?: string;
+}
+
+export interface CrearBrigadaPayload {
+  nombre: string;
+  tipo: 'comunal' | 'bomberos' | 'municipal' | 'forestal' | 'otra';
+  comunidad_id?: number | null;
+  comunidad_nombre?: string;
+  telefono_contacto?: string;
+  latitud_base?: number | null;
+  longitud_base?: number | null;
+  miembros: {
+    usuario_id: number;
+    funcion: string;
+  }[];
+}
+
+export interface ViviendaRural {
+  id: number;
+  codigo: string;
+  comunidad: string;
+  comunidad_id?: number;
+  referencia: string;
+  latitud: number;
+  longitud: number;
+  material: string;
+  material_display?: string;
+  habitantes: number;
+  nombre_responsable?: string;
+  telefono_contacto?: string;
+  verificada: boolean;
+  activa: boolean;
+  creado_en?: string;
+}
+
+export interface CrearViviendaPayload {
+  codigo?: string;
+  comunidad_id?: number | null;
+  comunidad_nombre?: string;
+  referencia: string;
+  latitud: number;
+  longitud: number;
+  material_predominante?: string;
+  habitantes?: number;
+  nombre_responsable?: string;
+  telefono_contacto?: string;
+  verificada?: boolean;
 }
 
 export interface AlertaComunitaria {

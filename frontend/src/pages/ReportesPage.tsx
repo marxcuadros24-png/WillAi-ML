@@ -7,6 +7,7 @@ export const ReportesPage: React.FC = () => {
     reportes,
     loadAllData,
     handleValidarReporteAction,
+    handleEliminarReporteAction,
     handleConvertirReporteAIncidente
   } = useAppContext();
 
@@ -18,6 +19,7 @@ export const ReportesPage: React.FC = () => {
     <ReportesAdmin
       reportes={reportes}
       onValidar={handleValidarReporteAction}
+      onEliminar={handleEliminarReporteAction}
       onConvertirAIncidente={handleConvertirReporteAIncidente}
     />
   );

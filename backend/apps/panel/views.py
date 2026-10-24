@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST, require_GET
+from django.views.decorators.http import require_POST, require_GET, require_http_methods
 from django.utils import timezone
 from django.db import transaction
 from django.contrib.auth import get_user_model, authenticate, login as django_login, logout as django_logout
@@ -16,7 +16,7 @@ from apps.firms.models import DeteccionSatelital, LoteImportacionFirms
 from apps.meteorologia.models import ObservacionMeteorologica, Vivienda
 from apps.predicciones.models import Prediccion
 from apps.alertas.models import AlertaEmergencia
-from apps.respuesta.models import Brigada
+from apps.respuesta.models import Brigada, Brigadista, Entidad
 from apps.donaciones.models import OfertaDonacion, HistorialOfertaDonacion
 from apps.geografia.models import Distrito, Comunidad
 from apps.auditoria.services import registrar_auditoria
@@ -235,16 +235,20 @@ def mapa_data_api(request):
         })
 
     viviendas_data = []
-    for viv in Vivienda.objects.select_related('comunidad')[:60]:
+    for viv in Vivienda.objects.select_related('comunidad').filter(activa=True)[:200]:
         viviendas_data.append({
             'id': viv.id_vivienda,
-            'codigo': viv.codigo_catastral,
-            'direccion': viv.direccion_referencial,
+            'codigo': viv.codigo or f"VIV-{viv.id_vivienda:03d}",
+            'referencia': viv.referencia or '',
+            'direccion': viv.referencia or '',
             'lat': float(viv.latitud),
             'lon': float(viv.longitud),
-            'comunidad': viv.comunidad.nombre if viv.comunidad else '',
+            'comunidad': viv.comunidad.nombre if viv.comunidad else 'Coracora',
             'material': viv.material_predominante,
-            'habitantes': viv.residentes.count(),
+            'responsable': viv.nombre_responsable or '',
+            'telefono': viv.telefono_contacto or '',
+            'habitantes': viv.habitantes or viv.residentes.count() or 4,
+            'verificada': viv.verificada,
         })
 
     return JsonResponse({
@@ -294,6 +298,32 @@ def validar_reporte_rapido(request, id_reporte):
 
 
 @csrf_exempt
+@require_http_methods(["POST", "DELETE"])
+def eliminar_reporte_rapido(request, id_reporte):
+    """
+    Elimina físicamente un reporte falso, descartado o duplicado de la base de datos.
+    """
+    reporte = get_object_or_404(Reporte, id_reporte=id_reporte)
+    id_rep = reporte.id_reporte
+    comunidad_nombre = reporte.comunidad.nombre if reporte.comunidad else 'Coracora'
+
+    # Eliminar evidencias y validaciones asociadas para no dejar huérfanos
+    reporte.evidencias.all().delete()
+    reporte.validaciones.all().delete()
+    reporte.delete()
+
+    registrar_auditoria(
+        accion="ELIMINAR_REPORTE",
+        entidad="Reporte",
+        id_registro=str(id_rep),
+        request=request,
+        detalles={'motivo': 'Reporte falso/descartado eliminado desde el Centro de Mando', 'comunidad': comunidad_nombre}
+    )
+
+    return JsonResponse({'success': True, 'id_reporte': id_rep})
+
+
+@csrf_exempt
 @require_POST
 def crear_incidente_rapido(request):
     """
@@ -309,6 +339,8 @@ def crear_incidente_rapido(request):
     lon = data.get('longitud')
     id_reporte = data.get('id_reporte')
     id_distrito = data.get('id_distrito')
+    id_comunidad = data.get('id_comunidad')
+    comunidad_nombre = data.get('comunidad_nombre')
 
     distrito = None
     if id_distrito:
@@ -316,35 +348,67 @@ def crear_incidente_rapido(request):
     if not distrito:
         distrito = Distrito.objects.filter(nombre__icontains='Coracora').first()
 
-    codigo = f"INC-{timezone.now().strftime('%Y%m%d')}-{Incidente.objects.count() + 1:03d}"
+    comunidad_obj = None
+    if id_comunidad:
+        comunidad_obj = Comunidad.objects.filter(id_comunidad=id_comunidad).first()
+    elif comunidad_nombre:
+        comunidad_obj = Comunidad.objects.filter(nombre__icontains=comunidad_nombre).first()
 
+    fecha_hoy = timezone.now().strftime('%Y%m%d')
+    conteo_hoy = Incidente.objects.filter(codigo__startswith=f"INC-{fecha_hoy}").count() + 1
+    codigo = f"INC-{fecha_hoy}-{conteo_hoy:03d}"
+    while Incidente.objects.filter(codigo=codigo).exists():
+        conteo_hoy += 1
+        codigo = f"INC-{fecha_hoy}-{conteo_hoy:03d}"
+
+    user_para_fk = user if (user and getattr(user, 'pk', None)) else None
+
+    # Resolve coordinates with priority to lat/lon passed, then comunidad, then Coracora center
+    lat_val = Decimal(str(lat)) if lat else (comunidad_obj.latitud if comunidad_obj and comunidad_obj.latitud else Decimal('-15.0189'))
+    lon_val = Decimal(str(lon)) if lon else (comunidad_obj.longitud if comunidad_obj and comunidad_obj.longitud else Decimal('-73.7806'))
+
+    nombre_lugar = comunidad_obj.nombre if comunidad_obj else (distrito.nombre if distrito else 'Coracora')
     incidente = Incidente.objects.create(
         codigo=codigo,
-        titulo=titulo or f"Incendio en Sector {distrito.nombre if distrito else 'Coracora'}",
+        titulo=titulo or f"Incendio en Sector {nombre_lugar}",
         tipo_incendio=tipo_incendio,
         estado='confirmado',
         prioridad=prioridad,
-        latitud_referencia=Decimal(str(lat)) if lat else Decimal('-15.0189'),
-        longitud_referencia=Decimal(str(lon)) if lon else Decimal('-73.7806'),
+        latitud_referencia=lat_val,
+        longitud_referencia=lon_val,
         distrito=distrito,
-        creado_por=user
+        comunidad=comunidad_obj,
+        creado_por=user_para_fk
     )
 
     if id_reporte:
         rep = Reporte.objects.filter(id_reporte=id_reporte).first()
         if rep:
-            ReporteIncidente.objects.create(
+            ReporteIncidente.objects.get_or_create(
                 incidente=incidente,
                 reporte=rep,
-                incorporado_por=user
+                defaults={
+                    'tipo_vinculo': ReporteIncidente.TipoVinculo.ORIGEN,
+                    'vinculado_por': user_para_fk
+                }
             )
+            rep.estado = Reporte.EstadoReporte.VINCULADO
+            rep.save(update_fields=['estado'])
+
+    HistorialIncidente.objects.create(
+        incidente=incidente,
+        usuario=user_para_fk,
+        estado_anterior=None,
+        estado_nuevo='confirmado',
+        nota=f"Incidente generado a partir del Reporte Ciudadano #{id_reporte}" if id_reporte else "Incidente registrado desde el Centro de Mando"
+    )
 
     registrar_auditoria(
         accion="CREAR_INCIDENTE_PANEL",
         entidad="Incidente",
         id_registro=incidente.codigo,
         request=request,
-        detalles={'titulo': incidente.titulo, 'prioridad': prioridad}
+        detalles={'titulo': incidente.titulo, 'prioridad': prioridad, 'id_reporte': id_reporte}
     )
 
     return JsonResponse({'success': True, 'codigo': incidente.codigo, 'id_incidente': incidente.id_incidente})
@@ -359,19 +423,34 @@ def cambiar_estado_incidente(request, id_incidente):
     user = obtener_usuario_operativo(request)
     incidente = get_object_or_404(Incidente, id_incidente=id_incidente)
     data = get_request_data(request)
-    nuevo_estado = data.get('estado')
-    nota = data.get('nota', 'Cambio de estado desde el Centro de Mando Táctico')
+    nuevo_estado = (data.get('estado') or '').strip().lower()
+    nota = data.get('nota') or 'Cambio de estado desde el Centro de Mando Táctico'
 
-    if nuevo_estado in dict(Incidente.EstadoIncidente.choices):
+    if not nuevo_estado:
+        return JsonResponse({'error': 'Estado requerido'}, status=400)
+
+    # Permitir tanto nombres del frontend como del modelo Django
+    mapa_alias = {
+        'en_atencion': 'en_combate',
+    }
+    estado_final = mapa_alias.get(nuevo_estado, nuevo_estado)
+
+    estados_validos = [c[0] for c in Incidente.EstadoIncidente.choices] + [
+        'en_combate', 'controlado', 'extinguido', 'cerrado', 'en_atencion', 'contenido', 'confirmado'
+    ]
+
+    if estado_final in estados_validos:
         estado_anterior = incidente.estado
-        incidente.estado = nuevo_estado
+        incidente.estado = estado_final
+        if estado_final in ['cerrado', 'extinguido'] and not incidente.cerrado_en:
+            incidente.cerrado_en = timezone.now()
         incidente.save()
 
         HistorialIncidente.objects.create(
             incidente=incidente,
             usuario=user,
             estado_anterior=estado_anterior,
-            estado_nuevo=nuevo_estado,
+            estado_nuevo=estado_final,
             nota=nota
         )
 
@@ -379,7 +458,7 @@ def cambiar_estado_incidente(request, id_incidente):
             incidente=incidente,
             usuario=user,
             tipo_accion='cambio_estado',
-            descripcion=f"Estado actualizado a: {incidente.get_estado_display()}. Nota: {nota}"
+            descripcion=f"Estado actualizado a: {incidente.get_estado_display() or estado_final}. Nota: {nota}"
         )
 
         registrar_auditoria(
@@ -387,11 +466,16 @@ def cambiar_estado_incidente(request, id_incidente):
             entidad="Incidente",
             id_registro=incidente.codigo,
             request=request,
-            detalles={'nuevo_estado': nuevo_estado, 'nota': nota}
+            detalles={'nuevo_estado': estado_final, 'nota': nota}
         )
 
-        return JsonResponse({'success': True, 'nuevo_estado': incidente.get_estado_display()})
-    return JsonResponse({'error': 'Estado inválido'}, status=400)
+        return JsonResponse({
+            'success': True,
+            'nuevo_estado': estado_final,
+            'estado_display': incidente.get_estado_display() or estado_final.replace('_', ' ').title()
+        })
+
+    return JsonResponse({'error': f'Estado {nuevo_estado} no es válido'}, status=400)
 
 
 @csrf_exempt
@@ -826,5 +910,487 @@ def panel_logout_api(request):
     """Cierra la sesión del operador."""
     django_logout(request)
     return JsonResponse({'success': True, 'mensaje': 'Sesión cerrada exitosamente.'})
+
+
+# ==============================================================================
+# GESTIÓN DE BRIGADAS OPERATIVAS Y ASIGNACIÓN DE DOTACIÓN
+# ==============================================================================
+
+@csrf_exempt
+@require_GET
+def panel_brigadas_api(request):
+    """
+    Retorna el listado completo de brigadas con sus integrantes detallados,
+    estado operativo, coordenadas e incidentes en los que están desplegadas.
+    """
+    brigadas = Brigada.objects.select_related('entidad', 'comunidad').prefetch_related(
+        'integrantes__usuario', 'asignaciones__incidente'
+    ).order_by('nombre')
+
+    data = []
+    for b in brigadas:
+        # Integrantes activos
+        integrantes_list = []
+        for i in b.integrantes.filter(activo=True).select_related('usuario'):
+            u = i.usuario
+            integrantes_list.append({
+                'id_brigadista': i.id,
+                'id_usuario': u.id_usuario,
+                'nombre': u.get_full_name() or u.nombre_visible or u.username,
+                'username': u.username,
+                'funcion': i.funcion,
+                'telefono': u.telefono or '',
+                'activo': i.activo,
+            })
+
+        # Incidente asignado activo
+        incidente_asignado = None
+        asignacion_activa = b.asignaciones.exclude(
+            estado__in=['finalizada', 'cancelada']
+        ).exclude(
+            incidente__estado__in=['cerrado', 'extinguido']
+        ).select_related('incidente').first()
+        if asignacion_activa and asignacion_activa.incidente:
+            inc = asignacion_activa.incidente
+            incidente_asignado = {
+                'id_asignacion': asignacion_activa.id_asignacion,
+                'id_incidente': inc.id_incidente,
+                'codigo': inc.codigo,
+                'titulo': inc.titulo,
+                'latitud': float(inc.latitud_referencia),
+                'longitud': float(inc.longitud_referencia),
+                'estado': inc.estado,
+                'rol': asignacion_activa.instrucciones or 'combate_directo',
+                'estado_asignacion': asignacion_activa.estado,
+                'asignada_en': asignacion_activa.asignada_en.strftime('%d/%m/%Y %H:%M') if asignacion_activa.asignada_en else '',
+            }
+
+        # Estado normalizado
+        raw_estado = (b.estado or 'disponible').lower()
+        if incidente_asignado:
+            raw_estado = 'desplegada'
+
+        lider_nombre = ''
+        jefe = next((i['nombre'] for i in integrantes_list if 'jefe' in i['funcion'].lower() or 'líder' in i['funcion'].lower() or 'lider' in i['funcion'].lower()), '')
+        if jefe:
+            lider_nombre = jefe
+        elif integrantes_list:
+            lider_nombre = integrantes_list[0]['nombre']
+        else:
+            lider_nombre = 'Coordinador OGRD'
+
+        data.append({
+            'id': b.id_brigada,
+            'nombre': b.nombre,
+            'tipo': b.tipo,
+            'tipo_display': b.get_tipo_display(),
+            'estado': raw_estado,
+            'estado_display': b.get_estado_display(),
+            'telefono': b.telefono_contacto or '+51 966 321 445',
+            'comunidad': b.comunidad.nombre if b.comunidad else 'Coracora Centro',
+            'comunidad_id': b.comunidad.id_comunidad if b.comunidad else None,
+            'entidad': b.entidad.nombre if b.entidad else 'Defensa Civil Provincial',
+            'entidad_id': b.entidad.id_entidad if b.entidad else None,
+            'latitud': float(b.latitud_base) if b.latitud_base is not None else -15.0189,
+            'longitud': float(b.longitud_base) if b.longitud_base is not None else -73.7806,
+            'numero_efectivos': len(integrantes_list) if integrantes_list else 6,
+            'lider': lider_nombre,
+            'recursos_asignados': ['Mochilas extintoras', 'Batefuegos', 'Radios VHF', 'Machetes tácticos'],
+            'integrantes': integrantes_list,
+            'incidente_asignado': incidente_asignado,
+            'creada_en': b.creada_en.strftime('%d/%m/%Y') if b.creada_en else '',
+        })
+
+    return JsonResponse({'success': True, 'brigadas': data})
+
+
+@csrf_exempt
+@require_POST
+def crear_brigada_rapida(request):
+    """
+    Crea una nueva brigada y asigna usuarios seleccionados del sistema como integrantes.
+    """
+    from apps.usuarios.models import Rol, UsuarioRol
+    data = get_request_data(request)
+
+    nombre = data.get('nombre', '').strip()
+    tipo = data.get('tipo', 'comunal')
+    comunidad_id = data.get('comunidad_id')
+    comunidad_nombre = data.get('comunidad_nombre', '')
+    telefono = data.get('telefono_contacto', '').strip()
+    lat = data.get('latitud_base')
+    lon = data.get('longitud_base')
+    miembros_raw = data.get('miembros', [])  # list of {"usuario_id": int, "funcion": str} or [int]
+
+    if not nombre:
+        return JsonResponse({'success': False, 'error': 'El nombre de la brigada es obligatorio.'}, status=400)
+
+    # Buscar comunidad
+    comunidad_obj = None
+    if comunidad_id:
+        comunidad_obj = Comunidad.objects.filter(id_comunidad=comunidad_id).first()
+    elif comunidad_nombre:
+        comunidad_obj = Comunidad.objects.filter(nombre__icontains=comunidad_nombre).first()
+
+    # Coordenadas
+    if lat is None or lat == '':
+        lat = comunidad_obj.latitud if (comunidad_obj and comunidad_obj.latitud) else Decimal('-15.018900')
+    else:
+        lat = Decimal(str(lat))
+
+    if lon is None or lon == '':
+        lon = comunidad_obj.longitud if (comunidad_obj and comunidad_obj.longitud) else Decimal('-73.780600')
+    else:
+        lon = Decimal(str(lon))
+
+    # Entidad
+    entidad_obj = None
+    if tipo == 'bomberos':
+        entidad_obj = Entidad.objects.filter(tipo='bomberos').first()
+    elif tipo == 'municipal':
+        entidad_obj = Entidad.objects.filter(tipo='ogrd').first() or Entidad.objects.filter(tipo='municipalidad').first()
+    elif tipo == 'forestal':
+        entidad_obj = Entidad.objects.filter(tipo='serfor').first()
+    if not entidad_obj:
+        entidad_obj = Entidad.objects.filter(tipo='comunidad').first() or Entidad.objects.first()
+
+    with transaction.atomic():
+        brigada = Brigada.objects.create(
+            nombre=nombre,
+            tipo=tipo,
+            estado='disponible',
+            entidad=entidad_obj,
+            comunidad=comunidad_obj,
+            telefono_contacto=telefono or None,
+            latitud_base=lat,
+            longitud_base=lon
+        )
+
+        rol_brigadista = Rol.objects.filter(codigo='brigadista').first()
+        hoy = timezone.now().date()
+
+        for m in miembros_raw:
+            u_id = m.get('usuario_id') if isinstance(m, dict) else m
+            func = m.get('funcion', 'Combatiente de Incendios') if isinstance(m, dict) else 'Combatiente de Incendios'
+            usuario = Usuario.objects.filter(id_usuario=u_id).first()
+            if usuario:
+                Brigadista.objects.create(
+                    brigada=brigada,
+                    usuario=usuario,
+                    funcion=func,
+                    desde=hoy,
+                    activo=True
+                )
+                if rol_brigadista and not UsuarioRol.objects.filter(usuario=usuario, rol=rol_brigadista).exists():
+                    UsuarioRol.objects.create(usuario=usuario, rol=rol_brigadista)
+
+    registrar_auditoria(
+        accion="CREAR_BRIGADA",
+        entidad="Brigada",
+        id_registro=str(brigada.id_brigada),
+        request=request,
+        detalles={'nombre': brigada.nombre, 'tipo': tipo, 'integrantes_iniciales': len(miembros_raw)}
+    )
+
+    return JsonResponse({
+        'success': True,
+        'mensaje': f"Brigada '{brigada.nombre}' creada exitosamente con {len(miembros_raw)} integrantes.",
+        'id_brigada': brigada.id_brigada
+    })
+
+
+@csrf_exempt
+@require_POST
+def cambiar_estado_brigada(request, id_brigada):
+    """
+    Cambia el estado operacional de una brigada (disponible, en_descanso/ocupada, inactiva).
+    """
+    brigada = get_object_or_404(Brigada, id_brigada=id_brigada)
+    data = get_request_data(request)
+    nuevo_estado = data.get('estado')
+    
+    # Normalizar
+    if nuevo_estado in ['en_descanso', 'ocupada']:
+        nuevo_estado = 'ocupada'
+    elif nuevo_estado == 'disponible':
+        nuevo_estado = 'disponible'
+    elif nuevo_estado == 'inactiva':
+        nuevo_estado = 'inactiva'
+    elif nuevo_estado == 'desplegada':
+        nuevo_estado = 'desplegada'
+    else:
+        return JsonResponse({'success': False, 'error': f'Estado {nuevo_estado} no válido.'}, status=400)
+
+    brigada.estado = nuevo_estado
+    brigada.save(update_fields=['estado'])
+
+    registrar_auditoria(
+        accion="CAMBIAR_ESTADO_BRIGADA",
+        entidad="Brigada",
+        id_registro=str(brigada.id_brigada),
+        request=request,
+        detalles={'nuevo_estado': nuevo_estado}
+    )
+    return JsonResponse({'success': True, 'id_brigada': id_brigada, 'nuevo_estado': nuevo_estado})
+
+
+@csrf_exempt
+@require_POST
+def asignar_miembros_brigada(request, id_brigada):
+    """
+    Actualiza la dotación de combatientes/integrantes de una brigada con usuarios existentes.
+    """
+    from apps.usuarios.models import Rol, UsuarioRol
+    brigada = get_object_or_404(Brigada, id_brigada=id_brigada)
+    data = get_request_data(request)
+    miembros = data.get('miembros', [])  # list of {"usuario_id": int, "funcion": str}
+
+    rol_brigadista = Rol.objects.filter(codigo='brigadista').first()
+    hoy = timezone.now().date()
+
+    with transaction.atomic():
+        usuario_ids = [m.get('usuario_id') if isinstance(m, dict) else m for m in miembros]
+        
+        # Desactivar miembros excluidos
+        brigada.integrantes.exclude(usuario_id__in=usuario_ids).update(activo=False, hasta=hoy)
+
+        for m in miembros:
+            u_id = m.get('usuario_id') if isinstance(m, dict) else m
+            func = m.get('funcion', 'Combatiente') if isinstance(m, dict) else 'Combatiente'
+            usuario = Usuario.objects.filter(id_usuario=u_id).first()
+            if usuario:
+                brigadista = Brigadista.objects.filter(brigada=brigada, usuario=usuario).first()
+                if brigadista:
+                    brigadista.funcion = func
+                    brigadista.activo = True
+                    brigadista.hasta = None
+                    brigadista.save()
+                else:
+                    Brigadista.objects.create(
+                        brigada=brigada,
+                        usuario=usuario,
+                        funcion=func,
+                        desde=hoy,
+                        activo=True
+                    )
+
+                if rol_brigadista and not UsuarioRol.objects.filter(usuario=usuario, rol=rol_brigadista).exists():
+                    UsuarioRol.objects.create(usuario=usuario, rol=rol_brigadista)
+
+    registrar_auditoria(
+        accion="ACTUALIZAR_MIEMBROS_BRIGADA",
+        entidad="Brigada",
+        id_registro=str(brigada.id_brigada),
+        request=request,
+        detalles={'cantidad_miembros': len(miembros)}
+    )
+    return JsonResponse({'success': True, 'id_brigada': id_brigada, 'mensaje': 'Dotación actualizada correctamente.'})
+
+
+@csrf_exempt
+@require_http_methods(["POST", "DELETE"])
+def eliminar_brigada(request, id_brigada):
+    """
+    Elimina una brigada del sistema.
+    """
+    brigada = get_object_or_404(Brigada, id_brigada=id_brigada)
+    nombre = brigada.nombre
+
+    with transaction.atomic():
+        brigada.integrantes.all().delete()
+        brigada.asignaciones.all().delete()
+        brigada.delete()
+
+    registrar_auditoria(
+        accion="ELIMINAR_BRIGADA",
+        entidad="Brigada",
+        id_registro=str(id_brigada),
+        request=request,
+        detalles={'nombre': nombre}
+    )
+    return JsonResponse({'success': True, 'id_brigada': id_brigada, 'mensaje': f"Brigada '{nombre}' eliminada exitosamente."})
+
+
+# ==============================================================================
+# GESTIÓN Y PADRÓN DE VIVIENDAS RURALES VULNERABLES
+# ==============================================================================
+
+@csrf_exempt
+@require_GET
+def panel_viviendas_api(request):
+    """
+    Retorna el listado completo de viviendas rurales registradas en Coracora.
+    """
+    viviendas = Vivienda.objects.select_related('comunidad').filter(activa=True).order_by('comunidad__nombre', '-creado_en')
+    data = []
+    for v in viviendas:
+        data.append({
+            'id': v.id_vivienda,
+            'codigo': v.codigo or f"VIV-{v.id_vivienda:03d}",
+            'comunidad_id': v.comunidad.id_comunidad if v.comunidad else None,
+            'comunidad': v.comunidad.nombre if v.comunidad else 'Coracora Centro',
+            'referencia': v.referencia or '',
+            'latitud': float(v.latitud),
+            'longitud': float(v.longitud),
+            'material': v.material_predominante,
+            'material_display': dict([
+                ('adobe_teja', 'Adobe y Teja'),
+                ('quincha', 'Quincha / Caña'),
+                ('tapial', 'Tapial y Paja'),
+                ('madera', 'Madera'),
+                ('calamina', 'Adobe y Calamina'),
+                ('material_noble', 'Material Noble'),
+                ('otro', 'Otro')
+            ]).get(v.material_predominante, v.material_predominante),
+            'habitantes': v.habitantes or 4,
+            'nombre_responsable': v.nombre_responsable or '',
+            'telefono_contacto': v.telefono_contacto or '',
+            'verificada': v.verificada,
+            'activa': v.activa,
+            'creado_en': v.creado_en.strftime('%d/%m/%Y') if v.creado_en else '',
+        })
+    return JsonResponse({'success': True, 'viviendas': data})
+
+
+@csrf_exempt
+@require_POST
+def crear_vivienda_rapida(request):
+    """
+    Registra una nueva vivienda rural manualmente desde el Centro de Mando o Mapa Táctico.
+    """
+    data = get_request_data(request)
+    comunidad_id = data.get('comunidad_id')
+    comunidad_nombre = data.get('comunidad_nombre', '')
+    referencia = data.get('referencia', '').strip()
+    lat = data.get('latitud')
+    lon = data.get('longitud')
+    codigo = data.get('codigo', '').strip()
+    nombre_responsable = data.get('nombre_responsable', '').strip()
+    telefono = data.get('telefono_contacto', '').strip()
+    material = data.get('material_predominante', 'adobe_teja')
+    habitantes = int(data.get('habitantes', 4) or 4)
+    verificada = bool(data.get('verificada', True))
+
+    # Buscar comunidad
+    comunidad_obj = None
+    if comunidad_id:
+        comunidad_obj = Comunidad.objects.filter(id_comunidad=comunidad_id).first()
+    elif comunidad_nombre:
+        comunidad_obj = Comunidad.objects.filter(nombre__icontains=comunidad_nombre).first()
+
+    # Coordenadas
+    if lat is None or lat == '':
+        lat = comunidad_obj.latitud if (comunidad_obj and comunidad_obj.latitud) else Decimal('-15.018900')
+    else:
+        lat = Decimal(str(lat))
+
+    if lon is None or lon == '':
+        lon = comunidad_obj.longitud if (comunidad_obj and comunidad_obj.longitud) else Decimal('-73.780600')
+    else:
+        lon = Decimal(str(lon))
+
+    # Auto-código si no se proporcionó
+    if not codigo:
+        prefijo = (comunidad_obj.nombre[:3].upper() if comunidad_obj else 'COR')
+        conteo = Vivienda.objects.filter(comunidad=comunidad_obj).count() + 1
+        codigo = f"VIV-{prefijo}-{conteo:03d}"
+        while Vivienda.objects.filter(codigo=codigo).exists():
+            conteo += 1
+            codigo = f"VIV-{prefijo}-{conteo:03d}"
+
+    vivienda = Vivienda.objects.create(
+        comunidad=comunidad_obj,
+        codigo=codigo,
+        referencia=referencia,
+        latitud=lat,
+        longitud=lon,
+        material_predominante=material,
+        habitantes=habitantes,
+        nombre_responsable=nombre_responsable or None,
+        telefono_contacto=telefono or None,
+        verificada=verificada,
+        verificada_en=timezone.now() if verificada else None,
+        activa=True
+    )
+
+    registrar_auditoria(
+        accion="CREAR_VIVIENDA",
+        entidad="Vivienda",
+        id_registro=str(vivienda.id_vivienda),
+        request=request,
+        detalles={'codigo': vivienda.codigo, 'comunidad': comunidad_obj.nombre if comunidad_obj else 'Coracora', 'habitantes': habitantes}
+    )
+
+    return JsonResponse({
+        'success': True,
+        'mensaje': f"Vivienda '{vivienda.codigo}' registrada exitosamente en {comunidad_obj.nombre if comunidad_obj else 'Coracora'}.",
+        'id_vivienda': vivienda.id_vivienda,
+        'codigo': vivienda.codigo
+    })
+
+
+@csrf_exempt
+@require_POST
+def editar_vivienda_rapida(request, id_vivienda):
+    """
+    Edita los datos de una vivienda rural registrada.
+    """
+    vivienda = get_object_or_404(Vivienda, id_vivienda=id_vivienda)
+    data = get_request_data(request)
+
+    if 'referencia' in data:
+        vivienda.referencia = data.get('referencia', '').strip()
+    if 'nombre_responsable' in data:
+        vivienda.nombre_responsable = data.get('nombre_responsable', '').strip() or None
+    if 'telefono_contacto' in data:
+        vivienda.telefono_contacto = data.get('telefono_contacto', '').strip() or None
+    if 'material_predominante' in data:
+        vivienda.material_predominante = data.get('material_predominante', vivienda.material_predominante)
+    if 'habitantes' in data:
+        vivienda.habitantes = int(data.get('habitantes', vivienda.habitantes) or 4)
+    if 'verificada' in data:
+        vivienda.verificada = bool(data.get('verificada'))
+        if vivienda.verificada and not vivienda.verificada_en:
+            vivienda.verificada_en = timezone.now()
+    if 'latitud' in data and data.get('latitud') is not None:
+        vivienda.latitud = Decimal(str(data.get('latitud')))
+    if 'longitud' in data and data.get('longitud') is not None:
+        vivienda.longitud = Decimal(str(data.get('longitud')))
+
+    vivienda.save()
+
+    registrar_auditoria(
+        accion="EDITAR_VIVIENDA",
+        entidad="Vivienda",
+        id_registro=str(vivienda.id_vivienda),
+        request=request,
+        detalles={'codigo': vivienda.codigo}
+    )
+
+    return JsonResponse({'success': True, 'mensaje': f"Vivienda '{vivienda.codigo}' actualizada exitosamente."})
+
+
+@csrf_exempt
+@require_http_methods(["POST", "DELETE"])
+def eliminar_vivienda_rapida(request, id_vivienda):
+    """
+    Elimina una vivienda rural del padrón.
+    """
+    vivienda = get_object_or_404(Vivienda, id_vivienda=id_vivienda)
+    cod = vivienda.codigo or str(vivienda.id_vivienda)
+
+    vivienda.delete()
+
+    registrar_auditoria(
+        accion="ELIMINAR_VIVIENDA",
+        entidad="Vivienda",
+        id_registro=str(id_vivienda),
+        request=request,
+        detalles={'codigo': cod}
+    )
+
+    return JsonResponse({'success': True, 'id_vivienda': id_vivienda, 'mensaje': f"Vivienda '{cod}' eliminada exitosamente."})
+
+
 
 

@@ -197,6 +197,11 @@ export const IncidentesAdmin: React.FC<IncidentesAdminProps> = ({
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                       Iniciado: {inc.fecha_inicio} • Reportado por: {inc.reportado_por}
                     </div>
+                    {inc.brigadas_asignadas && inc.brigadas_asignadas.length > 0 && (
+                      <div style={{ fontSize: '0.73rem', color: '#38bdf8', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        🛡️ <strong>Brigadas:</strong> {inc.brigadas_asignadas.join(', ')}
+                      </div>
+                    )}
                   </td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#e2e8f0' }}>

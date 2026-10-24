@@ -48,6 +48,19 @@
   padding: 0;
 }
 
+/* Global button reset to prevent default white/grey browser buttons */
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--text-primary);
+  background-color: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 html, body, #root {
   width: 100%;
   height: 100%;
@@ -187,43 +200,106 @@ body {
   gap: 10px;
 }
 
-.btn-primary {
+.btn, .btn-admin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+  user-select: none;
+  text-decoration: none;
+}
+
+.btn-primary, .btn-admin-primary {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   background: var(--fire-gradient);
   color: #ffffff;
-  border: none;
-  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 107, 0, 0.4);
+  border-radius: var(--radius-sm);
   padding: 8px 16px;
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   box-shadow: 0 4px 14px var(--fire-glow);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.btn-primary:hover {
+.btn-primary:hover, .btn-admin-primary:hover {
   transform: translateY(-1px);
+  background: linear-gradient(135deg, #ff5722 0%, #ff9800 100%);
   box-shadow: 0 6px 20px rgba(255, 87, 34, 0.55);
+  color: #ffffff;
 }
 
-.btn-secondary {
+.btn-secondary, .btn-outline, .btn-admin-outline {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   background: rgba(255, 255, 255, 0.06);
   color: var(--text-primary);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   padding: 8px 14px;
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
 }
-.btn-secondary:hover {
+.btn-secondary:hover, .btn-outline:hover, .btn-admin-outline:hover {
   background: rgba(255, 255, 255, 0.12);
-  border-color: var(--border-active);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.btn-danger, .btn-admin-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-danger:hover, .btn-admin-danger:hover {
+  background: rgba(239, 68, 68, 0.35);
+  color: #ffffff;
+  border-color: rgba(239, 68, 68, 0.7);
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.4);
+}
+
+.btn-success, .btn-admin-success {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-success:hover, .btn-admin-success:hover {
+  background: rgba(16, 185, 129, 0.32);
+  color: #ffffff;
+  border-color: rgba(16, 185, 129, 0.7);
 }
 
 /* Metric KPI strip */
@@ -331,14 +407,18 @@ body {
 .map-layer-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.8rem;
+  gap: 10px;
+  font-size: 0.88rem;
   color: var(--text-primary);
   cursor: pointer;
   user-select: none;
+  padding: 3px 0;
 }
 .map-layer-toggle input {
   accent-color: var(--fire-primary);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
 }
 
 /* Sidebar for operational management */
@@ -418,37 +498,53 @@ body {
   justify-content: space-between;
 }
 
+.feed-card.critical {
+  border-left: 4px solid #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.18);
+}
+.feed-card.critical:hover {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.14);
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
+  gap: 5px;
+  padding: 3px 10px;
   border-radius: var(--radius-full);
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: 0.74rem;
+  font-weight: 800;
   font-family: var(--font-mono);
   text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.badge-critical {
-  background: var(--status-critical-bg);
-  color: var(--status-critical);
-  border: 1px solid rgba(239, 68, 68, 0.4);
+.badge-critical, .badge-red {
+  background: rgba(239, 68, 68, 0.18);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.45);
 }
-.badge-warning {
-  background: var(--status-warning-bg);
-  color: var(--status-warning);
-  border: 1px solid rgba(245, 158, 11, 0.4);
+.badge-warning, .badge-orange, .badge-amber {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.45);
 }
-.badge-success {
-  background: var(--status-success-bg);
-  color: var(--status-success);
-  border: 1px solid rgba(16, 185, 129, 0.4);
+.badge-yellow {
+  background: rgba(234, 179, 8, 0.18);
+  color: #fde047;
+  border: 1px solid rgba(234, 179, 8, 0.4);
 }
-.badge-info {
-  background: var(--status-info-bg);
-  color: var(--status-info);
-  border: 1px solid rgba(6, 182, 212, 0.4);
+.badge-success, .badge-emerald, .badge-green {
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.45);
+}
+.badge-info, .badge-cyan, .badge-blue {
+  background: rgba(6, 182, 212, 0.18);
+  color: #38bdf8;
+  border: 1px solid rgba(6, 182, 212, 0.45);
 }
 
 /* Modal styling */
@@ -616,11 +712,11 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: #fb923c;
   font-family: var(--font-mono);
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   padding-right: 8px;
   border-right: 1px solid rgba(255, 255, 255, 0.12);
 }
@@ -637,11 +733,11 @@ body {
 
 .nasa-time-btn {
   background: transparent;
-  color: #94a3b8;
+  color: #cbd5e1;
   border: none;
   border-radius: 4px;
-  padding: 4px 10px;
-  font-size: 0.72rem;
+  padding: 5px 12px;
+  font-size: 0.8rem;
   font-weight: 700;
   font-family: var(--font-mono);
   cursor: pointer;
@@ -651,7 +747,7 @@ body {
 
 .nasa-time-btn:hover {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .nasa-time-btn.active {
@@ -668,8 +764,8 @@ body {
   color: #e2e8f0;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 4px;
-  padding: 4px 10px;
-  font-size: 0.72rem;
+  padding: 5px 12px;
+  font-size: 0.8rem;
   font-family: var(--font-mono);
   cursor: pointer;
   transition: all 0.2s ease;
@@ -746,6 +842,85 @@ body {
   border-radius: 50%;
   border: 1.5px solid #f59e0b;
   animation: radarWave 1.8s ease-out infinite;
+}
+
+/* ========================================================
+   CONFIRMED TACTICAL INCIDENTS (DISTINCT DIAMOND SHAPE & HIGH Z-INDEX)
+   ======================================================== */
+.tactical-incident-marker {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tactical-incident-marker:hover {
+  transform: scale(1.15);
+  z-index: 4000 !important;
+}
+
+.tactical-incident-diamond {
+  width: 28px;
+  height: 28px;
+  transform: rotate(45deg);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.85);
+  transition: all 0.2s ease;
+}
+.tactical-incident-diamond.critical {
+  background: #ef4444;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 18px rgba(239, 68, 68, 0.95), 0 4px 12px rgba(0, 0, 0, 0.85);
+  animation: pulseDiamond 2s infinite ease-in-out;
+}
+.tactical-incident-diamond.warning {
+  background: #f59e0b;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.85);
+}
+.tactical-incident-diamond.controlled {
+  background: #10b981;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.85);
+}
+
+.tactical-incident-icon {
+  transform: rotate(-45deg);
+  font-size: 13px;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.tactical-incident-tag {
+  margin-top: 5px;
+  background: rgba(11, 19, 36, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  color: #ffffff;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+  letter-spacing: 0.02em;
+}
+
+.tactical-incident-marker.selected .tactical-incident-diamond {
+  transform: rotate(45deg) scale(1.22);
+  border-color: #38bdf8;
+  box-shadow: 0 0 22px #38bdf8;
+}
+
+@keyframes pulseDiamond {
+  0% { transform: rotate(45deg) scale(1); box-shadow: 0 0 14px rgba(239, 68, 68, 0.7); }
+  50% { transform: rotate(45deg) scale(1.1); box-shadow: 0 0 24px rgba(239, 68, 68, 1); }
+  100% { transform: rotate(45deg) scale(1); box-shadow: 0 0 14px rgba(239, 68, 68, 0.7); }
 }
 
 /* Wind ML Forecast Styles */
@@ -1214,6 +1389,38 @@ body {
 @keyframes modalSlideUp {
   from { transform: translateY(14px) scale(0.98); opacity: 0; }
   to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* Tactical Brigade Dispatch Line Animation */
+@keyframes dashFlow {
+  to {
+    stroke-dashoffset: -28;
+  }
+}
+
+.tactical-dispatch-line {
+  stroke-dasharray: 6, 8;
+  animation: dashFlow 1.6s linear infinite !important;
+  filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.7));
+}
+
+@keyframes brigadePulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.7);
+  }
+  70% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 10px rgba(56, 189, 248, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0);
+  }
+}
+
+.brigade-deployed-pulse {
+  animation: brigadePulse 2s infinite ease-in-out;
 }
 
 

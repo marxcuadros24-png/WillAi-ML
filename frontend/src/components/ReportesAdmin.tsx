@@ -1,24 +1,40 @@
 import React, { useState } from 'react';
-import { CheckCircle2, XCircle, Flame, MapPin, User, Calendar, Image as ImageIcon } from 'lucide-react';
+import { CheckCircle2, XCircle, Flame, MapPin, User, Calendar, Image as ImageIcon, Trash2 } from 'lucide-react';
 import type { ReporteCiudadano } from '../types';
 
 interface ReportesAdminProps {
   reportes: ReporteCiudadano[];
   onValidar: (reporte: ReporteCiudadano, resultado: 'validado' | 'rechazado' | 'observado') => void;
+  onEliminar?: (reporte: ReporteCiudadano) => void;
   onConvertirAIncidente: (reporte: ReporteCiudadano) => void;
 }
 
 export const ReportesAdmin: React.FC<ReportesAdminProps> = ({
   reportes,
   onValidar,
+  onEliminar,
   onConvertirAIncidente,
 }) => {
-  const [filterEstado, setFilterEstado] = useState<string>('todos');
+  const [filterEstado, setFilterEstado] = useState<string>('pendientes');
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   const filtered = reportes.filter((rep) => {
     if (filterEstado === 'todos') return true;
-    if (filterEstado === 'pendientes') return rep.estado === 'recibido' || rep.estado === 'en_evaluacion';
+    if (filterEstado === 'pendientes') {
+      return (
+        rep.estado !== 'confirmado' &&
+        rep.estado !== 'validado' &&
+        rep.estado !== 'rechazado' &&
+        rep.estado !== 'vinculado' &&
+        rep.estado !== 'cerrado'
+      );
+    }
+    if (filterEstado === 'confirmado') {
+      return rep.estado === 'confirmado' || rep.estado === 'validado';
+    }
+    if (filterEstado === 'rechazado') {
+      return rep.estado === 'rechazado';
+    }
     return rep.estado === filterEstado;
   });
 
@@ -35,6 +51,17 @@ export const ReportesAdmin: React.FC<ReportesAdminProps> = ({
         return <span className="badge-status badge-status-cyan">⏱️ POR VALIDAR</span>;
     }
   };
+
+  const countPendientes = reportes.filter(
+    (r) =>
+      r.estado !== 'confirmado' &&
+      r.estado !== 'validado' &&
+      r.estado !== 'rechazado' &&
+      r.estado !== 'vinculado' &&
+      r.estado !== 'cerrado'
+  ).length;
+  const countConfirmados = reportes.filter((r) => r.estado === 'confirmado' || r.estado === 'validado').length;
+  const countRechazados = reportes.filter((r) => r.estado === 'rechazado').length;
 
   return (
     <div className="admin-tab-view">
@@ -64,10 +91,10 @@ export const ReportesAdmin: React.FC<ReportesAdminProps> = ({
                 fontSize: '0.8rem',
               }}
             >
-              <option value="todos">Todos los reportes ({reportes.length})</option>
-              <option value="pendientes">Pendientes de Validación</option>
-              <option value="confirmado">Confirmados / Validados</option>
-              <option value="rechazado">Rechazados</option>
+              <option value="pendientes">🔔 Pendientes de Validación ({countPendientes})</option>
+              <option value="confirmado">✅ Confirmados / Validados ({countConfirmados})</option>
+              <option value="rechazado">❌ Descartados / Falsa Alarma ({countRechazados})</option>
+              <option value="todos">📋 Todos los reportes ({reportes.length})</option>
             </select>
           </div>
         </div>
@@ -170,8 +197,25 @@ export const ReportesAdmin: React.FC<ReportesAdminProps> = ({
 
               {/* Actions Bar */}
               <div className="report-card-actions">
-                {rep.estado !== 'confirmado' && rep.estado !== 'validado' ? (
-                  <>
+                {rep.estado === 'rechazado' ? (
+                  <div style={{ display: 'flex', width: '100%', gap: '8px', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.78rem', color: '#f87171', fontWeight: 700 }}>
+                      ❌ Falsa Alarma Descartada
+                    </span>
+                    {onEliminar && (
+                      <button
+                        className="btn-admin btn-admin-danger"
+                        style={{ padding: '5px 10px', fontSize: '0.75rem', gap: '4px' }}
+                        onClick={() => onEliminar(rep)}
+                        title="Borrar reporte permanentemente de la base de datos"
+                      >
+                        <Trash2 size={13} />
+                        Borrar
+                      </button>
+                    )}
+                  </div>
+                ) : rep.estado !== 'confirmado' && rep.estado !== 'validado' ? (
+                  <div style={{ display: 'flex', width: '100%', gap: '6px' }}>
                     <button
                       className="btn-admin btn-admin-success"
                       style={{ flex: 1, padding: '6px 8px', fontSize: '0.75rem', justifyContent: 'center' }}
@@ -185,20 +229,44 @@ export const ReportesAdmin: React.FC<ReportesAdminProps> = ({
                       className="btn-admin btn-admin-danger"
                       style={{ flex: 1, padding: '6px 8px', fontSize: '0.75rem', justifyContent: 'center' }}
                       onClick={() => onValidar(rep, 'rechazado')}
+                      title="Descartar reporte (se quitará de la cola pendiente)"
                     >
                       <XCircle size={14} />
                       Descartar
                     </button>
-                  </>
+
+                    {onEliminar && (
+                      <button
+                        className="btn-admin btn-admin-outline"
+                        style={{ padding: '6px 8px', fontSize: '0.75rem', borderColor: 'rgba(239, 68, 68, 0.35)', color: '#fca5a5' }}
+                        onClick={() => onEliminar(rep)}
+                        title="Eliminar reporte de la base de datos"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
                 ) : (
-                  <button
-                    className="btn-admin btn-admin-primary"
-                    style={{ width: '100%', padding: '6px 8px', fontSize: '0.75rem', justifyContent: 'center' }}
-                    onClick={() => onConvertirAIncidente(rep)}
-                  >
-                    <Flame size={14} />
-                    Convertir a Incidente Táctico
-                  </button>
+                  <div style={{ display: 'flex', width: '100%', gap: '6px' }}>
+                    <button
+                      className="btn-admin btn-admin-primary"
+                      style={{ flex: 1, padding: '6px 8px', fontSize: '0.75rem', justifyContent: 'center' }}
+                      onClick={() => onConvertirAIncidente(rep)}
+                    >
+                      <Flame size={14} />
+                      Convertir a Incidente Táctico
+                    </button>
+                    {onEliminar && (
+                      <button
+                        className="btn-admin btn-admin-outline"
+                        style={{ padding: '6px 8px', fontSize: '0.75rem', borderColor: 'rgba(239, 68, 68, 0.35)', color: '#fca5a5' }}
+                        onClick={() => onEliminar(rep)}
+                        title="Eliminar reporte"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

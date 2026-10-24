@@ -69,6 +69,8 @@ class BrigadaSerializer(serializers.ModelSerializer):
     entidad_nombre = serializers.ReadOnlyField(source='entidad.nombre')
     comunidad_nombre = serializers.ReadOnlyField(source='comunidad.nombre')
     cantidad_integrantes = serializers.SerializerMethodField()
+    integrantes = BrigadistaSerializer(many=True, read_only=True)
+    incidente_asignado = serializers.SerializerMethodField()
 
     class Meta:
         model = Brigada
@@ -87,8 +89,34 @@ class BrigadaSerializer(serializers.ModelSerializer):
             'latitud_base',
             'longitud_base',
             'cantidad_integrantes',
+            'integrantes',
+            'incidente_asignado',
             'creada_en',
         ]
 
     def get_cantidad_integrantes(self, obj):
         return obj.integrantes.filter(activo=True).count()
+
+    def get_incidente_asignado(self, obj):
+        try:
+            asignacion = obj.asignaciones.exclude(
+                estado__in=['finalizada', 'cancelada']
+            ).exclude(
+                incidente__estado__in=['cerrado', 'extinguido']
+            ).select_related('incidente').first()
+            if not asignacion or not asignacion.incidente:
+                return None
+            inc = asignacion.incidente
+            return {
+                'id_asignacion': asignacion.id_asignacion,
+                'id_incidente': inc.id_incidente,
+                'codigo': inc.codigo,
+                'titulo': inc.titulo,
+                'latitud': float(inc.latitud_referencia),
+                'longitud': float(inc.longitud_referencia),
+                'rol': asignacion.instrucciones or 'combate_directo',
+                'estado_asignacion': asignacion.estado,
+                'asignada_en': asignacion.asignada_en.strftime('%Y-%m-%d %H:%M') if asignacion.asignada_en else ''
+            }
+        except Exception:
+            return None

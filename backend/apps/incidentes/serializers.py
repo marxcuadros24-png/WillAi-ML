@@ -98,6 +98,7 @@ class IncidenteListSerializer(serializers.ModelSerializer):
     tipo_incendio_display = serializers.CharField(source='get_tipo_incendio_display', read_only=True)
     distrito_nombre = serializers.ReadOnlyField(source='distrito.nombre')
     comunidad_nombre = serializers.ReadOnlyField(source='comunidad.nombre')
+    brigadas_asignadas = serializers.SerializerMethodField()
 
     class Meta:
         model = Incidente
@@ -117,9 +118,29 @@ class IncidenteListSerializer(serializers.ModelSerializer):
             'distrito_nombre',
             'comunidad',
             'comunidad_nombre',
+            'brigadas_asignadas',
             'detectado_en',
             'creado_en',
         ]
+
+    def get_brigadas_asignadas(self, obj):
+        try:
+            asignaciones = obj.asignaciones_brigadas.exclude(
+                estado__in=['finalizada', 'cancelada']
+            ).select_related('brigada')
+            return [
+                {
+                    'id_brigada': a.brigada.id_brigada,
+                    'nombre': a.brigada.nombre,
+                    'rol': a.instrucciones or 'combate_directo',
+                    'estado': a.estado,
+                    'latitud_base': float(a.brigada.latitud_base) if a.brigada.latitud_base else None,
+                    'longitud_base': float(a.brigada.longitud_base) if a.brigada.longitud_base else None,
+                }
+                for a in asignaciones
+            ]
+        except Exception:
+            return []
 
 
 class IncidenteDetailSerializer(serializers.ModelSerializer):

@@ -16,7 +16,9 @@ import {
   Radio,
   ChevronRight,
   PlusCircle,
+  Shield,
   ShieldAlert,
+  Home,
   Menu
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -32,6 +34,7 @@ export const Layout: React.FC<LayoutProps> = ({ context }) => {
     fwi,
     incidentes,
     reportes,
+    brigadas,
     loadAllData: onRefreshData,
     onOpenCreateIncident,
     onOpenAlertModal
@@ -82,6 +85,10 @@ export const Layout: React.FC<LayoutProps> = ({ context }) => {
         return 'Gestión de Incidentes & Despacho';
       case '/reportes':
         return 'Bandeja de Reportes Ciudadanos';
+      case '/brigadas':
+        return 'Gestión de Brigadas & Dotación Operativa';
+      case '/viviendas':
+        return 'Padrón de Viviendas Rurales Vulnerables';
       case '/usuarios':
         return 'Gestión de Usuarios & Personal';
       case '/alertas':
@@ -249,6 +256,35 @@ export const Layout: React.FC<LayoutProps> = ({ context }) => {
               </div>
             </NavLink>
 
+            <NavLink
+              to="/brigadas"
+              className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}
+              title="Brigadas de Respuesta & Dotación"
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
+                <Shield size={18} />
+                {sidebarOpen && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                    <span>Brigadas & Dotación</span>
+                    {brigadas.length > 0 && (
+                      <span
+                        className="badge"
+                        style={{
+                          fontSize: '10px',
+                          padding: '1px 6px',
+                          background: 'rgba(6, 182, 212, 0.2)',
+                          color: '#06b6d4',
+                          border: '1px solid rgba(6, 182, 212, 0.4)'
+                        }}
+                      >
+                        {brigadas.length}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </NavLink>
+
             {sidebarOpen && (
               <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.08em', padding: '16px 8px 6px 8px' }}>
                 ADMINISTRACIÓN & SOPORTE
@@ -262,6 +298,15 @@ export const Layout: React.FC<LayoutProps> = ({ context }) => {
             >
               <Users size={18} />
               {sidebarOpen && <span>Usuarios & Personal</span>}
+            </NavLink>
+
+            <NavLink
+              to="/viviendas"
+              className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}
+              title="Padrón de Viviendas Rurales"
+            >
+              <Home size={18} />
+              {sidebarOpen && <span>Viviendas Rurales</span>}
             </NavLink>
 
             <NavLink
@@ -405,26 +450,26 @@ export const Layout: React.FC<LayoutProps> = ({ context }) => {
         >
           {/* Breadcrumbs */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>WillAI</span>
-            <ChevronRight size={14} color="var(--text-muted)" />
-            <span style={{ fontSize: '14px', fontWeight: 800, color: '#ffffff' }}>
+            <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-muted)' }}>WillAI</span>
+            <ChevronRight size={15} color="var(--text-muted)" />
+            <span style={{ fontSize: '15.5px', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.01em' }}>
               {getPageTitle()}
             </span>
           </div>
 
           {/* Monitor Resumen & Acciones de Cabecera */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            {/* Pill Meteorológica en Vivo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            {/* Pill Meteorológica en Vivo (Categoría / Estado) */}
             <div
               style={{
-                background: esLluvia ? 'rgba(56, 189, 248, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                border: esLluvia ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
-                padding: '4px 12px',
+                background: esLluvia ? 'rgba(56, 189, 248, 0.12)' : 'rgba(239, 68, 68, 0.14)',
+                border: esLluvia ? '1px solid rgba(56, 189, 248, 0.35)' : '1px solid rgba(239, 68, 68, 0.35)',
+                padding: '5px 14px',
                 borderRadius: '20px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                fontSize: '11px',
+                fontSize: '12.5px',
                 fontFamily: 'var(--font-mono)'
               }}
             >
@@ -432,50 +477,50 @@ export const Layout: React.FC<LayoutProps> = ({ context }) => {
                 {esLluvia ? '🌧️ Lluvia Activa' : '🔥 Riesgo'} {fwi.nivel_peligro.toUpperCase()}
               </span>
               <span style={{ color: 'var(--text-muted)' }}>•</span>
-              <span style={{ color: '#ffffff' }}>{fwi.temperatura}°C</span>
+              <span style={{ color: '#ffffff', fontWeight: 600 }}>{fwi.temperatura}°C</span>
               <span style={{ color: 'var(--text-muted)' }}>•</span>
-              <span style={{ color: '#38bdf8' }}>{fwi.humedad_relativa}% Hum</span>
+              <span style={{ color: '#38bdf8', fontWeight: 600 }}>{fwi.humedad_relativa}% Hum</span>
               {fwi.precipitacion > 0 && (
                 <>
                   <span style={{ color: 'var(--text-muted)' }}>•</span>
-                  <span style={{ color: '#60a5fa' }}>{fwi.precipitacion} mm</span>
+                  <span style={{ color: '#60a5fa', fontWeight: 600 }}>{fwi.precipitacion} mm</span>
                 </>
               )}
             </div>
 
             {/* Reloj en Vivo */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-              <Clock size={14} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+              <Clock size={15} />
               <span>{currentTime}</span>
             </div>
 
             {/* Botón de Refresco Global */}
             <button
               className="btn-admin btn-admin-outline"
-              style={{ padding: '6px 10px', fontSize: '0.75rem' }}
+              style={{ padding: '7px 12px', fontSize: '0.84rem' }}
               onClick={onRefreshData}
               title="Refrescar todos los datos en caliente"
             >
-              <RefreshCw size={13} />
+              <RefreshCw size={14} />
               <span>Sync</span>
             </button>
 
             {/* Acciones Rápidas */}
             <button
               className="btn-admin btn-admin-primary"
-              style={{ padding: '6px 12px', fontSize: '0.78rem' }}
+              style={{ padding: '7px 14px', fontSize: '0.84rem' }}
               onClick={onOpenCreateIncident}
             >
-              <PlusCircle size={14} />
+              <PlusCircle size={15} />
               <span>Nuevo Incidente</span>
             </button>
 
             <button
               className="btn-admin btn-admin-danger"
-              style={{ padding: '6px 12px', fontSize: '0.78rem' }}
+              style={{ padding: '7px 14px', fontSize: '0.84rem' }}
               onClick={onOpenAlertModal}
             >
-              <ShieldAlert size={14} />
+              <ShieldAlert size={15} />
               <span>Emitir Alerta</span>
             </button>
           </div>

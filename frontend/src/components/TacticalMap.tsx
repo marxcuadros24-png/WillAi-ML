@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { Calendar, Wind, Check } from 'lucide-react';
-import type { Incidente, FocoCalor, Brigada, PrediccionViento12hData } from '../types';
+import type { Incidente, FocoCalor, Brigada, PrediccionViento12hData, ViviendaRural } from '../types';
 
 interface TacticalMapProps {
   incidentes: Incidente[];
   focos: FocoCalor[];
   brigadas: Brigada[];
+  viviendas?: ViviendaRural[];
   viento12h: PrediccionViento12hData | null;
   onSelectIncidente: (incidente: Incidente) => void;
   // Sensor layer states
@@ -16,12 +17,14 @@ interface TacticalMapProps {
   showVientoML: boolean;
   showIncidentes: boolean;
   showBrigadas: boolean;
+  showViviendas?: boolean;
   onToggleModis: (val: boolean) => void;
   onToggleViirs: (val: boolean) => void;
   onToggleSerfor: (val: boolean) => void;
   onToggleVientoML: (val: boolean) => void;
   onToggleIncidentes: (val: boolean) => void;
   onToggleBrigadas: (val: boolean) => void;
+  onToggleViviendas?: (val: boolean) => void;
   // Timeline filter states
   timeRange: 'today' | '24h' | '7d' | '30d' | '3m' | '6m' | 'custom';
   onChangeTimeRange: (val: 'today' | '24h' | '7d' | '30d' | '3m' | '6m' | 'custom') => void;
@@ -30,12 +33,16 @@ interface TacticalMapProps {
   onApplyCustomDates?: (desde: string, hasta: string) => void;
   // Selected hour in 12h forecast
   selectedHourIdx?: number;
+  selectedIncidente?: Incidente | null;
+  onMapCreateIncident?: (lat: number, lon: number) => void;
+  onMapCreateVivienda?: (lat: number, lon: number) => void;
 }
 
 export const TacticalMap: React.FC<TacticalMapProps> = ({
   incidentes,
   focos,
   brigadas,
+  viviendas = [],
   viento12h,
   onSelectIncidente,
   showModis,
@@ -44,21 +51,43 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   showVientoML,
   showIncidentes,
   showBrigadas,
+  showViviendas = true,
   onToggleModis,
   onToggleViirs,
   onToggleSerfor,
   onToggleVientoML,
   onToggleIncidentes,
   onToggleBrigadas,
+  onToggleViviendas,
   timeRange,
   onChangeTimeRange,
   fechaDesde,
   fechaHasta,
   onApplyCustomDates,
-  selectedHourIdx = 0
+  selectedHourIdx = 0,
+  selectedIncidente = null,
+  onMapCreateIncident,
+  onMapCreateVivienda
 }) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const onMapCreateIncidentRef = useRef(onMapCreateIncident);
+  const onMapCreateViviendaRef = useRef(onMapCreateVivienda);
+
+  useEffect(() => {
+    onMapCreateIncidentRef.current = onMapCreateIncident;
+    onMapCreateViviendaRef.current = onMapCreateVivienda;
+    (window as any).__willai_create_incident = (lat: number, lon: number) => {
+      onMapCreateIncidentRef.current?.(lat, lon);
+    };
+    (window as any).__willai_create_vivienda = (lat: number, lon: number) => {
+      onMapCreateViviendaRef.current?.(lat, lon);
+    };
+    return () => {
+      delete (window as any).__willai_create_incident;
+      delete (window as any).__willai_create_vivienda;
+    };
+  }, [onMapCreateIncident, onMapCreateVivienda]);
 
   const [isDateModalOpen, setIsDateModalOpen] = useState(false);
   const [inputDesde, setInputDesde] = useState(fechaDesde || '2026-05-01');
@@ -71,6 +100,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     vientoML: L.LayerGroup;
     incidentes: L.LayerGroup;
     brigadas: L.LayerGroup;
+    viviendas: L.LayerGroup;
   }>({
     modis: L.layerGroup(),
     viirs: L.layerGroup(),
@@ -78,6 +108,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     vientoML: L.layerGroup(),
     incidentes: L.layerGroup(),
     brigadas: L.layerGroup(),
+    viviendas: L.layerGroup(),
   });
 
   const CORACORA_COORDS: [number, number] = [-15.0189, -73.7806];
@@ -120,6 +151,91 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     layersRef.current.vientoML.addTo(map);
     layersRef.current.incidentes.addTo(map);
     layersRef.current.brigadas.addTo(map);
+    layersRef.current.viviendas.addTo(map);
+
+    // Contextmenu (clic derecho) para crear incidente en coordenadas exactas del mapa
+    map.on('contextmenu', (e: L.LeafletMouseEvent) => {
+      const lat = parseFloat(e.latlng.lat.toFixed(5));
+      const lon = parseFloat(e.latlng.lng.toFixed(5));
+
+      const popupNode = document.createElement('div');
+      popupNode.style.padding = '6px 4px';
+      popupNode.style.textAlign = 'center';
+      popupNode.style.minWidth = '190px';
+      popupNode.innerHTML = `
+        <div style="font-size: 11px; font-weight: 700; color: #f8fafc; margin-bottom: 2px;">
+          📍 Ubicación Marcada
+        </div>
+        <div style="font-size: 11px; color: #94a3b8; font-family: monospace; margin-bottom: 8px;">
+          ${lat}, ${lon}
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <button id="btn-crear-incidente-click" style="
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+          ">
+            🔥 Registrar Incidente Aquí
+          </button>
+          <button id="btn-crear-vivienda-click" style="
+            background: #d97706;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            box-shadow: 0 2px 6px rgba(217, 119, 6, 0.4);
+          ">
+            🏠 Registrar Vivienda Rural Aquí
+          </button>
+        </div>
+      `;
+
+      const popup = L.popup({
+        closeButton: true,
+      })
+        .setLatLng(e.latlng)
+        .setContent(popupNode)
+        .openOn(map);
+
+      const btnInc = popupNode.querySelector('#btn-crear-incidente-click');
+      if (btnInc) {
+        btnInc.addEventListener('click', () => {
+          map.closePopup(popup);
+          if (onMapCreateIncidentRef.current) {
+            onMapCreateIncidentRef.current(lat, lon);
+          }
+        });
+      }
+
+      const btnViv = popupNode.querySelector('#btn-crear-vivienda-click');
+      if (btnViv) {
+        btnViv.addEventListener('click', () => {
+          map.closePopup(popup);
+          if (onMapCreateViviendaRef.current) {
+            onMapCreateViviendaRef.current(lat, lon);
+          }
+        });
+      }
+    });
 
     mapInstanceRef.current = map;
 
@@ -129,26 +245,34 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     };
   }, []);
 
+  // Smooth flyTo when selectedIncidente changes
+  useEffect(() => {
+    if (selectedIncidente && mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([selectedIncidente.latitud, selectedIncidente.longitud], 14, { duration: 1.0 });
+    }
+  }, [selectedIncidente]);
+
   // Filter focos by sensor
   const focosModis = focos.filter((f) => f.sensor?.toUpperCase().includes('MODIS'));
   const focosViirs = focos.filter((f) => f.sensor?.toUpperCase().includes('VIIRS'));
   const focosSerfor = focos.filter((f) => f.fuente === 'SERFOR' || f.sensor?.toUpperCase().includes('SERFOR'));
 
-  // Update MODIS Layer (1km pixel footprint + center flame)
+  // Update MODIS Layer (1km pixel footprint + center radar pulse)
   useEffect(() => {
     const layer = layersRef.current.modis;
     layer.clearLayers();
     if (!showModis) return;
 
     focosModis.forEach((foco) => {
-      // Circle representing MODIS 1000m ground resolution footprint
+      // Circle representing MODIS 1000m ground resolution footprint (subtle dashed border to prevent terrain occlusion)
       const circleFootprint = L.circle([foco.latitud, foco.longitud], {
         radius: 500, // 1km diameter footprint
         color: '#ef4444',
-        weight: 1.5,
+        weight: 1,
+        opacity: 0.35,
         fillColor: '#dc2626',
-        fillOpacity: 0.22,
-        dashArray: '4, 4'
+        fillOpacity: 0.05,
+        dashArray: '3, 4'
       });
       layer.addLayer(circleFootprint);
 
@@ -178,13 +302,32 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             <span><strong>Fecha / Hora Obs:</strong> ${foco.fecha_hora}</span>
             <span><strong>Coordenadas:</strong> ${foco.latitud.toFixed(4)}, ${foco.longitud.toFixed(4)}</span>
           </div>
+          <button onclick="window.__willai_create_incident && window.__willai_create_incident(${foco.latitud}, ${foco.longitud})" style="
+            margin-top: 8px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            box-shadow: 0 2px 4px rgba(239, 68, 68, 0.4);
+          ">
+            🔥 Registrar Incidente en este Foco
+          </button>
         </div>
       `);
       layer.addLayer(marker);
     });
   }, [focosModis, showModis]);
 
-  // Update VIIRS Layer (375m resolution pulse)
+  // Update VIIRS Layer (375m resolution radar pulse)
   useEffect(() => {
     const layer = layersRef.current.viirs;
     layer.clearLayers();
@@ -194,9 +337,11 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       const circleFootprint = L.circle([foco.latitud, foco.longitud], {
         radius: 187, // 375m footprint
         color: '#f59e0b',
-        weight: 1.2,
+        weight: 1,
+        opacity: 0.35,
         fillColor: '#f59e0b',
-        fillOpacity: 0.18,
+        fillOpacity: 0.05,
+        dashArray: '3, 3'
       });
       layer.addLayer(circleFootprint);
 
@@ -222,7 +367,27 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             <span><strong>Confianza:</strong> ${foco.confianza.toUpperCase()} (${foco.confianza_numerica || 70}%)</span>
             <span><strong>Resolución Sensor:</strong> 375 m píxel de alta precisión</span>
             <span><strong>Fecha / Hora Obs:</strong> ${foco.fecha_hora}</span>
+            <span><strong>Coordenadas:</strong> ${foco.latitud.toFixed(4)}, ${foco.longitud.toFixed(4)}</span>
           </div>
+          <button onclick="window.__willai_create_incident && window.__willai_create_incident(${foco.latitud}, ${foco.longitud})" style="
+            margin-top: 8px;
+            background: #f59e0b;
+            color: #030712;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            box-shadow: 0 2px 4px rgba(245, 158, 11, 0.4);
+          ">
+            🔥 Registrar Incidente en este Foco
+          </button>
         </div>
       `);
       layer.addLayer(marker);
@@ -251,7 +416,27 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           <div style="font-size: 11px; color: #94a3b8; display: flex; flex-direction: column; gap: 2px;">
             <span><strong>FRP:</strong> ${foco.frp} MW</span>
             <span><strong>Fecha:</strong> ${foco.fecha_hora}</span>
+            <span><strong>Coordenadas:</strong> ${foco.latitud.toFixed(4)}, ${foco.longitud.toFixed(4)}</span>
           </div>
+          <button onclick="window.__willai_create_incident && window.__willai_create_incident(${foco.latitud}, ${foco.longitud})" style="
+            margin-top: 8px;
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.4);
+          ">
+            🔥 Registrar Incidente en este Foco
+          </button>
         </div>
       `);
       layer.addLayer(marker);
@@ -351,14 +536,18 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     }
   }, [viento12h, showVientoML, selectedHourIdx]);
 
-  // Update Incidentes Layer
+  // Update Incidentes Layer (Generic Circular Markers, excluding closed incidents)
   useEffect(() => {
     const layer = layersRef.current.incidentes;
     layer.clearLayers();
     if (!showIncidentes) return;
 
-    incidentes.forEach((inc) => {
+    // Filter OUT closed incidents so they never appear on the tactical map
+    const incidentesActivos = incidentes.filter((inc) => inc.estado !== 'cerrado');
+
+    incidentesActivos.forEach((inc) => {
       const isCritical = inc.severidad === 'critica' || inc.severidad === 'alta';
+      const isSelected = selectedIncidente?.id === inc.id;
       const bgColor = inc.estado === 'controlado' ? '#10b981' : isCritical ? '#ef4444' : '#f59e0b';
 
       const iconHtml = `
@@ -367,8 +556,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           height: 28px;
           border-radius: 50%;
           background: ${bgColor};
-          border: 2px solid #ffffff;
-          box-shadow: 0 0 16px ${bgColor};
+          border: ${isSelected ? '3px solid #38bdf8' : '2px solid #ffffff'};
+          box-shadow: 0 0 ${isSelected ? '20px #38bdf8' : '14px ' + bgColor};
           display: flex;
           align-items: center;
           justify-content: center;
@@ -376,7 +565,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           font-weight: 900;
           font-size: 13px;
           cursor: pointer;
-        ">
+        " title="${inc.codigo}: ${inc.titulo}">
           ${inc.estado === 'controlado' ? '✓' : '!'}
         </div>
       `;
@@ -388,12 +577,15 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         iconAnchor: [14, 14],
       });
 
-      const marker = L.marker([inc.latitud, inc.longitud], { icon: customIcon });
+      const marker = L.marker([inc.latitud, inc.longitud], {
+        icon: customIcon,
+        zIndexOffset: isSelected ? 2500 : 2000
+      });
       marker.on('click', () => onSelectIncidente(inc));
       marker.bindPopup(`
         <div style="font-family: var(--font-sans); min-width: 220px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-            <span style="font-size: 10px; font-weight: 700; color: #fb923c; font-family: var(--font-mono);">${inc.codigo}</span>
+            <span style="font-size: 11px; font-weight: 700; color: #fb923c; font-family: var(--font-mono);">${inc.codigo}</span>
             <span style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); text-transform: uppercase;">${inc.estado.replace('_', ' ')}</span>
           </div>
           <h4 style="font-size: 13px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">${inc.titulo}</h4>
@@ -402,13 +594,19 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             <span><strong>Comunidad:</strong> ${inc.comunidad}</span>
             <span><strong>Viviendas en riesgo:</strong> <strong style="color: #ef4444;">${inc.viviendas_riesgo}</strong></span>
           </div>
+          <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 11px;">
+            <span style="color: #94a3b8;">🛡️ Brigadas desplegadas: </span>
+            <strong style="color: #38bdf8;">
+              ${inc.brigadas_asignadas && inc.brigadas_asignadas.length > 0 ? inc.brigadas_asignadas.join(', ') : 'Ninguna asignada aún'}
+            </strong>
+          </div>
         </div>
       `);
       layer.addLayer(marker);
     });
-  }, [incidentes, showIncidentes, onSelectIncidente]);
+  }, [incidentes, showIncidentes, selectedIncidente, onSelectIncidente]);
 
-  // Update Brigadas Layer
+  // Update Brigadas Layer with Tactical Dispatch Vectors
   useEffect(() => {
     const layer = layersRef.current.brigadas;
     layer.clearLayers();
@@ -416,52 +614,190 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
     brigadas.forEach((brigada) => {
       if (!brigada.latitud || !brigada.longitud) return;
-      const isOp = brigada.estado === 'en_operacion';
-      const color = isOp ? '#06b6d4' : '#10b981';
 
+      const isDispatched = brigada.estado === 'desplegada' || brigada.estado === 'en_operacion' || !!brigada.incidente_asignado;
+      const color = isDispatched ? '#06b6d4' : '#10b981';
+
+      // 1. Draw animated tactical deployment polyline to assigned incident
+      if (isDispatched && brigada.incidente_asignado) {
+        const destLat = brigada.incidente_asignado.latitud;
+        const destLon = brigada.incidente_asignado.longitud;
+
+        if (destLat && destLon) {
+          const dispatchLine = L.polyline(
+            [
+              [brigada.latitud, brigada.longitud],
+              [destLat, destLon]
+            ],
+            {
+              color: '#38bdf8',
+              weight: 3,
+              opacity: 0.9,
+              dashArray: '6, 8',
+              className: 'tactical-dispatch-line'
+            }
+          );
+
+          dispatchLine.bindPopup(`
+            <div style="font-family: var(--font-sans); min-width: 210px;">
+              <span style="font-size: 10px; font-weight: 700; color: #38bdf8; text-transform: uppercase;">🛡️ RUTA DE DESPACHO OPERATIVO</span>
+              <h4 style="font-size: 13px; font-weight: 700; color: #ffffff; margin: 3px 0;">${brigada.nombre}</h4>
+              <div style="font-size: 11px; color: #cbd5e1; margin-top: 4px;">
+                ➔ <strong>Destino:</strong> <span style="color: #fb923c; font-weight: 700;">${brigada.incidente_asignado.codigo}</span> (${brigada.incidente_asignado.titulo})
+              </div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
+                Misión: <strong style="color: #38bdf8;">${brigada.incidente_asignado.rol.replace('_', ' ').toUpperCase()}</strong>
+              </div>
+            </div>
+          `);
+
+          layer.addLayer(dispatchLine);
+        }
+      }
+
+      // 2. Custom Marker for Brigade with Active/Ready badges
       const iconHtml = `
-        <div style="
-          width: 26px;
-          height: 26px;
-          border-radius: 6px;
-          background: #0f172a;
+        <div class="${isDispatched ? 'brigade-deployed-pulse' : ''}" style="
+          position: relative;
+          width: 30px;
+          height: 30px;
+          border-radius: 8px;
+          background: #090d16;
           border: 2px solid ${color};
-          box-shadow: 0 0 12px ${color};
+          box-shadow: 0 0 ${isDispatched ? '16px rgba(6, 182, 212, 0.7)' : '10px rgba(16, 185, 129, 0.4)'};
           display: flex;
           align-items: center;
           justify-content: center;
-          color: ${color};
-          font-weight: 800;
-          font-size: 11px;
-          font-family: var(--font-mono);
-        ">
-          B
+          font-size: 14px;
+          cursor: pointer;
+        " title="${brigada.nombre} (${isDispatched ? 'Desplegada' : 'Disponible'})">
+          🛡️
+          <div style="
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: ${isDispatched ? '#0284c7' : '#059669'};
+            color: #ffffff;
+            font-size: 8px;
+            font-weight: 800;
+            padding: 1px 4px;
+            border-radius: 3px;
+            white-space: nowrap;
+            letter-spacing: 0.4px;
+          ">
+            ${isDispatched ? 'DESPACHADA' : 'DISPONIBLE'}
+          </div>
         </div>
       `;
 
       const customIcon = L.divIcon({
         html: iconHtml,
         className: 'custom-brigada-marker',
-        iconSize: [26, 26],
-        iconAnchor: [13, 13],
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
       });
 
-      const marker = L.marker([brigada.latitud, brigada.longitud], { icon: customIcon });
+      const marker = L.marker([brigada.latitud, brigada.longitud], {
+        icon: customIcon,
+        zIndexOffset: isDispatched ? 2200 : 1800
+      });
+
       marker.bindPopup(`
-        <div style="font-family: var(--font-sans); min-width: 210px;">
-          <div style="font-size: 10px; font-weight: 700; color: #06b6d4; text-transform: uppercase; margin-bottom: 4px;">BRIGADA DE COMBATE</div>
-          <h4 style="font-size: 13px; font-weight: 700; color: #ffffff; margin-bottom: 2px;">${brigada.nombre}</h4>
+        <div style="font-family: var(--font-sans); min-width: 230px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <span style="font-size: 10px; font-weight: 800; color: ${color}; text-transform: uppercase;">
+              ${isDispatched ? '🛡️ BRIGADA DESPLEGADA' : '🛡️ BRIGADA DISPONIBLE'}
+            </span>
+            <span style="font-size: 9.5px; padding: 2px 6px; border-radius: 4px; background: ${isDispatched ? 'rgba(6, 182, 212, 0.2)' : 'rgba(16, 185, 129, 0.2)'}; color: ${color}; font-weight: 700;">
+              ${isDispatched ? 'EN OPERACIÓN' : 'BASE OPERATIVA'}
+            </span>
+          </div>
+          <h4 style="font-size: 13.5px; font-weight: 700; color: #ffffff; margin-bottom: 2px;">${brigada.nombre}</h4>
           <span style="font-size: 11px; color: #94a3b8; display: block; margin-bottom: 6px;">${brigada.entidad}</span>
-          <div style="font-size: 11px; color: #cbd5e1; display: flex; flex-direction: column; gap: 2px;">
-            <span><strong>Efectivos:</strong> ${brigada.numero_efectivos} rescatistas</span>
-            <span><strong>Líder:</strong> ${brigada.lider}</span>
-            <span><strong>Contacto:</strong> ${brigada.telefono}</span>
+
+          ${brigada.incidente_asignado ? `
+            <div style="margin: 8px 0; padding: 8px; background: rgba(6, 182, 212, 0.12); border: 1px solid rgba(6, 182, 212, 0.35); border-radius: 6px; font-size: 11.5px;">
+              <div style="color: #38bdf8; font-weight: 700;">➔ Despachada al Incidente:</div>
+              <div style="color: #ffffff; font-weight: 700; margin-top: 2px;">
+                ${brigada.incidente_asignado.codigo}: ${brigada.incidente_asignado.titulo}
+              </div>
+              <div style="color: #cbd5e1; margin-top: 4px;">
+                Misión: <strong style="color: #fb923c;">${brigada.incidente_asignado.rol.replace('_', ' ').toUpperCase()}</strong>
+              </div>
+            </div>
+          ` : ''}
+
+          <div style="font-size: 11px; color: #cbd5e1; display: flex; flex-direction: column; gap: 3px;">
+            <span><strong>Efectivos:</strong> ${brigada.numero_efectivos} rescatistas equipados</span>
+            <span><strong>Líder al mando:</strong> ${brigada.lider}</span>
+            <span><strong>Contacto radial/móvil:</strong> ${brigada.telefono}</span>
           </div>
         </div>
       `);
       layer.addLayer(marker);
     });
   }, [brigadas, showBrigadas]);
+
+  // Render Viviendas Rurales Layer
+  useEffect(() => {
+    const layer = layersRef.current.viviendas;
+    layer.clearLayers();
+
+    if (!showViviendas || !viviendas || viviendas.length === 0) return;
+
+    viviendas.forEach((viv) => {
+      const isVulnerable = viv.material === 'tapial' || viv.material === 'quincha' || viv.material === 'madera';
+      const markerBorder = isVulnerable ? '#ef4444' : '#f59e0b';
+      const markerBg = isVulnerable ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)';
+
+      const icon = L.divIcon({
+        className: 'custom-vivienda-tactical-marker',
+        html: `
+          <div style="
+            width: 24px;
+            height: 24px;
+            background: #0f172a;
+            border: 2px solid ${markerBorder};
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            box-shadow: 0 0 8px ${markerBg}, 0 2px 8px rgba(0,0,0,0.7);
+            cursor: pointer;
+            transition: transform 0.15s ease;
+          " title="${viv.codigo} (${viv.comunidad}): ${viv.referencia}">
+            🏠
+          </div>
+        `,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      });
+
+      const marker = L.marker([viv.latitud, viv.longitud], { icon, zIndexOffset: 800 });
+
+      const popupHtml = `
+        <div style="font-family: Inter, sans-serif; min-width: 210px; padding: 4px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">
+            <span style="font-size: 13px; font-weight: 800; color: #f8fafc;">🏠 ${viv.codigo}</span>
+            <span style="font-size: 10px; background: ${viv.verificada ? 'rgba(16,185,129,0.2)' : 'rgba(156,163,175,0.2)'}; color: ${viv.verificada ? '#10b981' : '#9ca3af'}; border: 1px solid ${viv.verificada ? '#10b981' : '#6b7280'}; padding: 1px 5px; border-radius: 3px; font-weight: 700;">
+              ${viv.verificada ? 'Verificada' : 'Pendiente'}
+            </span>
+          </div>
+          <div style="font-size: 11px; color: #38bdf8; font-weight: 700; margin-bottom: 4px;">📍 Sector ${viv.comunidad}</div>
+          <div style="font-size: 11px; color: #cbd5e1; margin-bottom: 6px; line-height: 1.3;">${viv.referencia || 'Sin referencia'}</div>
+          <div style="font-size: 11px; color: #94a3b8; margin-bottom: 2px;"><strong>Responsable:</strong> ${viv.nombre_responsable || 'Familia comunera'}</div>
+          <div style="font-size: 11px; color: #94a3b8; margin-bottom: 2px;"><strong>Habitantes:</strong> ${viv.habitantes} personas</div>
+          <div style="font-size: 11px; color: #94a3b8; margin-bottom: 4px;"><strong>Material:</strong> <span style="color: ${markerBorder}; font-weight: 700;">${viv.material_display || viv.material}</span></div>
+          ${viv.telefono_contacto ? `<div style="font-size: 11px; color: #10b981; font-weight: 700; margin-top: 4px;">📞 ${viv.telefono_contacto}</div>` : ''}
+        </div>
+      `;
+
+      marker.bindPopup(popupHtml, { maxWidth: 280 });
+      layer.addLayer(marker);
+    });
+  }, [viviendas, showViviendas]);
 
   const handleCenterCoracora = () => {
     if (mapInstanceRef.current) {
@@ -555,14 +891,14 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
       {/* Floating Tactical Layer Toggles (Matching Screenshot Layers) */}
       <div className="map-floating-panel">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px', marginBottom: '4px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-accent)', letterSpacing: '0.05em', fontFamily: 'var(--font-mono)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px', marginBottom: '6px' }}>
+          <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-accent)', letterSpacing: '0.04em', fontFamily: 'var(--font-mono)' }}>
             CAPAS & SENSORES
           </span>
           <button
             id="btn-recenter"
-            className="btn-secondary"
-            style={{ padding: '2px 8px', fontSize: '10px' }}
+            className="btn-admin btn-admin-outline"
+            style={{ padding: '3px 8px', fontSize: '11.5px' }}
             onClick={handleCenterCoracora}
             title="Centrar en Coracora"
           >
@@ -628,7 +964,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             onChange={(e) => onToggleIncidentes(e.target.checked)}
           />
           <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ color: '#fb923c' }}>●</span> Incidentes ({incidentes.length})
+            <span style={{ color: '#fb923c' }}>●</span> Incidentes ({incidentes.filter((i) => i.estado !== 'cerrado').length})
           </span>
         </label>
 
@@ -640,6 +976,17 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           />
           <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ color: '#06b6d4' }}>■</span> Brigadas ({brigadas.length})
+          </span>
+        </label>
+
+        <label className="map-layer-toggle" id="layer-viv-toggle">
+          <input
+            type="checkbox"
+            checked={showViviendas}
+            onChange={(e) => onToggleViviendas?.(e.target.checked)}
+          />
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ color: '#f59e0b' }}>🏠</span> Viviendas ({viviendas.length})
           </span>
         </label>
       </div>
