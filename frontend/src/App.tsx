@@ -16,6 +16,7 @@ import { DonacionesPage } from './pages/DonacionesPage';
 import { SatelitesPage } from './pages/SatelitesPage';
 import { BrigadasPage } from './pages/BrigadasPage';
 import { ViviendasPage } from './pages/ViviendasPage';
+import { LogrosPage } from './pages/LogrosPage';
 
 import type { AppContextType } from './context/AppContext';
 import {
@@ -210,6 +211,9 @@ export const App: React.FC = () => {
   // Handlers for Timeline filters
   const handleTimeRangeChange = async (newRange: 'today' | '24h' | '7d' | '30d' | '3m' | '6m' | 'custom') => {
     setTimeRange(newRange);
+    if (newRange === 'custom') {
+      return;
+    }
     let dias = 1;
     if (newRange === 'today' || newRange === '24h') dias = 1;
     else if (newRange === '7d') dias = 7;
@@ -223,9 +227,10 @@ export const App: React.FC = () => {
   };
 
   const handleApplyCustomDates = async (desde: string, hasta: string) => {
+    setTimeRange('custom');
     setCustomDesde(desde);
     setCustomHasta(hasta);
-    const data = await fetchFocosFirms(180, desde, hasta);
+    const data = await fetchFocosFirms(undefined, desde, hasta);
     setFocos(data);
     showToast(`NASA FIRMS: Filtro aplicado del ${desde} al ${hasta} (${data.length} focos)`);
   };
@@ -728,6 +733,7 @@ export const App: React.FC = () => {
             <Route path="brigadas" element={<BrigadasPage />} />
             <Route path="viviendas" element={<ViviendasPage />} />
             <Route path="usuarios" element={<UsuariosPage />} />
+            <Route path="logros" element={<LogrosPage />} />
             <Route path="alertas" element={<AlertasPage />} />
             <Route path="donaciones" element={<DonacionesPage />} />
             <Route path="satelites" element={<SatelitesPage />} />

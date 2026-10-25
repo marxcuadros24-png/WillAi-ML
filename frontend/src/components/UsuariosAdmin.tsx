@@ -344,6 +344,30 @@ export const UsuariosAdmin: React.FC = () => {
                           <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
                             @{u.username} {u.is_staff && <span style={{ color: '#38bdf8' }}>• Staff</span>}
                           </div>
+                          {u.insignias && u.insignias.length > 0 && (
+                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
+                              {u.insignias.map((ins, i) => (
+                                <span
+                                  key={i}
+                                  title={ins.nombre}
+                                  style={{
+                                    fontSize: '10px',
+                                    background: 'rgba(245, 158, 11, 0.15)',
+                                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                                    color: '#fef08a',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    fontWeight: 700
+                                  }}
+                                >
+                                  🏅 {ins.nombre}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>

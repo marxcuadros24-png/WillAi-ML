@@ -27,11 +27,11 @@ class Command(BaseCommand):
         try:
             metadata = entrenar_modelo_ocurrencia(test_ratio=test_ratio)
             self.stdout.write(self.style.SUCCESS(
-                f"[OK] Modelo '{metadata['nombre_modelo']}' v{metadata['version']} entrenado con éxito."
+                f"[OK] Modelo '{metadata['nombre_modelo']}' v{metadata['version']} entrenado con exito."
             ))
-            self.stdout.write(self.style.NOTICE("\n--- MÉTRICAS COMPARATIVAS ---"))
+            self.stdout.write(self.style.NOTICE("\n--- METRICAS COMPARATIVAS ---"))
             self.stdout.write(json.dumps(metadata['metricas_evaluacion_temporal'], indent=2))
             self.stdout.write(self.style.NOTICE("\n--- IMPORTANCIA DE VARIABLES ---"))
             self.stdout.write(json.dumps(metadata['importancia_variables'], indent=2))
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f"[Error] Falló el entrenamiento: {e}"))
+            self.stdout.write(self.style.ERROR(f"[Error] Fallo el entrenamiento: {e}"))

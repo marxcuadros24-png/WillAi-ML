@@ -34,13 +34,19 @@ def importar_firms_task(sensor="VIIRS_NOAA20_NRT", bbox=BBOX_CORACORA, days=1, d
         nombre_sensor = sensor.split("_")[0]
         plataforma_def = "NRT"
 
+    tipo_prod = (
+        FuenteSatelital.TipoProducto.ARCHIVE
+        if ("_SP" in sensor_upper or "ARCHIVE" in sensor_upper)
+        else FuenteSatelital.TipoProducto.NRT
+    )
+
     fuente, _ = FuenteSatelital.objects.get_or_create(
         codigo_producto=sensor,
         defaults={
             "proveedor": "NASA FIRMS",
             "sensor": nombre_sensor,
             "plataforma": plataforma_def,
-            "tipo_producto": FuenteSatelital.TipoProducto.NRT,
+            "tipo_producto": tipo_prod,
             "documentacion_url": "https://firms.modaps.eosdis.nasa.gov/api/area/",
         }
     )

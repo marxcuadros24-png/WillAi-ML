@@ -274,6 +274,7 @@ export interface UsuarioSistema {
   is_superuser: boolean;
   roles: string[];
   roles_codigos: string[];
+  insignias?: Array<{ codigo: string; nombre: string; icono: string }>;
   creado_en: string;
   ultimo_acceso: string;
 }
@@ -358,5 +359,73 @@ export interface GrillaRiesgoOcurrenciaData {
     properties: CeldaRiesgoOcurrencia;
   }>;
 }
+
+// Modelos de Gamificación, Logros y Cuadro de Honor Comunal
+export interface InsigniaCatalogo {
+  id_insignia: number;
+  codigo: string;
+  nombre: string;
+  descripcion: string;
+  icono_url: string;
+  criterio: Record<string, any>;
+  puntos: number;
+  total_poseedores: number;
+}
+
+export interface InsigniaUsuarioItem {
+  id_insignia: number;
+  codigo: string;
+  nombre: string;
+  descripcion: string;
+  icono_url: string;
+  desbloqueada_en: string;
+  otorgada_por: string;
+}
+
+export interface ColaboradorRanking {
+  id_usuario: number;
+  posicion: number;
+  username: string;
+  nombre_completo: string;
+  telefono: string;
+  roles: string[];
+  comunidad: string;
+  puntos_totales: number;
+  rango_honor: string;
+  rango_nivel: number;
+  badge_color: string;
+  insignias_count: number;
+  reportes_validados_count: number;
+  actividades_count: number;
+  insignias: InsigniaUsuarioItem[];
+  ultima_actividad: string;
+}
+
+export interface MuroReconocimiento {
+  id_logro: number;
+  usuario_id: number;
+  usuario_nombre: string;
+  insignia_codigo: string;
+  insignia_nombre: string;
+  insignia_icono: string;
+  puntos: number;
+  desbloqueada_en: string;
+  otorgada_por: string;
+  motivo?: string;
+}
+
+export interface CuadroHonorData {
+  estadisticas: {
+    total_voluntarios_reconocidos: number;
+    total_insignias_otorgadas: number;
+    total_actividades_validadas: number;
+    comunidad_mas_comprometida: string;
+    actualizado_en: string;
+  };
+  ranking: ColaboradorRanking[];
+  catalogo_insignias: InsigniaCatalogo[];
+  muro_reciente: MuroReconocimiento[];
+}
+
 
 

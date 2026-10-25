@@ -113,6 +113,12 @@ SPECTACULAR_SETTINGS = {
 
 # CORS settings
 CORS_ALLOW_ALL_ORIGINS = env.bool('CORS_ALLOW_ALL_ORIGINS', default=True)
+from corsheaders.defaults import default_headers
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'cache-control',
+    'pragma',
+    'expires',
+]
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [

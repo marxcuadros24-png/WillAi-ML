@@ -719,9 +719,13 @@ def panel_usuarios_api(request):
     Retorna la lista de usuarios del sistema con sus roles, teléfonos, correos y estado.
     """
     from apps.usuarios.models import Rol
-    usuarios = Usuario.objects.prefetch_related('roles').order_by('-creado_en')
+    usuarios = Usuario.objects.prefetch_related('roles', 'insignias_obtenidas__insignia').order_by('-creado_en')
     lista = []
     for u in usuarios:
+        ins_list = [
+            {'codigo': ui.insignia.codigo, 'nombre': ui.insignia.nombre, 'icono': ui.insignia.icono_url or 'award'}
+            for ui in u.insignias_obtenidas.all()
+        ]
         lista.append({
             'id': u.id_usuario,
             'uuid': str(u.uuid),
@@ -734,6 +738,7 @@ def panel_usuarios_api(request):
             'is_superuser': u.is_superuser,
             'roles': [r.nombre for r in u.roles.all()],
             'roles_codigos': [r.codigo for r in u.roles.all()],
+            'insignias': ins_list,
             'creado_en': u.creado_en.strftime('%d/%m/%Y'),
             'ultimo_acceso': u.last_login.strftime('%d/%m/%Y %H:%M') if u.last_login else 'Nunca'
         })

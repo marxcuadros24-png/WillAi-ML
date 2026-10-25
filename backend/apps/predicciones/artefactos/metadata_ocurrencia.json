@@ -4,19 +4,19 @@
   "algoritmo": "RandomForestClassifier + CalibratedClassifierCV (Sigmoid)",
   "tipo_tarea": "Estimación de Riesgo de Ocurrencia / Susceptibilidad de Incendio",
   "zona_estudio": "Coracora, Provincia de Parinacochas, Ayacucho",
-  "entrenado_en": "2026-10-24T18:37:44.232940+00:00",
+  "entrenado_en": "2026-10-24T23:53:48.158982+00:00",
   "division_temporal": {
-    "fecha_inicio": "2026-09-24",
-    "fecha_corte_split": "2026-10-15",
-    "fecha_fin": "2026-10-24",
+    "fecha_inicio": "2024-10-24",
+    "fecha_corte_split": "2026-09-02",
+    "fecha_fin": "2026-10-21",
     "test_ratio": 0.3,
-    "muestras_train": 53,
-    "muestras_test": 24
+    "muestras_train": 2197,
+    "muestras_test": 942
   },
   "datos_entrenamiento": {
-    "total_muestras": 77,
-    "focos_positivos_firms": 0,
-    "pseudo_negativos_controlados": 42,
+    "total_muestras": 3139,
+    "focos_positivos_firms": 1427,
+    "pseudo_negativos_controlados": 1712,
     "fuentes": [
       "NASA FIRMS (VIIRS NOAA-20, NOAA-21, Suomi-NPP y MODIS Aqua/Terra)",
       "Open-Meteo Historical Archive API (Coracora)",
@@ -25,34 +25,34 @@
   },
   "metricas_evaluacion_temporal": {
     "random_forest_calibrado": {
-      "precision": 0.8889,
-      "recall": 1.0,
-      "f1_score": 0.9412,
-      "roc_auc": 1.0,
-      "pr_auc": 1.0,
-      "brier_score": 0.0238
+      "precision": 0.9396,
+      "recall": 0.7783,
+      "f1_score": 0.8514,
+      "roc_auc": 0.724,
+      "pr_auc": 0.9423,
+      "brier_score": 0.1692
     },
     "linea_base_logistic_regression": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0,
-      "roc_auc": 1.0,
-      "pr_auc": 1.0,
-      "brier_score": 0.0086
+      "precision": 0.9212,
+      "recall": 0.9893,
+      "f1_score": 0.954,
+      "roc_auc": 0.7962,
+      "pr_auc": 0.9518,
+      "brier_score": 0.0731
     }
   },
   "importancia_variables": {
-    "temp_max": 0.0159,
-    "humidity_mean": 0.061,
-    "wind_max": 0.0344,
-    "rain_sum": 0.0053,
-    "rain_prev_3d": 0.0087,
-    "fwi": 0.0183,
-    "isi": 0.0186,
-    "elevacion_m": 0.1422,
-    "pendiente_deg": 0.2843,
-    "distancia_comunidad_km": 0.4096,
-    "mes": 0.0017
+    "temp_max": 0.107,
+    "humidity_mean": 0.1023,
+    "wind_max": 0.0599,
+    "rain_sum": 0.0463,
+    "rain_prev_3d": 0.0149,
+    "fwi": 0.1611,
+    "isi": 0.1821,
+    "elevacion_m": 0.1188,
+    "pendiente_deg": 0.0142,
+    "distancia_comunidad_km": 0.0845,
+    "mes": 0.109
   },
   "variables_entrada": [
     "temp_max",

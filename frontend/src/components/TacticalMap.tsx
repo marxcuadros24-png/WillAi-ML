@@ -619,12 +619,14 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                 <span style="font-size: 10px; color: #94a3b8; font-family: monospace;">#Celda ${p.id_celda}</span>
               </div>
               <div style="grid-template-columns: 1fr 1fr; display: grid; gap: 4px; font-size: 11px; margin-bottom: 6px;">
+                <div><span style="color: #94a3b8;">Distrito:</span> <b style="color: #38bdf8;">${p.distrito || 'Parinacochas'}</b></div>
+                <div><span style="color: #94a3b8;">C. Poblado:</span> <b style="color: #fb923c;">${p.comunidad_cercana}</b></div>
                 <div><span style="color: #94a3b8;">Elevación:</span> <b style="color: #fff;">${p.elevacion_m} m</b></div>
                 <div><span style="color: #94a3b8;">Pendiente:</span> <b style="color: #fff;">${p.pendiente_deg}°</b></div>
-                <div><span style="color: #94a3b8;">C. Poblado:</span> <b style="color: #fb923c;">${p.comunidad_cercana}</b></div>
-                <div><span style="color: #94a3b8;">Distancia:</span> <b style="color: #fff;">${p.distancia_comunidad_km} km</b></div>
+                <div><span style="color: #94a3b8;">Distancia C.P.:</span> <b style="color: #fff;">${p.distancia_comunidad_km} km</b></div>
                 <div><span style="color: #94a3b8;">FWI Canadiense:</span> <b style="color: #f87171;">${p.fwi}</b></div>
                 <div><span style="color: #94a3b8;">Temperatura:</span> <b style="color: #fb923c;">${p.temperatura_c} °C</b></div>
+                <div><span style="color: #94a3b8;">Humedad:</span> <b style="color: #38bdf8;">${p.humedad_pct ?? 40} %</b></div>
               </div>
               <div style="font-size: 10px; color: #cbd5e1; background: rgba(0,0,0,0.4); padding: 5px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.08);">
                 <span>🛰️ Modelo: Random Forest Calibrado (Platt)</span><br/>

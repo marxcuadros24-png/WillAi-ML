@@ -32,29 +32,30 @@ class DeteccionSatelitalViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         qs = DeteccionSatelital.objects.select_related('fuente').all()
 
-        # Filtrar por días hacia atrás (ej: dias=180 para 6 meses, dias=7, dias=30)
-        dias_param = self.request.query_params.get('dias')
-        if dias_param:
-            try:
-                dias = int(dias_param)
-                fecha_limite = timezone.now() - timedelta(days=dias)
-                qs = qs.filter(fecha_observacion__gte=fecha_limite)
-            except ValueError:
-                pass
-
         # Filtrar por rango de fechas específico YYYY-MM-DD
         fecha_desde = self.request.query_params.get('fecha_desde')
+        fecha_hasta = self.request.query_params.get('fecha_hasta')
+
         if fecha_desde:
             try:
                 qs = qs.filter(fecha_observacion__date__gte=fecha_desde)
             except Exception:
                 pass
 
-        fecha_hasta = self.request.query_params.get('fecha_hasta')
         if fecha_hasta:
             try:
                 qs = qs.filter(fecha_observacion__date__lte=fecha_hasta)
             except Exception:
+                pass
+
+        # Filtrar por días hacia atrás sólo si no se especificó un rango exacto
+        dias_param = self.request.query_params.get('dias')
+        if dias_param and not (fecha_desde or fecha_hasta):
+            try:
+                dias = int(dias_param)
+                fecha_limite = timezone.now() - timedelta(days=dias)
+                qs = qs.filter(fecha_observacion__gte=fecha_limite)
+            except ValueError:
                 pass
 
         # Filtrar por sensor específico (MODIS, VIIRS, LANDSAT, SERFOR)

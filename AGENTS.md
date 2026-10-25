@@ -34,13 +34,13 @@
 ## 🌐 3. Integración de APIs Externas (100% REALES — CERO DATOS SINTÉTICOS O MOCK)
 1. **NASA FIRMS (Focos de calor satelitales VIIRS [375m] y MODIS [1km]):**
    - API Key real configurada en `backend/.env`: `a84d23a9aab653f18f15991290bd093e`.
-   - Sensores consumidos: `VIIRS_NOAA20_NRT`, `VIIRS_NOAA21_NRT`, `MODIS_NRT` (Aqua y Terra).
+   - Sensores consumidos: Archivo histórico (`VIIRS_SNPP_SP`, `MODIS_SP`) y Tiempo casi-real (`VIIRS_NOAA20_NRT`, `VIIRS_NOAA21_NRT`, `MODIS_NRT`).
    - Tarea Celery: `importar_firms_multi_sensor_task` (cada 3 horas) y tarea unitaria `importar_firms_task`.
-   - Descarga histórica 100% satelital: ventanas oficiales de 5 días con fecha específica hasta 6 meses (180 días).
+   - Descarga histórica 100% satelital: ventanas oficiales de 5 días con fecha específica hasta 2 años (730 días) en el Bounding Box provincial oficial (`[-74.30, -15.65, -72.85, -14.50]`).
    - Endpoints: `GET /api/v1/firms/detecciones/` y `GET /api/v1/firms/detecciones/historial_meses/?meses=6`.
-   - Comando de importación histórica real:
+   - Comando de importación histórica real (2 años):
      ```powershell
-     python manage.py importar_firms_historico --dias 180 --paso 5
+     python manage.py importar_firms_historico --dias 730 --paso 5
      ```
    - Comandos de importación puntual:
      - `python manage.py importar_firms --todos --days 3`
@@ -64,10 +64,10 @@
    - Implementación: `apps/predicciones/ml_ocurrencia.py` (RandomForestClassifier Calibrado con sigmoide/Platt scaling + comparación frente a Línea Base de Regresión Logística).
    - Prevención de fuga de información: División temporal estricta (70% días iniciales para entrenamiento, 30% cronológico final para prueba) y buffer espacial de 6 km para pseudo-negativos.
    - Variables explicativas: Temperatura máxima, humedad media, viento máximo, precipitación diaria, lluvia previa de 3 días, FWI canadiense, ISI, elevación andina real (2,200 - 4,800 msnm), pendiente y distancia a comunidades de Parinacochas.
-   - Datos de entrenamiento: 765 detecciones históricas reales de NASA FIRMS (VIIRS + MODIS) + serie histórica diaria real de Open-Meteo Archive.
+   - Datos de entrenamiento: 1,859 detecciones históricas reales de NASA FIRMS (VIIRS + MODIS de 2 años completos) + serie histórica diaria real de Open-Meteo Archive (731 días).
    - Endpoints: `GET /api/v1/predicciones/predicciones/riesgo_ocurrencia/` y `POST /api/v1/predicciones/predicciones/entrenar_ocurrencia/`.
    - Comando manual: `python manage.py entrenar_ocurrencia --test-ratio 0.30`.
-   - Visualización: Capa independiente en Leaflet (`showRiesgoOcurrencia`) con cuadrícula de 72 celdas vectoriales, probabilidades calibradas, nivel de riesgo y control toggle desacoplado.
+   - Visualización: Capa independiente en Leaflet (`showRiesgoOcurrencia`) con cuadrícula de 265 celdas vectoriales delimitadas cubriendo los 8 distritos de la Provincia de Parinacochas (Pullo, Coracora, Coronel Castañeda, Puyusca, Upahuacho, Chumpi, Ravacayco y Pacapausa), probabilidades calibradas, nivel de riesgo y control toggle desacoplado.
 
 ---
 
@@ -104,6 +104,12 @@ python manage.py seed_base
 
 # Sembrar datos operacionales de Coracora (Brigadas B-12/Huallhua/OGRD/SERFOR, Incidentes, Reportes, Alertas, Donaciones)
 python manage.py seed_operativo
+
+# Sembrar catálogo oficial de 8 insignias cívicas de mérito WillAI
+python manage.py seed_insignias
+
+# Sembrar cuadro de honor, colaboradores comunales y actividades validadas
+python manage.py seed_gamificacion
 
 # Consultar meteorología en tiempo real desde Open-Meteo
 python manage.py importar_meteo

@@ -40,10 +40,10 @@ from apps.predicciones.fwi import calcular_sistema_fwi_completo
 CORACORA_LAT = -15.0189
 CORACORA_LON = -73.7806
 BBOX_PARINACOCHAS = {
-    'lat_min': -15.45,
-    'lat_max': -14.75,
-    'lon_min': -74.15,
-    'lon_max': -73.40,
+    'lat_min': -15.65,
+    'lat_max': -14.50,
+    'lon_min': -74.30,
+    'lon_max': -72.85,
 }
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -127,7 +127,7 @@ def descargar_serie_historica_openmeteo(fecha_inicio: str, fecha_fin: str, lat: 
     }
 
     try:
-        resp = requests.get(url, params=params, timeout=20)
+        resp = requests.get(url, params=params, timeout=35)
         if resp.status_code == 200:
             daily = resp.json().get('daily', {})
             tiempos = daily.get('time', [])
@@ -606,14 +606,74 @@ def predecir_probabilidad_ocurrencia(vector_x: list[float]) -> float:
     return float(max(0.01, min(0.99, proba)))
 
 
-def generar_grilla_riesgo_ocurrencia(paso_lat: float = 0.035, paso_lon: float = 0.035) -> dict:
+_DISTRITOS_PARINACOCHAS_CACHE = None
+
+
+def _cargar_distritos_parinacochas():
+    global _DISTRITOS_PARINACOCHAS_CACHE
+    if _DISTRITOS_PARINACOCHAS_CACHE is not None:
+        return _DISTRITOS_PARINACOCHAS_CACHE
+
+    json_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        'geografia',
+        'parinacochas_distritos.json'
+    )
+    if not os.path.exists(json_path):
+        return []
+
+    try:
+        with open(json_path, 'r', encoding='utf-8') as f:
+            geo = json.load(f)
+        distritos = []
+        for feat in geo.get('features', []):
+            nom = feat.get('properties', {}).get('NOMBDIST', 'PARINACOCHAS')
+            coords = feat.get('geometry', {}).get('coordinates', [])
+            if coords:
+                distritos.append((nom, coords[0]))
+        _DISTRITOS_PARINACOCHAS_CACHE = distritos
+        return distritos
+    except Exception:
+        return []
+
+
+def _punto_en_poligono_anillo(x: float, y: float, ring: list) -> bool:
+    """Algoritmo de trazado de rayos para verificar si (x, y) está dentro del polígono."""
+    n = len(ring)
+    dentro = False
+    p1x, p1y = ring[0]
+    for i in range(1, n + 1):
+        p2x, p2y = ring[i % n]
+        if y > min(p1y, p2y):
+            if y <= max(p1y, p2y):
+                if x <= max(p1x, p2x):
+                    if p1y != p2y:
+                        xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                    if p1x == p2x or x <= xinters:
+                        dentro = not dentro
+        p1x, p1y = p2x, p2y
+    return dentro
+
+
+def obtener_distrito_coordenada(lon: float, lat: float, distritos_data: list = None) -> str | None:
+    """Retorna el nombre del distrito de Parinacochas que contiene la coordenada (lon, lat)."""
+    distritos = distritos_data if distritos_data is not None else _cargar_distritos_parinacochas()
+    for nom, ring in distritos:
+        if _punto_en_poligono_anillo(lon, lat, ring):
+            return nom
+    return None
+
+
+def generar_grilla_riesgo_ocurrencia(paso_lat: float = 0.05, paso_lon: float = 0.05) -> dict:
     """
-    Genera una cuadrícula regular de celdas territoriales para Parinacochas/Coracora
-    y evalúa el riesgo de ocurrencia mediante el modelo de Machine Learning.
-    Retorna un GeoJSON FeatureCollection listo para ser renderizado como capa Leaflet.
+    Genera la cuadrícula de celdas territoriales delimitada para la Provincia de Parinacochas
+    (Coracora, Pullo, Puyusca, Chumpi, Upahuacho, Coronel Castañeda, Pacapausa y Ravacayco)
+    y evalúa el riesgo de ocurrencia mediante el modelo de Machine Learning Random Forest Calibrado.
+    Retorna un GeoJSON FeatureCollection listo para ser renderizado como capa en Leaflet.
     """
     pkg = cargar_modelo_ocurrencia()
     modelo = pkg['modelo']
+    distritos_data = _cargar_distritos_parinacochas()
 
     # Obtener meteorología actual más reciente
     obs = ObservacionMeteorologica.objects.order_by('-observada_en').first()
@@ -642,9 +702,11 @@ def generar_grilla_riesgo_ocurrencia(paso_lat: float = 0.035, paso_lon: float = 
     comunidades = list(Comunidad.objects.filter(latitud__isnull=False, longitud__isnull=False).values('nombre', 'latitud', 'longitud'))
     comunidades_coords = [(float(c['latitud']), float(c['longitud']), c['nombre']) for c in comunidades]
 
-    # Parámetros del Bounding Box de Parinacochas habitada
-    lat_min, lat_max = -15.22, -14.92
-    lon_min, lon_max = -73.92, -73.65
+    # Delimitación territorial oficial de la Provincia de Parinacochas
+    lat_min = BBOX_PARINACOCHAS['lat_min']
+    lat_max = BBOX_PARINACOCHAS['lat_max']
+    lon_min = BBOX_PARINACOCHAS['lon_min']
+    lon_max = BBOX_PARINACOCHAS['lon_max']
 
     features = []
     celda_id = 1
@@ -659,6 +721,28 @@ def generar_grilla_riesgo_ocurrencia(paso_lat: float = 0.035, paso_lon: float = 
             c_lat = cur_lat + (paso_lat / 2.0)
             c_lon = cur_lon + (paso_lon / 2.0)
 
+            # Verificar si la celda cae dentro de la delimitación distrital de Parinacochas
+            distrito_nom = obtener_distrito_coordenada(c_lon, c_lat, distritos_data)
+            if not distrito_nom and distritos_data:
+                # Comprobar esquinas para cubrir franjas de frontera
+                esquinas = [
+                    (cur_lon, cur_lat),
+                    (cur_lon + paso_lon, cur_lat),
+                    (cur_lon + paso_lon, cur_lat + paso_lat),
+                    (cur_lon, cur_lat + paso_lat)
+                ]
+                for cx, cy in esquinas:
+                    cd = obtener_distrito_coordenada(cx, cy, distritos_data)
+                    if cd:
+                        distrito_nom = cd
+                        break
+
+            # Si está fuera de los límites provinciales oficiales, omitir
+            if distritos_data and not distrito_nom:
+                cur_lon += paso_lon
+                continue
+
+            distrito_nom = distrito_nom or 'CORACORA'
             elev, pend = estimar_elevacion_y_pendiente(c_lat, c_lon)
 
             # Buscar comunidad más cercana
@@ -671,7 +755,7 @@ def generar_grilla_riesgo_ocurrencia(paso_lat: float = 0.035, paso_lon: float = 
                 nom_com = dist_nom[1]
             else:
                 dist_com = calcular_haversine_km(c_lat, c_lon, CORACORA_LAT, CORACORA_LON)
-                nom_com = "Coracora"
+                nom_com = distrito_nom.title()
 
             vector_x = [
                 temp_actual,
@@ -725,6 +809,8 @@ def generar_grilla_riesgo_ocurrencia(paso_lat: float = 0.035, paso_lon: float = 
                 },
                 "properties": {
                     "id_celda": celda_id,
+                    "distrito": distrito_nom,
+                    "provincia": "Parinacochas",
                     "centro": {"lat": round(c_lat, 4), "lon": round(c_lon, 4)},
                     "probabilidad": round(prob, 4),
                     "probabilidad_pct": prob_pct,
@@ -738,7 +824,7 @@ def generar_grilla_riesgo_ocurrencia(paso_lat: float = 0.035, paso_lon: float = 
                     "temperatura_c": temp_actual,
                     "humedad_pct": hum_actual,
                     "viento_kmh": viento_actual,
-                    "fuente": "NASA FIRMS (Histórico) + Open-Meteo",
+                    "fuente": "NASA FIRMS (Histórico 2 Años) + Open-Meteo",
                     "fecha_actualizacion": fecha_obs_str
                 }
             }

@@ -19,7 +19,8 @@ import {
   Shield,
   ShieldAlert,
   Home,
-  Menu
+  Menu,
+  Award
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { AppContextType } from '../context/AppContext';
@@ -91,6 +92,8 @@ export const Layout: React.FC<LayoutProps> = ({ context }) => {
         return 'Padrón de Viviendas Rurales Vulnerables';
       case '/usuarios':
         return 'Gestión de Usuarios & Personal';
+      case '/logros':
+        return 'Cuadro de Honor & Logros Comunitarios';
       case '/alertas':
         return 'Emisión y Monitoreo de Alertas';
       case '/donaciones':
@@ -333,6 +336,15 @@ export const Layout: React.FC<LayoutProps> = ({ context }) => {
             >
               <Users size={18} />
               {sidebarOpen && <span>Usuarios & Personal</span>}
+            </NavLink>
+
+            <NavLink
+              to="/logros"
+              className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}
+              title="Cuadro de Honor y Logros Comunitarios"
+            >
+              <Award size={18} />
+              {sidebarOpen && <span>Cuadro de Honor</span>}
             </NavLink>
 
             <NavLink

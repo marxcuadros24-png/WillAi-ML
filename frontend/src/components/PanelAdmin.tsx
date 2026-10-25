@@ -24,7 +24,7 @@ interface PanelAdminProps {
   reportes: ReporteCiudadano[];
   brigadas: Brigada[];
   grillaOcurrencia?: GrillaRiesgoOcurrenciaData | null;
-  onNavigateTab: (tab: 'mapa' | 'incidentes' | 'reportes' | 'usuarios' | 'alertas' | 'donaciones' | 'satelites') => void;
+  onNavigateTab: (tab: 'mapa' | 'incidentes' | 'reportes' | 'usuarios' | 'alertas' | 'donaciones' | 'satelites' | 'logros') => void;
   onOpenCreateIncident: () => void;
   onOpenAlertModal: () => void;
   onRefreshMeteo: () => void;
@@ -463,6 +463,15 @@ export const PanelAdmin: React.FC<PanelAdminProps> = ({
               onClick={() => onNavigateTab('usuarios')}
             >
               <span>👥 Gestión de Usuarios & Brigadistas</span>
+              <ExternalLink size={14} />
+            </button>
+
+            <button
+              className="btn-admin btn-admin-outline"
+              style={{ width: '100%', justifyContent: 'space-between', padding: '10px 14px', borderColor: 'rgba(245, 158, 11, 0.3)', color: '#fbbf24' }}
+              onClick={() => onNavigateTab('logros')}
+            >
+              <span>🏆 Cuadro de Honor & Condecoraciones</span>
               <ExternalLink size={14} />
             </button>
 

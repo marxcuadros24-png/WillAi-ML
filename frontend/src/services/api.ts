@@ -11,7 +11,8 @@ import type {
   CrearBrigadaPayload,
   ViviendaRural,
   CrearViviendaPayload,
-  GrillaRiesgoOcurrenciaData
+  GrillaRiesgoOcurrenciaData,
+  CuadroHonorData
 } from '../types';
 
 const API_BASE = 'http://127.0.0.1:8000/api/v1';
@@ -806,5 +807,55 @@ export async function eliminarVivienda(idVivienda: number): Promise<{ success: b
   }
   return data;
 }
+
+/**
+ * Consulta el Cuadro de Honor, Ranking de colaboradores y Catálogo de insignias
+ * del Sistema de Alerta Temprana WillAI Parinacochas.
+ */
+export async function fetchCuadroHonor(): Promise<CuadroHonorData> {
+  try {
+    const res = await fetch(`${API_BASE}/gamificacion/insignias/cuadro-honor/?_t=${Date.now()}`, {
+      cache: 'no-store'
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('Error al consultar cuadro de honor de WillAI:', err);
+    return {
+      estadisticas: {
+        total_voluntarios_reconocidos: 0,
+        total_insignias_otorgadas: 0,
+        total_actividades_validadas: 0,
+        comunidad_mas_comprometida: 'Coracora',
+        actualizado_en: ''
+      },
+      ranking: [],
+      catalogo_insignias: [],
+      muro_reciente: []
+    };
+  }
+}
+
+/**
+ * Otorga manualmente una insignia honorífica a un colaborador o brigadista
+ * desde el Centro de Mando Táctico.
+ */
+export async function otorgarInsigniaManual(payload: {
+  id_usuario: number;
+  codigo_insignia: string;
+  motivo?: string;
+}): Promise<{ status: string; mensaje: string; usuario?: string; insignia?: string; puntos_sumados?: number }> {
+  const res = await fetch(`${API_BASE}/gamificacion/insignias/otorgar-insignia/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!res.ok || data.status !== 'ok') {
+    throw new Error(data.error || 'No se pudo otorgar la insignia');
+  }
+  return data;
+}
+
 
 
