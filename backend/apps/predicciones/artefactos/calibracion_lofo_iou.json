@@ -1,24 +1,88 @@
 {
-  "titulo": "Calibración LOFO 3-Fold Consolidada (Parámetros Óptimos WillAI)",
-  "ensamble_viento": true,
+  "titulo": "Calibración Leave-One-Fire-Out (LOFO) del Simulador Elíptico Andino",
+  "algoritmo_optimizador": "scipy.optimize.minimize (Powell)",
+  "ensamble_viento": false,
+  "evento_prueba_held_out": {
+    "id_evento": "FIRMS-2026-1011-UPAHUACHO",
+    "nombre": "Incendio Upahuacho / Parinacochas Norte",
+    "distrito": "Upahuacho"
+  },
+  "eventos_entrenamiento": [
+    {
+      "id_evento": "FIRMS-2026-0820-HUACCANA",
+      "nombre": "Incendio Huac-Cana / Coracora Sur",
+      "distrito": "Coracora"
+    },
+    {
+      "id_evento": "FIRMS-2026-1003-CHUMPI",
+      "nombre": "Incendio Chumpi / Incuyo",
+      "distrito": "Chumpi"
+    }
+  ],
   "multiplicadores_base": {
     "alfa_r0": 1.0,
     "alfa_viento": 1.0,
     "alfa_pendiente": 1.0
   },
   "multiplicadores_optimos": {
-    "alfa_r0": 0.501,
-    "alfa_viento": 0.78,
-    "alfa_pendiente": 1.309
+    "alfa_r0": 0.486,
+    "alfa_viento": 0.66,
+    "alfa_pendiente": 1.54
   },
-  "rendimiento_macro_cv": {
-    "iou_test_base_medio_porcentaje": 21.19,
-    "iou_test_calibrado_medio_porcentaje": 30.95,
-    "mejora_iou_media_puntos": 9.76,
-    "dice_f1_test_calibrado_medio_porcentaje": 47.06,
-    "distancia_hausdorff_test_base_media_m": 2734.9,
-    "distancia_hausdorff_test_calibrado_media_m": 2702.7,
-    "reduccion_distancia_hausdorff_media_m": 32.2,
-    "error_omision_test_medio_porcentaje": 39.32
-  }
+  "rendimiento_entrenamiento": {
+    "iou_base": 27.06,
+    "iou_calibrado": 38.95,
+    "mejora_iou_puntos": 11.89,
+    "dice_calibrado": 56.02,
+    "hausdorff_base_m": 2776.7,
+    "hausdorff_calibrado_m": 2033.0,
+    "reduccion_hausdorff_m": 743.7,
+    "detalles": [
+      {
+        "id_evento": "FIRMS-2026-0820-HUACCANA",
+        "nombre": "Incendio Huac-Cana / Coracora Sur",
+        "area_real_ha": 511.29,
+        "area_simulada_ha": 895.41,
+        "iou_porcentaje": 41.36,
+        "dice_f1_porcentaje": 58.52,
+        "distancia_hausdorff_m": 1167.6,
+        "omision_porcentaje": 19.5,
+        "comision_porcentaje": 54.03
+      },
+      {
+        "id_evento": "FIRMS-2026-1003-CHUMPI",
+        "nombre": "Incendio Chumpi / Incuyo",
+        "area_real_ha": 1045.35,
+        "area_simulada_ha": 600.66,
+        "iou_porcentaje": 36.54,
+        "dice_f1_porcentaje": 53.52,
+        "distancia_hausdorff_m": 2898.4,
+        "omision_porcentaje": 57.86,
+        "comision_porcentaje": 26.67
+      }
+    ]
+  },
+  "rendimiento_prueba_no_visto": {
+    "iou_base": 13.45,
+    "iou_calibrado": 24.01,
+    "mejora_iou_puntos": 10.56,
+    "dice_calibrado": 38.73,
+    "hausdorff_base_m": 2624.8,
+    "hausdorff_calibrado_m": 2294.0,
+    "reduccion_hausdorff_m": 330.8,
+    "detalles": [
+      {
+        "id_evento": "FIRMS-2026-1011-UPAHUACHO",
+        "nombre": "Incendio Upahuacho / Parinacochas Norte",
+        "area_real_ha": 219.42,
+        "area_simulada_ha": 306.54,
+        "iou_porcentaje": 24.01,
+        "dice_f1_porcentaje": 38.73,
+        "distancia_hausdorff_m": 2294.0,
+        "omision_porcentaje": 53.58,
+        "comision_porcentaje": 66.77
+      }
+    ]
+  },
+  "total_iteraciones_evaluadas": 100
 }

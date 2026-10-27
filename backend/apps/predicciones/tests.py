@@ -526,3 +526,28 @@ class SimulacionPropagacionTests(TestCase):
         self.assertLess(r0_bofedal[0, 0], r0_normal[0, 0] * 0.15)
         self.assertGreaterEqual(r0_bofedal[0, 0], 0.05)
 
+    def test_limpiar_mascara_dnbr_descarta_outliers(self):
+        """
+        Test 18: Verifica que limpiar_mascara_dnbr descarte parches y artefactos
+        de ruido menores a 2 ha (20,000 m²) preservando la cicatriz principal.
+        """
+        from apps.predicciones.validador_dnbr import ValidadorVerdadTerrenoDNBR
+
+        # Grilla 50x50 (resolución 30m -> 1 pixel = 900 m2)
+        # Parche grande: 6x6 = 36 píxeles = 32,400 m2 (3.24 ha > 2 ha) -> DEBE CONSERVARSE
+        # Parche outlier: 2x2 = 4 píxeles = 3,600 m2 (0.36 ha < 2 ha) -> DEBE ELIMINARSE
+        mask = np.zeros((50, 50), dtype=np.uint8)
+        mask[10:16, 10:16] = 1  # 36 píxeles
+        mask[40:42, 40:42] = 1  # 4 píxeles (outlier distante)
+
+        self.assertEqual(np.sum(mask), 40)
+
+        mask_limpia = ValidadorVerdadTerrenoDNBR.limpiar_mascara_dnbr(
+            mask, resolucion_m=30.0, min_area_ha=2.0
+        )
+
+        self.assertEqual(np.sum(mask_limpia), 36)
+        self.assertEqual(np.sum(mask_limpia[40:42, 40:42]), 0)
+        self.assertEqual(np.sum(mask_limpia[10:16, 10:16]), 36)
+
+

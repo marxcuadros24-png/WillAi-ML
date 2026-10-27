@@ -96,7 +96,7 @@ cd backend
 # Ejecutar chequeo del sistema
 python manage.py check
 
-# Ejecutar las pruebas unitarias completas (51 tests passing, 100% passing)
+# Ejecutar las pruebas unitarias completas (52 tests passing, 100% passing)
 python manage.py test apps.usuarios.test_usuarios apps.geografia.test_geografia apps.respuesta.test_respuesta apps.reportes.test_reportes apps.incidentes.test_incidentes apps.firms.test_firms apps.meteorologia.test_meteorologia apps.predicciones.test_predicciones apps.predicciones.tests apps.alertas.test_alertas apps.gamificacion.test_gamificacion apps.donaciones.test_donaciones apps.auditoria.test_auditoria apps.panel.test_panel
 
 # Descargar y reproyectar DEM Copernicus GLO-30 de Coracora a EPSG:32718 (data/coracora_dem_utm18s.tif)
@@ -105,13 +105,13 @@ python manage.py descargar_dem
 # Descargar escena libre de nubes Sentinel-2 L2A (Element84 STAC) y generar ráster de combustibles R0 con clasificar_r0_andino (data/coracora_combustible_utm18s.tif)
 python manage.py generar_combustibles
 
-# Calibrar multiplicadores físicos con optimización Leave-One-Fire-Out (3-Fold Cross-Validation completo + Ensamble de Viento)
-python manage.py calibrar_simulador --cv-3fold --ensamble
+# Calibrar multiplicadores físicos con optimización Leave-One-Fire-Out (3-Fold Cross-Validation completo + Ensamble de Viento + 15 iteraciones)
+python manage.py calibrar_simulador --cv-3fold --ensamble --max-iter 15
 
 # Calibrar un solo fold específico
-python manage.py calibrar_simulador --test-fire UPAHUACHO
+python manage.py calibrar_simulador --test-fire UPAHUACHO --ensamble --max-iter 15
 
-# Validar simulador frente a verdad terreno satelital Sentinel-2 (dNBR pre/post, IoU y Distancia Hausdorff) con multiplicadores calibrados y ensamble de viento
+# Validar simulador frente a verdad terreno satelital Sentinel-2 (dNBR pre/post con depuración de outliers <2ha, IoU y Distancia Hausdorff) con multiplicadores calibrados y ensamble de viento
 python manage.py validar_dnbr_iou --usar-calibrado --ensamble
 
 # Sembrar estructura geográfica base y superusuario admin

@@ -157,6 +157,42 @@ class ValidadorVerdadTerrenoDNBR:
             logger.warning(f"No se pudo consultar STAC para escena {scene_id}: {e}")
         return None
 
+    @staticmethod
+    def limpiar_mascara_dnbr(
+        mask_quemado: np.ndarray,
+        resolucion_m: float = 30.0,
+        min_area_ha: float = 2.0,
+    ) -> np.ndarray:
+        """
+        Elimina manchas y píxeles aislados de ruido espectral (outliers) en la máscara binaria
+        de severidad dNBR descartando componentes conexas con área inferior a min_area_ha
+        (por defecto 2.0 ha = 20,000 m²). Utiliza conectividad de 8 vecinos (scipy.ndimage.label).
+        Si ningún parche alcanza el tamaño umbral, conserva el componente de mayor área.
+        """
+        from scipy.ndimage import label
+
+        estructura_8 = np.ones((3, 3), dtype=np.uint8)
+        etiquetas, num_features = label(mask_quemado, structure=estructura_8)
+        if num_features == 0:
+            return mask_quemado.copy()
+
+        area_pixel_m2 = resolucion_m * resolucion_m
+        min_pixeles = int(round((min_area_ha * 10000.0) / area_pixel_m2))
+
+        conteos = np.bincount(etiquetas.ravel())
+        valid_etiquetas = np.where(conteos >= min_pixeles)[0]
+        valid_etiquetas = valid_etiquetas[valid_etiquetas != 0]
+
+        limpia = np.zeros_like(mask_quemado)
+        if len(valid_etiquetas) > 0:
+            limpia = np.isin(etiquetas, valid_etiquetas).astype(np.uint8)
+        else:
+            if len(conteos) > 1:
+                max_etiqueta = int(np.argmax(conteos[1:])) + 1
+                limpia = (etiquetas == max_etiqueta).astype(np.uint8)
+
+        return limpia
+
     def extraer_poligono_dnbr_real(
         self, evento: Dict[str, Any]
     ) -> Tuple[Any, float, Dict[str, Any]]:
@@ -294,18 +330,33 @@ class ValidadorVerdadTerrenoDNBR:
                         pass
             evento["dem_array"] = dem_window if dem_window is not None else np.full(out_shape, 3180.0, dtype=np.float32)
 
-        # Máscara de píxeles quemados
-        mask_quemado = (dnbr >= self.umbral_dnbr).astype(np.uint8)
+        # Máscara de píxeles quemados cruda y depurada
+        mask_quemado_crudo = (dnbr >= self.umbral_dnbr).astype(np.uint8)
+        mask_quemado = self.limpiar_mascara_dnbr(
+            mask_quemado_crudo,
+            resolucion_m=self.resolucion_m,
+            min_area_ha=2.0,
+        )
         pixeles_quemados = int(np.sum(mask_quemado))
 
-        # Vectorización a polígonos Shapely
+        # Vectorización a polígonos Shapely (descartando parches < 2 ha = 20,000 m²)
+        min_area_m2 = 2.0 * 10000.0
         poligonos = []
         for geom, val in rasterio.features.shapes(
             mask_quemado, mask=(mask_quemado == 1), transform=affine
         ):
             s = shape(geom)
-            if s.is_valid and not s.is_empty and s.area >= (self.resolucion_m * self.resolucion_m * 4):
+            if s.is_valid and not s.is_empty and s.area >= min_area_m2:
                 poligonos.append(s)
+
+        # Fallback de seguridad si no hay polígonos >= 2 ha pero sí píxeles quemados
+        if not poligonos and pixeles_quemados > 0:
+            for geom, val in rasterio.features.shapes(
+                mask_quemado, mask=(mask_quemado == 1), transform=affine
+            ):
+                s = shape(geom)
+                if s.is_valid and not s.is_empty:
+                    poligonos.append(s)
 
         if poligonos:
             union_poly = unary_union(poligonos)
@@ -325,6 +376,7 @@ class ValidadorVerdadTerrenoDNBR:
             "dnbr_max": round(float(dnbr.max()), 3),
             "dnbr_medio": round(float(dnbr.mean()), 3),
             "pixeles_quemados": pixeles_quemados,
+            "pixeles_quemados_crudos": int(np.sum(mask_quemado_crudo)),
             "umbral_aplicado": self.umbral_dnbr,
             "usando_combustible_pre_ndmi": (evento.get("combustible_pre_array") is not None),
         }
