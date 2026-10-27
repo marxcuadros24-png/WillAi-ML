@@ -415,6 +415,114 @@ class SimulacionPropagacionTests(TestCase):
         self.assertIn("multiplicadores_optimos", rep)
         self.assertIn("rendimiento_entrenamiento", rep)
         self.assertIn("rendimiento_prueba_no_visto", rep)
+        self.assertIn("hausdorff_calibrado_m", rep["rendimiento_prueba_no_visto"])
         self.assertGreater(rep["rendimiento_entrenamiento"]["iou_calibrado"], 0.0)
         self.assertGreater(rep["rendimiento_prueba_no_visto"]["iou_calibrado"], 0.0)
+
+    def test_distancia_hausdorff_metricas_iou(self):
+        """
+        Test 14: Verifica que calcular_metricas_iou calcule el Error de Distancia
+        Hausdorff en metros reales UTM entre el frente simulado y la cicatriz real.
+        """
+        from apps.predicciones.validador_dnbr import ValidadorVerdadTerrenoDNBR
+        from shapely.geometry import Polygon
+
+        # Polígono simulado (cuadrado 100x100m en UTM)
+        poly_sim = Polygon([(0, 0), (100, 0), (100, 100), (0, 100)])
+        # Polígono real ligeramente mayor (120x100m)
+        poly_real = Polygon([(0, 0), (120, 0), (120, 100), (0, 100)])
+
+        metricas = ValidadorVerdadTerrenoDNBR.calcular_metricas_iou(poly_sim, poly_real)
+        self.assertIn("distancia_hausdorff_m", metricas)
+        # La distancia de Hausdorff debe ser 20m (diferencia métrica en el borde este)
+        self.assertEqual(metricas["distancia_hausdorff_m"], 20.0)
+        self.assertGreater(metricas["iou_porcentaje"], 80.0)
+
+    def test_simulador_ensamble_viento_banda_incertidumbre(self):
+        """
+        Test 15: Verifica que el modo Ensamble de Viento (escenario central +- 15°)
+        genere la envolvente de incertidumbre angular y reduzca la omisión.
+        """
+        grid_size = 80
+        dem_plano = np.full((grid_size, grid_size), 3180.0, dtype=np.float32)
+        comb_uniforme = np.full((grid_size, grid_size), 1.80, dtype=np.float32)
+
+        # Simulación estándar con ángulo único
+        sim_single = SimuladorElipticoAndino(
+            lat=self.lat_ignicion,
+            lon=self.lon_ignicion,
+            viento_kmh=22.0,
+            dir_viento_grados=90.0,
+            ffmc=85.0,
+            grid_size=grid_size,
+            dem_array=dem_plano,
+            combustible_array=comb_uniforme,
+            ensamble_viento=False,
+        )
+        res_single = sim_single.simular(horizontes_horas=(1,))
+
+        # Simulación con ensamble de perturbación (+-15°)
+        sim_ens = SimuladorElipticoAndino(
+            lat=self.lat_ignicion,
+            lon=self.lon_ignicion,
+            viento_kmh=22.0,
+            dir_viento_grados=90.0,
+            ffmc=85.0,
+            grid_size=grid_size,
+            dem_array=dem_plano,
+            combustible_array=comb_uniforme,
+            ensamble_viento=True,
+            delta_viento_grados=15.0,
+        )
+        res_ens = sim_ens.simular(horizontes_horas=(1,))
+
+        meta_ens = res_ens[1]["metadatos"]
+        self.assertTrue(meta_ens["ensamble_viento"])
+        self.assertEqual(len(meta_ens["miembros_ensamble"]), 3)
+        self.assertIn(75.0, meta_ens["miembros_ensamble"])
+        self.assertIn(90.0, meta_ens["miembros_ensamble"])
+        self.assertIn(105.0, meta_ens["miembros_ensamble"])
+
+        # La envolvente del ensamble debe cubrir igual o mayor área que el escenario determinista único
+        self.assertGreaterEqual(
+            res_ens[1]["area_hectareas"],
+            res_single[1]["area_hectareas"]
+        )
+
+    def test_calibrador_lofo_3fold_cv(self):
+        """
+        Test 16: Verifica que la validación cruzada 3-Fold LOFO complete los 3 folds
+        rotando los incendios de prueba y entregue los promedios macro de generalización.
+        """
+        from apps.predicciones.calibrador_lofo import CalibradorLOFO
+
+        calibrador = CalibradorLOFO(max_iter=1)
+        rep_3fold = calibrador.calibrar_3fold_cv(ensamble_viento=False, max_iter=1)
+
+        self.assertEqual(rep_3fold["total_folds"], 3)
+        self.assertIn("resumen_macro_3fold", rep_3fold)
+        self.assertIn("multiplicadores_optimos_recomendados", rep_3fold)
+
+        macro = rep_3fold["resumen_macro_3fold"]
+        self.assertIn("iou_test_calibrado_medio_porcentaje", macro)
+        self.assertIn("distancia_hausdorff_test_calibrado_media_m", macro)
+        self.assertGreater(macro["iou_test_calibrado_medio_porcentaje"], 0.0)
+
+    def test_freno_bofedales_ndmi_alto(self):
+        """
+        Test 17: Verifica que en bofedales y turberas andinas (NDMI > 0.20)
+        la función clasificar_r0_andino aplique el freno físico de 0.08x.
+        """
+        from scripts.generar_combustibles_coracora import clasificar_r0_andino
+
+        ndvi = np.array([[0.35]], dtype=np.float32)
+        ndmi_normal = np.array([[0.05]], dtype=np.float32)
+        ndmi_bofedal = np.array([[0.25]], dtype=np.float32)
+
+        r0_normal = clasificar_r0_andino(ndvi, ndmi=ndmi_normal)
+        r0_bofedal = clasificar_r0_andino(ndvi, ndmi=ndmi_bofedal)
+
+        # Debe reducir drásticamente el R0 por humedad de extinción permanente
+        self.assertLess(r0_bofedal[0, 0], r0_normal[0, 0] * 0.15)
+        self.assertGreaterEqual(r0_bofedal[0, 0], 0.05)
 

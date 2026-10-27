@@ -1,0 +1,186 @@
+{
+  "titulo": "Validación Cruzada 3-Fold Leave-One-Fire-Out (LOFO) del Simulador Elíptico Andino",
+  "metodologia": "Leave-One-Fire-Out (3 folds rotativos sin data leakage)",
+  "ensamble_viento": true,
+  "optimizador": "scipy.optimize.minimize (Powell, maxiter=2)",
+  "total_folds": 3,
+  "resumen_macro_3fold": {
+    "iou_test_base_medio_porcentaje": 21.19,
+    "iou_test_calibrado_medio_porcentaje": 30.95,
+    "mejora_iou_media_puntos": 9.76,
+    "dice_f1_test_calibrado_medio_porcentaje": 47.06,
+    "distancia_hausdorff_test_base_media_m": 2734.9,
+    "distancia_hausdorff_test_calibrado_media_m": 2702.7,
+    "reduccion_distancia_hausdorff_media_m": 32.2,
+    "error_omision_test_medio_porcentaje": 39.32
+  },
+  "multiplicadores_optimos_recomendados": {
+    "alfa_r0": 0.501,
+    "alfa_viento": 0.78,
+    "alfa_pendiente": 1.309
+  },
+  "folds": [
+    {
+      "fold_numero": 1,
+      "incendio_prueba": {
+        "id_evento": "FIRMS-2026-0820-HUACCANA",
+        "nombre": "Incendio Huac-Cana / Coracora Sur",
+        "distrito": "Coracora"
+      },
+      "incendios_entrenamiento": [
+        {
+          "id_evento": "FIRMS-2026-1003-CHUMPI",
+          "distrito": "Chumpi"
+        },
+        {
+          "id_evento": "FIRMS-2026-1011-UPAHUACHO",
+          "distrito": "Upahuacho"
+        }
+      ],
+      "multiplicadores_optimos": {
+        "alfa_r0": 0.641,
+        "alfa_viento": 0.676,
+        "alfa_pendiente": 0.539
+      },
+      "entrenamiento": {
+        "iou_base": 24.01,
+        "iou_calibrado": 34.2,
+        "mejora_iou": 10.19,
+        "hausdorff_base_m": 2539.2,
+        "hausdorff_calibrado_m": 3157.0
+      },
+      "prueba_no_vista": {
+        "iou_base": 15.55,
+        "iou_calibrado": 34.94,
+        "mejora_iou": 19.39,
+        "dice_calibrado": 51.78,
+        "hausdorff_base_m": 3126.4,
+        "hausdorff_calibrado_m": 1534.5,
+        "reduccion_hausdorff_m": 1591.9,
+        "omision_calibrada": 7.32,
+        "comision_calibrada": 64.07,
+        "detalles": [
+          {
+            "id_evento": "FIRMS-2026-0820-HUACCANA",
+            "nombre": "Incendio Huac-Cana / Coracora Sur",
+            "area_real_ha": 513.72,
+            "area_simulada_ha": 1325.07,
+            "iou_porcentaje": 34.94,
+            "dice_f1_porcentaje": 51.78,
+            "distancia_hausdorff_m": 1534.5,
+            "omision_porcentaje": 7.32,
+            "comision_porcentaje": 64.07
+          }
+        ]
+      }
+    },
+    {
+      "fold_numero": 2,
+      "incendio_prueba": {
+        "id_evento": "FIRMS-2026-1003-CHUMPI",
+        "nombre": "Incendio Chumpi / Incuyo",
+        "distrito": "Chumpi"
+      },
+      "incendios_entrenamiento": [
+        {
+          "id_evento": "FIRMS-2026-0820-HUACCANA",
+          "distrito": "Coracora"
+        },
+        {
+          "id_evento": "FIRMS-2026-1011-UPAHUACHO",
+          "distrito": "Upahuacho"
+        }
+      ],
+      "multiplicadores_optimos": {
+        "alfa_r0": 0.367,
+        "alfa_viento": 0.821,
+        "alfa_pendiente": 2.993
+      },
+      "entrenamiento": {
+        "iou_base": 13.95,
+        "iou_calibrado": 32.73,
+        "mejora_iou": 18.78,
+        "hausdorff_base_m": 2875.6,
+        "hausdorff_calibrado_m": 2405.4
+      },
+      "prueba_no_vista": {
+        "iou_base": 35.67,
+        "iou_calibrado": 33.61,
+        "mejora_iou": -2.06,
+        "dice_calibrado": 50.31,
+        "hausdorff_base_m": 2453.5,
+        "hausdorff_calibrado_m": 2909.9,
+        "reduccion_hausdorff_m": -456.4,
+        "omision_calibrada": 62.13,
+        "comision_calibrada": 25.05,
+        "detalles": [
+          {
+            "id_evento": "FIRMS-2026-1003-CHUMPI",
+            "nombre": "Incendio Chumpi / Incuyo",
+            "area_real_ha": 1056.51,
+            "area_simulada_ha": 533.79,
+            "iou_porcentaje": 33.61,
+            "dice_f1_porcentaje": 50.31,
+            "distancia_hausdorff_m": 2909.9,
+            "omision_porcentaje": 62.13,
+            "comision_porcentaje": 25.05
+          }
+        ]
+      }
+    },
+    {
+      "fold_numero": 3,
+      "incendio_prueba": {
+        "id_evento": "FIRMS-2026-1011-UPAHUACHO",
+        "nombre": "Incendio Upahuacho / Parinacochas Norte",
+        "distrito": "Upahuacho"
+      },
+      "incendios_entrenamiento": [
+        {
+          "id_evento": "FIRMS-2026-0820-HUACCANA",
+          "distrito": "Coracora"
+        },
+        {
+          "id_evento": "FIRMS-2026-1003-CHUMPI",
+          "distrito": "Chumpi"
+        }
+      ],
+      "multiplicadores_optimos": {
+        "alfa_r0": 0.496,
+        "alfa_viento": 0.842,
+        "alfa_pendiente": 0.395
+      },
+      "entrenamiento": {
+        "iou_base": 25.61,
+        "iou_calibrado": 39.34,
+        "mejora_iou": 13.73,
+        "hausdorff_base_m": 2789.9,
+        "hausdorff_calibrado_m": 2156.3
+      },
+      "prueba_no_vista": {
+        "iou_base": 12.34,
+        "iou_calibrado": 24.3,
+        "mejora_iou": 11.96,
+        "dice_calibrado": 39.1,
+        "hausdorff_base_m": 2624.8,
+        "hausdorff_calibrado_m": 3663.8,
+        "reduccion_hausdorff_m": -1039.0,
+        "omision_calibrada": 48.51,
+        "comision_calibrada": 68.49,
+        "detalles": [
+          {
+            "id_evento": "FIRMS-2026-1011-UPAHUACHO",
+            "nombre": "Incendio Upahuacho / Parinacochas Norte",
+            "area_real_ha": 222.75,
+            "area_simulada_ha": 363.96,
+            "iou_porcentaje": 24.3,
+            "dice_f1_porcentaje": 39.1,
+            "distancia_hausdorff_m": 3663.8,
+            "omision_porcentaje": 48.51,
+            "comision_porcentaje": 68.49
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -44,6 +44,8 @@ class SimuladorElipticoAndino:
         alfa_r0: float = 1.0,
         alfa_viento: float = 1.0,
         alfa_pendiente: float = 1.0,
+        ensamble_viento: bool = False,
+        delta_viento_grados: float = 15.0,
     ):
         self.viento_kmh = max(0.0, float(viento_kmh))
         self.dir_viento_grados = float(dir_viento_grados) % 360.0
@@ -53,6 +55,8 @@ class SimuladorElipticoAndino:
         self.alfa_r0 = float(alfa_r0)
         self.alfa_viento = float(alfa_viento)
         self.alfa_pendiente = float(alfa_pendiente)
+        self.ensamble_viento = bool(ensamble_viento)
+        self.delta_viento_grados = float(delta_viento_grados)
 
         # Manejo de multi-ignición por cluster FIRMS o punto individual
         if puntos_ignicion and len(puntos_ignicion) > 0:
@@ -181,10 +185,10 @@ class SimuladorElipticoAndino:
 
         return np.full((self.grid_size, self.grid_size), 1.8, dtype=np.float32)
 
-    def simular(self, horizontes_horas=(1, 3, 6)):
+    def _calcular_tiempo_arribo_dijkstra(self, dir_viento_grados: float, max_horizonte_min: float):
         """
-        Ejecuta el algoritmo de Dijkstra para calcular el tiempo mínimo de arribo
-        y extrae los perímetros poligonales MultiPolygon WGS84 para cada horizonte.
+        Calcula la grilla de tiempo mínimo de arribo (minutos) con Dijkstra en 8-vecindad
+        para una dirección de viento específica.
         """
         tiempo_arribo = np.full((self.grid_size, self.grid_size), np.inf, dtype=np.float64)
         pq = []
@@ -196,16 +200,11 @@ class SimuladorElipticoAndino:
         f_ffmc = math.exp(0.05039 * (self.ffmc - 80.0))
 
         # Dirección de avance del fuego (rumbo hacia donde el viento empuja las llamas)
-        # Si el viento viene del Este (90°), empuja hacia el Oeste (270°)
-        theta_prop = (self.dir_viento_grados + 180.0) % 360.0
+        theta_prop = (dir_viento_grados + 180.0) % 360.0
 
         # Relación largo/ancho de la elipse y excentricidad
-        # L/B = 1 + 0.125 * U
         lb = 1.0 + 0.125 * self.viento_kmh
         ecc = math.sqrt(max(0.0, 1.0 - (1.0 / (lb * lb))))
-
-        # Máximo horizonte en minutos
-        max_horizonte_min = max(horizontes_horas) * 60.0
 
         # Vecindad de 8 celdas (Moore)
         vecinos = [
@@ -230,7 +229,7 @@ class SimuladorElipticoAndino:
                     dy = -dr * self.resolucion_m  # r crece hacia el sur (coordenada raster)
                     dist = math.hypot(dx, dy)
 
-                    # Azimut de la dirección de avance local (0° Norte, 90° Este, 180° Sur, 270° Oeste)
+                    # Azimut de la dirección de avance local
                     alpha = (90.0 - math.degrees(math.atan2(dy, dx))) % 360.0
                     ang_diff = abs((alpha - theta_prop + 180.0) % 360.0 - 180.0)
                     psi = math.radians(ang_diff)
@@ -238,25 +237,55 @@ class SimuladorElipticoAndino:
                     # Factor elíptico de viento
                     phi_viento = (self.viento_kmh / 12.0) * ((math.cos(psi) + ecc) / (1.0 + ecc))
 
-                    # Factor de pendiente andina: phi_pendiente = 5.275 * max(0, tan(theta))^2
+                    # Factor de pendiente andina
                     dz = float(self.dem[nr, nc] - self.dem[r, c])
                     tan_theta = dz / dist
                     phi_pendiente = 5.275 * (max(0.0, tan_theta) ** 2)
 
-                    # Tasa de propagación del frente (ROS en m/min) hacia la celda vecina con multiplicadores de calibración
+                    # Tasa de propagación del frente (ROS en m/min)
                     r0_comb = float(self.combustible[nr, nc])
                     if r0_comb <= 0.01:
-                        continue  # Cuerpos de agua o roca estéril incombustible no transmiten fuego
+                        continue  # Incombustible
                     ros = max(0.05, (r0_comb * self.alfa_r0) * f_ffmc * (1.0 + (phi_viento * self.alfa_viento) + (phi_pendiente * self.alfa_pendiente)))
 
                     if ros > velocidad_maxima_observada:
                         velocidad_maxima_observada = ros
 
-                    dt = dist / ros  # Minutos para propagarse entre centros de celda
+                    dt = dist / ros
 
                     if t + dt < tiempo_arribo[nr, nc]:
                         tiempo_arribo[nr, nc] = t + dt
                         heapq.heappush(pq, (t + dt, nr, nc))
+
+        return tiempo_arribo, velocidad_maxima_observada
+
+    def simular(self, horizontes_horas=(1, 3, 6), ensamble_viento: bool = None):
+        """
+        Ejecuta el algoritmo de propagación del frente.
+        Soporta Ensamble de Perturbaciones de Viento (theta - 15° y theta + 15°)
+        para formar la banda de incertidumbre y mitigar omisiones topográficas en quebradas.
+        """
+        usar_ensamble = self.ensamble_viento if ensamble_viento is None else bool(ensamble_viento)
+        max_horizonte_min = max(horizontes_horas) * 60.0
+
+        if not usar_ensamble or self.viento_kmh < 2.0:
+            tiempo_arribo, velocidad_maxima_observada = self._calcular_tiempo_arribo_dijkstra(
+                self.dir_viento_grados, max_horizonte_min
+            )
+            miembros_ensamble = [round(self.dir_viento_grados, 1)]
+        else:
+            # Ensamble de viento de 3 miembros: central, -delta, +delta
+            theta_0 = self.dir_viento_grados
+            theta_minus = (theta_0 - self.delta_viento_grados) % 360.0
+            theta_plus = (theta_0 + self.delta_viento_grados) % 360.0
+            miembros_ensamble = [round(theta_minus, 1), round(theta_0, 1), round(theta_plus, 1)]
+
+            t_0, v_0 = self._calcular_tiempo_arribo_dijkstra(theta_0, max_horizonte_min)
+            t_minus, v_minus = self._calcular_tiempo_arribo_dijkstra(theta_minus, max_horizonte_min)
+            t_plus, v_plus = self._calcular_tiempo_arribo_dijkstra(theta_plus, max_horizonte_min)
+
+            tiempo_arribo = np.minimum(t_0, np.minimum(t_minus, t_plus))
+            velocidad_maxima_observada = max(v_0, v_minus, v_plus)
 
         # Extracción y reproyección de isócronas para cada paso temporal
         resultados = {}
@@ -283,6 +312,9 @@ class SimuladorElipticoAndino:
                     "alfa_viento": self.alfa_viento,
                     "alfa_pendiente": self.alfa_pendiente,
                     "focos_ignicion_count": len(self.focos),
+                    "ensamble_viento": bool(usar_ensamble),
+                    "delta_viento_grados": self.delta_viento_grados if usar_ensamble else 0.0,
+                    "miembros_ensamble": miembros_ensamble,
                 }
             }
 

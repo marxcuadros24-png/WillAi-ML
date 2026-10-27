@@ -115,6 +115,9 @@ class EstrategiaElipticoAndino(EstrategiaPropagacion):
         else:
             horizontes = tuple(sorted(set([1, 3, max_h])))
 
+        ensamble_viento = bool(params.get('ensamble_viento', False))
+        delta_viento = float(params.get('delta_viento_grados', 15.0))
+
         simulador = SimuladorElipticoAndino(
             lat=lat,
             lon=lon,
@@ -125,6 +128,8 @@ class EstrategiaElipticoAndino(EstrategiaPropagacion):
             grid_size=grid_size,
             dem_path=dem_path,
             combustible_path=combustible_path,
+            ensamble_viento=ensamble_viento,
+            delta_viento_grados=delta_viento,
         )
 
         return simulador.simular(horizontes_horas=horizontes)

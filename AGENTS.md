@@ -79,7 +79,7 @@
 | **1** | **Modelos Base** | ✅ COMPLETADO | `apps.usuarios` (Usuario personalizado, Roles, Permisos, registro de ciudadanos) y `apps.geografia` (Distrito Coracora, Comunidades). Seed cargado con `python manage.py seed_base`. |
 | **2** | **Core Operativo** | ✅ COMPLETADO | `apps.respuesta` (Entidades operativas: Bomberos B-12, SERFOR, OGRD, Brigada Comunal Huaccana; Brigadas y Recursos), `apps.reportes` (Reportes ciudadanos con fotos, validaciones, sync offline), `apps.incidentes` (Flujo de incidentes, despacho de brigadas, bitácora de acciones, actas de cierre). |
 | **3** | **APIs Externas Reales** | ✅ COMPLETADO | `apps.firms` (NASA FIRMS autenticado con MAP_KEY real consumiendo **VIIRS + MODIS**, histórico real de 180 días descargado en BD y SERFOR MapServer) y `apps.meteorologia` (Open-Meteo en vivo con temperatura, humedad, viento y lluvia real de Coracora). |
-| **4** | **Predicciones FWI + ML Viento 12h + Simulador Elíptico Andino + Alertas + Verdad Terreno (Sentinel-2 dNBR / IoU)** | ✅ COMPLETADO | `apps.predicciones` (Motor FWI canadiense, **Modelo ML Random Forest viento 12h**, **SimuladorElipticoAndino estilo Cell2Fire en Python puro con Dijkstra en vecindad de 8 celdas, corrección de pendiente andina DEM y viento elíptico en UTM 18S**, **Ráster de combustibles Sentinel-2 L2A `coracora_combustible_utm18s.tif` con $R_0$ real**, **Validador de Verdad Terreno `validador_dnbr.py` midiendo dNBR pre/post e IoU/Dice sobre 3 eventos FIRMS**, GeoDjango con backend PostGIS, tablas `SimulacionPropagacion` y `ResultadoPropagacion`) y `apps.alertas` (Evaluador espacial de viviendas expuestas a 5km de isócrona 6h con validación humana obligatoria y confirmación de lectura). |
+| **4** | **Predicciones FWI + ML Viento 12h + Simulador Elíptico Andino (Ensamble de Viento +-15°) + Calibración LOFO 3-Fold + Verdad Terreno (Sentinel-2 dNBR / IoU / Hausdorff)** | ✅ COMPLETADO | `apps.predicciones` (Motor FWI canadiense, **Modelo ML Random Forest viento 12h**, **SimuladorElipticoAndino estilo Cell2Fire en Python puro con Dijkstra en vecindad de 8 celdas, corrección de pendiente andina DEM y viento elíptico en UTM 18S con Banda de Incertidumbre de Viento +-15°**, **Ráster de combustibles Sentinel-2 L2A `coracora_combustible_utm18s.tif` con $R_0$ real y freno a bofedales $0.08\times$**, **Validador de Verdad Terreno `validador_dnbr.py` midiendo dNBR pre/post, IoU, Dice y Distancia Hausdorff frontal en metros**, **Calibrador Leave-One-Fire-Out 3-Fold CV**, GeoDjango con backend PostGIS, tablas `SimulacionPropagacion` y `ResultadoPropagacion`) y `apps.alertas` (Evaluador espacial de viviendas expuestas a 5km de isócrona 6h con validación humana obligatoria y confirmación de lectura). |
 | **5** | **Complementarios** | ✅ COMPLETADO | `apps.gamificacion` (insignias, actividades comunitarias, auto-otorgamiento al validar reportes), `apps.donaciones` (ofertas moderadas, inventario de ítems, asignaciones a incidentes/brigadas), `apps.auditoria` (trazabilidad forense, hash SHA-256 anónimo de IP, middleware de logging). |
 | **6** | **Centro de Mando Táctico Web** | ✅ COMPLETADO | Frontend SPA desacoplado en React + Vite + TS con arquitectura modular multi-ruta (`react-router-dom`), autenticación de operadores/admin (`/login`), páginas dedicadas (`/panel`, `/mapa`, `/incidentes`, `/reportes`, `/usuarios`, `/alertas`, `/donaciones`, `/satelites`), modales tácticos operativos (despacho, cierre con acta, emisión de alerta), calibración FWI + ML anti-lluvia, diseño anti-slop (`taste-skill`) y conexión 100% a endpoints reales de PostgreSQL. |
 | **7** | **App Móvil React Native** | ⏳ SIGUIENTE | Aplicación móvil principal en Expo/React Native para todos los usuarios (ciudadanos, brigadistas y verificadores comunales). |
@@ -96,7 +96,7 @@ cd backend
 # Ejecutar chequeo del sistema
 python manage.py check
 
-# Ejecutar las pruebas unitarias completas (47 tests passing, 100% passing)
+# Ejecutar las pruebas unitarias completas (51 tests passing, 100% passing)
 python manage.py test apps.usuarios.test_usuarios apps.geografia.test_geografia apps.respuesta.test_respuesta apps.reportes.test_reportes apps.incidentes.test_incidentes apps.firms.test_firms apps.meteorologia.test_meteorologia apps.predicciones.test_predicciones apps.predicciones.tests apps.alertas.test_alertas apps.gamificacion.test_gamificacion apps.donaciones.test_donaciones apps.auditoria.test_auditoria apps.panel.test_panel
 
 # Descargar y reproyectar DEM Copernicus GLO-30 de Coracora a EPSG:32718 (data/coracora_dem_utm18s.tif)
@@ -105,11 +105,14 @@ python manage.py descargar_dem
 # Descargar escena libre de nubes Sentinel-2 L2A (Element84 STAC) y generar ráster de combustibles R0 con clasificar_r0_andino (data/coracora_combustible_utm18s.tif)
 python manage.py generar_combustibles
 
-# Calibrar multiplicadores físicos (R0, viento, pendiente) con scipy.optimize Leave-One-Fire-Out (LOFO)
-python manage.py calibrar_simulador --test-fire UPAHUACHO --max-iter 20
+# Calibrar multiplicadores físicos con optimización Leave-One-Fire-Out (3-Fold Cross-Validation completo + Ensamble de Viento)
+python manage.py calibrar_simulador --cv-3fold --ensamble
 
-# Validar simulador frente a verdad terreno satelital Sentinel-2 (dNBR pre/post e IoU) con clusters FIRMS y NDMI pre-incendio
-python manage.py validar_dnbr_iou --usar-calibrado
+# Calibrar un solo fold específico
+python manage.py calibrar_simulador --test-fire UPAHUACHO
+
+# Validar simulador frente a verdad terreno satelital Sentinel-2 (dNBR pre/post, IoU y Distancia Hausdorff) con multiplicadores calibrados y ensamble de viento
+python manage.py validar_dnbr_iou --usar-calibrado --ensamble
 
 # Sembrar estructura geográfica base y superusuario admin
 python manage.py seed_base

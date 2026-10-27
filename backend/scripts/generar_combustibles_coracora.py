@@ -92,9 +92,9 @@ def clasificar_r0_andino(
         r0[seco_mask & (ndvi >= 0.25) & (ndvi < 0.42)] = 2.15
         r0[seco_mask & (ndvi >= 0.42)] = 2.95
 
-        # Vegetación túrgida o bofedales húmedos (NDMI > 0.20) reducen la velocidad
-        humedo_mask = (ndmi > 0.20) & (ndvi >= 0.10)
-        r0[humedo_mask] = np.maximum(0.30, r0[humedo_mask] * 0.70)
+        # Bofedales altoandinos y turberas saturadas de humedad permanente (NDMI > 0.20): freno real 0.08x
+        bofedal_mask = (ndmi > 0.20)
+        r0[bofedal_mask] = np.maximum(0.05, r0[bofedal_mask] * 0.08)
 
         # Cuerpos de agua limpios (NDVI negativo y NDMI alto o negativo extremo en agua profunda)
         agua_mask = (ndvi < -0.08) & (ndmi > 0.05)

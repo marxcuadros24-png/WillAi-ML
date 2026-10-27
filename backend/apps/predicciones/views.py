@@ -292,3 +292,27 @@ class SimulacionPropagacionViewSet(viewsets.ModelViewSet):
         reporte = validador.evaluar_todos(guardar_artefacto=True)
         return Response(reporte)
 
+    @action(detail=False, methods=['get'])
+    def reporte_calibracion_lofo(self, request):
+        """
+        Retorna el reporte de calibración física Leave-One-Fire-Out (LOFO) y validación cruzada 3-Fold.
+        """
+        ruta_3fold = os.path.join(
+            os.path.dirname(__file__), "artefactos", "calibracion_lofo_3fold.json"
+        )
+        if os.path.exists(ruta_3fold):
+            with open(ruta_3fold, "r", encoding="utf-8") as f:
+                return Response(json.load(f))
+
+        ruta_artefacto = os.path.join(
+            os.path.dirname(__file__), "artefactos", "calibracion_lofo_iou.json"
+        )
+        if os.path.exists(ruta_artefacto):
+            with open(ruta_artefacto, "r", encoding="utf-8") as f:
+                return Response(json.load(f))
+
+        from .calibrador_lofo import CalibradorLOFO
+        calibrador = CalibradorLOFO()
+        rep = calibrador.calibrar_3fold_cv()
+        return Response(rep)
+

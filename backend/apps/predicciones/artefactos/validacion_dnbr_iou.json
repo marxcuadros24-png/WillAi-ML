@@ -4,16 +4,19 @@
   "metodologia_verdad_terreno": "differenced Normalized Burn Ratio (dNBR = NBR_pre - NBR_post) con Sentinel-2 L2A",
   "umbral_severidad_dnbr": 0.12,
   "multiplicadores_calibracion": {
-    "alfa_r0": 0.811,
-    "alfa_viento": 0.1,
-    "alfa_pendiente": 0.19
+    "alfa_r0": 0.501,
+    "alfa_viento": 0.78,
+    "alfa_pendiente": 1.309
   },
+  "ensamble_viento": true,
+  "delta_viento_grados": 15.0,
   "total_eventos_evaluados": 3,
   "resumen_metricas_macro": {
-    "iou_medio_porcentaje": 38.89,
-    "dice_f1_medio_porcentaje": 55.69,
-    "error_comision_medio_porcentaje": 45.3,
-    "error_omision_medio_porcentaje": 36.88,
+    "iou_medio_porcentaje": 34.32,
+    "dice_f1_medio_porcentaje": 50.69,
+    "distancia_hausdorff_media_m": 2613.1,
+    "error_comision_medio_porcentaje": 52.5,
+    "error_omision_medio_porcentaje": 37.15,
     "calificacion_concordancia": "Regular (Requiere mayor densidad de modelos locales de combustible)"
   },
   "eventos": [
@@ -39,10 +42,11 @@
         "duracion_horas": 6
       },
       "multiplicadores_calibracion": {
-        "alfa_r0": 0.811,
-        "alfa_viento": 0.1,
-        "alfa_pendiente": 0.19
+        "alfa_r0": 0.501,
+        "alfa_viento": 0.78,
+        "alfa_pendiente": 1.309
       },
+      "ensamble_viento": true,
       "estadisticas_dnbr": {
         "dnbr_min": -0.11,
         "dnbr_max": 0.654,
@@ -52,13 +56,14 @@
         "usando_combustible_pre_ndmi": true
       },
       "metricas_comparativas": {
-        "iou_porcentaje": 46.71,
-        "dice_f1_porcentaje": 63.68,
-        "comision_porcentaje": 50.42,
-        "omision_porcentaje": 11.01,
-        "area_interseccion_ha": 457.14,
-        "area_union_ha": 978.63,
-        "area_simulada_ha": 922.05,
+        "iou_porcentaje": 38.65,
+        "dice_f1_porcentaje": 55.75,
+        "distancia_hausdorff_m": 1317.5,
+        "comision_porcentaje": 58.95,
+        "omision_porcentaje": 13.15,
+        "area_interseccion_ha": 446.18,
+        "area_union_ha": 1154.56,
+        "area_simulada_ha": 1087.02,
         "area_real_ha": 513.72
       }
     },
@@ -84,10 +89,11 @@
         "duracion_horas": 6
       },
       "multiplicadores_calibracion": {
-        "alfa_r0": 0.811,
-        "alfa_viento": 0.1,
-        "alfa_pendiente": 0.19
+        "alfa_r0": 0.501,
+        "alfa_viento": 0.78,
+        "alfa_pendiente": 1.309
       },
+      "ensamble_viento": true,
       "estadisticas_dnbr": {
         "dnbr_min": -0.261,
         "dnbr_max": 0.679,
@@ -97,13 +103,14 @@
         "usando_combustible_pre_ndmi": true
       },
       "metricas_comparativas": {
-        "iou_porcentaje": 39.08,
-        "dice_f1_porcentaje": 56.2,
-        "comision_porcentaje": 27.0,
-        "omision_porcentaje": 54.32,
-        "area_interseccion_ha": 482.65,
-        "area_union_ha": 1235.0,
-        "area_simulada_ha": 661.14,
+        "iou_porcentaje": 39.74,
+        "dice_f1_porcentaje": 56.88,
+        "distancia_hausdorff_m": 2880.1,
+        "comision_porcentaje": 29.62,
+        "omision_porcentaje": 52.28,
+        "area_interseccion_ha": 504.2,
+        "area_union_ha": 1268.71,
+        "area_simulada_ha": 716.4,
         "area_real_ha": 1056.51
       }
     },
@@ -129,10 +136,11 @@
         "duracion_horas": 6
       },
       "multiplicadores_calibracion": {
-        "alfa_r0": 0.811,
-        "alfa_viento": 0.1,
-        "alfa_pendiente": 0.19
+        "alfa_r0": 0.501,
+        "alfa_viento": 0.78,
+        "alfa_pendiente": 1.309
       },
+      "ensamble_viento": true,
       "estadisticas_dnbr": {
         "dnbr_min": -0.936,
         "dnbr_max": 0.546,
@@ -142,13 +150,14 @@
         "usando_combustible_pre_ndmi": true
       },
       "metricas_comparativas": {
-        "iou_porcentaje": 30.89,
-        "dice_f1_porcentaje": 47.2,
-        "comision_porcentaje": 58.49,
-        "omision_porcentaje": 45.32,
-        "area_interseccion_ha": 121.8,
-        "area_union_ha": 394.35,
-        "area_simulada_ha": 293.4,
+        "iou_porcentaje": 24.56,
+        "dice_f1_porcentaje": 39.44,
+        "distancia_hausdorff_m": 3641.7,
+        "comision_porcentaje": 68.93,
+        "omision_porcentaje": 46.01,
+        "area_interseccion_ha": 120.26,
+        "area_union_ha": 489.58,
+        "area_simulada_ha": 387.09,
         "area_real_ha": 222.75
       }
     }

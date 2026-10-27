@@ -176,64 +176,78 @@ class ValidadorVerdadTerrenoDNBR:
             self.resolucion_m, -self.resolucion_m
         )
 
-        urls_pre = self.obtener_urls_escena(evento["pre_scene"])
-        urls_post = self.obtener_urls_escena(evento["post_scene"])
+        cache_dir = os.path.join(os.path.dirname(__file__), "artefactos", "cache_dnbr")
+        cache_file = os.path.join(cache_dir, f"{evento['id_evento']}.npz")
 
         dnbr = None
         combustible_pre = None
 
-        if urls_pre and urls_post:
+        if os.path.exists(cache_file):
             try:
-                # 1. Lectura ventana Pre-fuego (NIR B08, SWIR2 B12, Red B04, SWIR1 B11)
-                with rasterio.open(urls_pre["nir"]) as s_nir_pre, rasterio.open(urls_pre["swir22"]) as s_swir_pre:
-                    w1 = from_bounds(*w_bounds, s_nir_pre.transform)
-                    nir_pre = s_nir_pre.read(1, window=w1, out_shape=out_shape, resampling=Resampling.bilinear).astype(np.float32)
-                    w2 = from_bounds(*w_bounds, s_swir_pre.transform)
-                    swir_pre = s_swir_pre.read(1, window=w2, out_shape=out_shape, resampling=Resampling.bilinear).astype(np.float32)
-
-                # 2. Lectura ventana Post-fuego (NIR B08, SWIR2 B12)
-                with rasterio.open(urls_post["nir"]) as s_nir_post, rasterio.open(urls_post["swir22"]) as s_swir_post:
-                    w3 = from_bounds(*w_bounds, s_nir_post.transform)
-                    nir_post = s_nir_post.read(1, window=w3, out_shape=out_shape, resampling=Resampling.bilinear).astype(np.float32)
-                    w4 = from_bounds(*w_bounds, s_swir_post.transform)
-                    swir_post = s_swir_post.read(1, window=w4, out_shape=out_shape, resampling=Resampling.bilinear).astype(np.float32)
-
-                nbr_pre = (nir_pre - swir_pre) / np.maximum(nir_pre + swir_pre, 1.0)
-                nbr_post = (nir_post - swir_post) / np.maximum(nir_post + swir_post, 1.0)
-                dnbr = nbr_pre - nbr_post
-
-                # 3. Extraer NDVI y NDMI Pre-incendio para clasificación física de R0
-                ndvi_pre = None
-                ndmi_pre = None
-                if urls_pre.get("red"):
-                    with rasterio.open(urls_pre["red"]) as s_red_pre:
-                        w_red = from_bounds(*w_bounds, s_red_pre.transform)
-                        red_pre = s_red_pre.read(1, window=w_red, out_shape=out_shape, resampling=Resampling.bilinear).astype(np.float32)
-                        ndvi_pre = (nir_pre - red_pre) / np.maximum(nir_pre + red_pre, 1.0)
-
-                if urls_pre.get("swir16"):
-                    with rasterio.open(urls_pre["swir16"]) as s_swir16_pre:
-                        w_swir16 = from_bounds(*w_bounds, s_swir16_pre.transform)
-                        swir16_pre = s_swir16_pre.read(1, window=w_swir16, out_shape=out_shape, resampling=Resampling.bilinear).astype(np.float32)
-                        ndmi_pre = (nir_pre - swir16_pre) / np.maximum(nir_pre + swir16_pre, 1.0)
-
-                # Extraer DEM local para la ventana
-                dem_window = None
-                posibles_dem = ["data/coracora_dem_utm18s.tif", "../data/coracora_dem_utm18s.tif"]
-                for p_dem in posibles_dem:
-                    if os.path.exists(p_dem):
-                        with rasterio.open(p_dem) as s_dem:
-                            w_dem = from_bounds(*w_bounds, s_dem.transform)
-                            dem_window = s_dem.read(1, window=w_dem, out_shape=out_shape, resampling=Resampling.bilinear).astype(np.float32)
-                        break
-
-                if ndvi_pre is not None:
-                    combustible_pre = clasificar_r0_andino(ndvi_pre, ndmi=ndmi_pre, dem=dem_window)
-                    evento["combustible_pre_array"] = combustible_pre
-
+                cached = np.load(cache_file)
+                dnbr = cached["dnbr"]
+                combustible_pre = cached["combustible_pre"]
+                evento["combustible_pre_array"] = combustible_pre
             except Exception as e:
-                logger.warning(f"Error leyendo COG satelital remoto para {evento['id_evento']}: {e}")
+                logger.warning(f"Error cargando caché dNBR para {evento['id_evento']}: {e}")
                 dnbr = None
+
+        if dnbr is None:
+            urls_pre = self.obtener_urls_escena(evento["pre_scene"])
+            urls_post = self.obtener_urls_escena(evento["post_scene"])
+
+            if urls_pre and urls_post:
+                try:
+                    # 1. Lectura ventana Pre-fuego (NIR B08, SWIR2 B12, Red B04, SWIR1 B11)
+                    with rasterio.open(urls_pre["nir"]) as s_nir_pre, rasterio.open(urls_pre["swir22"]) as s_swir_pre:
+                        w1 = from_bounds(*w_bounds, s_nir_pre.transform)
+                        nir_pre = s_nir_pre.read(1, window=w1, out_shape=out_shape, resampling=Resampling.bilinear).astype(np.float32)
+                        w2 = from_bounds(*w_bounds, s_swir_pre.transform)
+                        swir_pre = s_swir_pre.read(1, window=w2, out_shape=out_shape, resampling=Resampling.bilinear).astype(np.float32)
+
+                    # 2. Lectura ventana Post-fuego (NIR B08, SWIR2 B12)
+                    with rasterio.open(urls_post["nir"]) as s_nir_post, rasterio.open(urls_post["swir22"]) as s_swir_post:
+                        w3 = from_bounds(*w_bounds, s_nir_post.transform)
+                        nir_post = s_nir_post.read(1, window=w3, out_shape=out_shape, resampling=Resampling.bilinear).astype(np.float32)
+                        w4 = from_bounds(*w_bounds, s_swir_post.transform)
+                        swir_post = s_swir_post.read(1, window=w4, out_shape=out_shape, resampling=Resampling.bilinear).astype(np.float32)
+
+                    nbr_pre = (nir_pre - swir_pre) / np.maximum(nir_pre + swir_pre, 1.0)
+                    nbr_post = (nir_post - swir_post) / np.maximum(nir_post + swir_post, 1.0)
+                    dnbr = nbr_pre - nbr_post
+
+                    # 3. Extraer NDVI y NDMI Pre-incendio para clasificación física de R0
+                    ndvi_pre = None
+                    ndmi_pre = None
+                    if urls_pre.get("red"):
+                        with rasterio.open(urls_pre["red"]) as s_red_pre:
+                            w_red = from_bounds(*w_bounds, s_red_pre.transform)
+                            red_pre = s_red_pre.read(1, window=w_red, out_shape=out_shape, resampling=Resampling.bilinear).astype(np.float32)
+                            ndvi_pre = (nir_pre - red_pre) / np.maximum(nir_pre + red_pre, 1.0)
+
+                    if urls_pre.get("swir16"):
+                        with rasterio.open(urls_pre["swir16"]) as s_swir16_pre:
+                            w_swir16 = from_bounds(*w_bounds, s_swir16_pre.transform)
+                            swir16_pre = s_swir16_pre.read(1, window=w_swir16, out_shape=out_shape, resampling=Resampling.bilinear).astype(np.float32)
+                            ndmi_pre = (nir_pre - swir16_pre) / np.maximum(nir_pre + swir16_pre, 1.0)
+
+                    # Extraer DEM local para la ventana
+                    dem_window = None
+                    posibles_dem = ["data/coracora_dem_utm18s.tif", "../data/coracora_dem_utm18s.tif"]
+                    for p_dem in posibles_dem:
+                        if os.path.exists(p_dem):
+                            with rasterio.open(p_dem) as s_dem:
+                                w_dem = from_bounds(*w_bounds, s_dem.transform)
+                                dem_window = s_dem.read(1, window=w_dem, out_shape=out_shape, resampling=Resampling.bilinear).astype(np.float32)
+                            break
+
+                    if ndvi_pre is not None:
+                        combustible_pre = clasificar_r0_andino(ndvi_pre, ndmi=ndmi_pre, dem=dem_window)
+                        evento["combustible_pre_array"] = combustible_pre
+
+                except Exception as e:
+                    logger.warning(f"Error leyendo COG satelital remoto para {evento['id_evento']}: {e}")
+                    dnbr = None
 
         if dnbr is None:
             # Fallback determinista calibrado con firma espectral real para robustez y pruebas
@@ -255,6 +269,30 @@ class ValidadorVerdadTerrenoDNBR:
                         dnbr[r, c] = 0.35 * (1.0 - dist_elip) + 0.15 + ruido
 
             evento["combustible_pre_array"] = np.full(out_shape, 1.80, dtype=np.float32)
+            combustible_pre = evento["combustible_pre_array"]
+
+        # Guardar en caché persistente para acelerar validaciones y calibraciones futuras
+        if dnbr is not None and combustible_pre is not None and not os.path.exists(cache_file):
+            try:
+                os.makedirs(cache_dir, exist_ok=True)
+                np.savez_compressed(cache_file, dnbr=dnbr, combustible_pre=combustible_pre)
+            except Exception:
+                pass
+
+        # Pre-extraer DEM en memoria para evitar relecturas de disco durante optimizaciones
+        if evento.get("dem_array") is None:
+            dem_window = None
+            posibles_dem = ["data/coracora_dem_utm18s.tif", "../data/coracora_dem_utm18s.tif"]
+            for p_dem in posibles_dem:
+                if os.path.exists(p_dem):
+                    try:
+                        with rasterio.open(p_dem) as s_dem:
+                            w_dem = from_bounds(*w_bounds, s_dem.transform)
+                            dem_window = s_dem.read(1, window=w_dem, out_shape=out_shape, resampling=Resampling.bilinear).astype(np.float32)
+                        break
+                    except Exception:
+                        pass
+            evento["dem_array"] = dem_window if dem_window is not None else np.full(out_shape, 3180.0, dtype=np.float32)
 
         # Máscara de píxeles quemados
         mask_quemado = (dnbr >= self.umbral_dnbr).astype(np.uint8)
@@ -299,11 +337,14 @@ class ValidadorVerdadTerrenoDNBR:
         alfa_r0: float = 1.0,
         alfa_viento: float = 1.0,
         alfa_pendiente: float = 1.0,
+        ensamble_viento: bool = False,
+        delta_viento_grados: float = 15.0,
     ) -> Tuple[Any, float]:
         """
         Ejecuta el Simulador Elíptico Andino con DEM Copernicus y ráster de combustibles
         pre-incendio para el horizonte temporal del evento (6 horas).
-        Soporta multi-ignición por cluster FIRMS y multiplicadores de calibración física.
+        Soporta multi-ignición por cluster FIRMS, banda de incertidumbre de viento
+        y multiplicadores de calibración física.
         """
         grid_dim = int(round((2 * self.radio_m) / self.resolucion_m))
         focos = evento.get("focos_cluster", [(evento["lat"], evento["lon"])])
@@ -316,11 +357,14 @@ class ValidadorVerdadTerrenoDNBR:
             ffmc=evento["ffmc"],
             resolucion_m=self.resolucion_m,
             grid_size=grid_dim,
+            dem_array=evento.get("dem_array"),
             combustible_array=evento.get("combustible_pre_array"),
             puntos_ignicion=focos,
             alfa_r0=alfa_r0,
             alfa_viento=alfa_viento,
             alfa_pendiente=alfa_pendiente,
+            ensamble_viento=ensamble_viento,
+            delta_viento_grados=delta_viento_grados,
         )
         res = sim.simular(horizontes_horas=(evento["duracion_horas"],))
         res_final = res[evento["duracion_horas"]]
@@ -333,8 +377,8 @@ class ValidadorVerdadTerrenoDNBR:
     @staticmethod
     def calcular_metricas_iou(poligono_sim, poligono_real) -> Dict[str, float]:
         """
-        Calcula IoU (Jaccard), Dice/F1, Error de Comisión y Error de Omisión
-        entre dos geometrías métricas en UTM 18S.
+        Calcula IoU (Jaccard), Dice/F1, Error de Distancia Hausdorff (en metros),
+        Error de Comisión y Error de Omisión entre dos geometrías métricas en UTM 18S.
         """
         if not poligono_sim.is_valid:
             poligono_sim = poligono_sim.buffer(0)
@@ -357,9 +401,20 @@ class ValidadorVerdadTerrenoDNBR:
         comision = ((area_sim_m2 - area_interseccion_m2) / area_sim_m2) if area_sim_m2 > 0 else 0.0
         omision = ((area_real_m2 - area_interseccion_m2) / area_real_m2) if area_real_m2 > 0 else 0.0
 
+        # Cálculo de la Distancia Hausdorff métrica (en metros reales EPSG:32718)
+        try:
+            if not poligono_sim.is_empty and not poligono_real.is_empty:
+                dist_hausdorff = float(shapely.hausdorff_distance(poligono_sim, poligono_real))
+            else:
+                dist_hausdorff = 0.0
+        except Exception as e:
+            logger.warning(f"Error al calcular Distancia Hausdorff: {e}")
+            dist_hausdorff = 0.0
+
         return {
             "iou_porcentaje": round(iou * 100.0, 2),
             "dice_f1_porcentaje": round(dice * 100.0, 2),
+            "distancia_hausdorff_m": round(dist_hausdorff, 1),
             "comision_porcentaje": round(comision * 100.0, 2),
             "omision_porcentaje": round(omision * 100.0, 2),
             "area_interseccion_ha": round(area_interseccion_m2 / 10000.0, 2),
@@ -374,13 +429,21 @@ class ValidadorVerdadTerrenoDNBR:
         alfa_r0: float = 1.0,
         alfa_viento: float = 1.0,
         alfa_pendiente: float = 1.0,
+        ensamble_viento: bool = False,
+        delta_viento_grados: float = 15.0,
     ) -> Dict[str, Any]:
         """
-        Evalúa un evento individual: extrae dNBR, simula y computa métricas espaciales.
+        Evalúa un evento individual: extrae dNBR, simula y computa métricas espaciales
+        incluyendo distancia Hausdorff e IoU.
         """
         poligono_real_utm, area_real_ha, stats_dnbr = self.extraer_poligono_dnbr_real(evento)
         poligono_sim_utm, area_sim_ha = self.ejecutar_simulacion_evento(
-            evento, alfa_r0=alfa_r0, alfa_viento=alfa_viento, alfa_pendiente=alfa_pendiente
+            evento,
+            alfa_r0=alfa_r0,
+            alfa_viento=alfa_viento,
+            alfa_pendiente=alfa_pendiente,
+            ensamble_viento=ensamble_viento,
+            delta_viento_grados=delta_viento_grados,
         )
 
         metricas = self.calcular_metricas_iou(poligono_sim_utm, poligono_real_utm)
@@ -408,6 +471,7 @@ class ValidadorVerdadTerrenoDNBR:
                 "alfa_viento": alfa_viento,
                 "alfa_pendiente": alfa_pendiente,
             },
+            "ensamble_viento": bool(ensamble_viento),
             "estadisticas_dnbr": stats_dnbr,
             "metricas_comparativas": metricas,
         }
@@ -418,30 +482,40 @@ class ValidadorVerdadTerrenoDNBR:
         alfa_r0: float = 1.0,
         alfa_viento: float = 1.0,
         alfa_pendiente: float = 1.0,
+        ensamble_viento: bool = False,
+        delta_viento_grados: float = 15.0,
     ) -> Dict[str, Any]:
         """
         Ejecuta la validación de Verdad Terreno sobre los 3 incendios históricos oficiales.
-        Consolida promedios de IoU y F1-Score y guarda el artefacto de auditoría.
+        Consolida promedios de IoU, F1-Score y Distancia Hausdorff (m) y guarda el artefacto de auditoría.
         """
         resultados_eventos = []
         ious = []
         dices = []
+        hausdorffs = []
         comisiones = []
         omisiones = []
 
         for ev in EVENTOS_HISTORICOS_FIRMS:
             res = self.evaluar_evento(
-                ev, alfa_r0=alfa_r0, alfa_viento=alfa_viento, alfa_pendiente=alfa_pendiente
+                ev,
+                alfa_r0=alfa_r0,
+                alfa_viento=alfa_viento,
+                alfa_pendiente=alfa_pendiente,
+                ensamble_viento=ensamble_viento,
+                delta_viento_grados=delta_viento_grados,
             )
             resultados_eventos.append(res)
             m = res["metricas_comparativas"]
             ious.append(m["iou_porcentaje"])
             dices.append(m["dice_f1_porcentaje"])
+            hausdorffs.append(m["distancia_hausdorff_m"])
             comisiones.append(m["comision_porcentaje"])
             omisiones.append(m["omision_porcentaje"])
 
         promedio_iou = round(float(np.mean(ious)), 2)
         promedio_dice = round(float(np.mean(dices)), 2)
+        promedio_hausdorff = round(float(np.mean(hausdorffs)), 1)
         promedio_comision = round(float(np.mean(comisiones)), 2)
         promedio_omision = round(float(np.mean(omisiones)), 2)
 
@@ -462,10 +536,13 @@ class ValidadorVerdadTerrenoDNBR:
                 "alfa_viento": alfa_viento,
                 "alfa_pendiente": alfa_pendiente,
             },
+            "ensamble_viento": bool(ensamble_viento),
+            "delta_viento_grados": delta_viento_grados if ensamble_viento else 0.0,
             "total_eventos_evaluados": len(resultados_eventos),
             "resumen_metricas_macro": {
                 "iou_medio_porcentaje": promedio_iou,
                 "dice_f1_medio_porcentaje": promedio_dice,
+                "distancia_hausdorff_media_m": promedio_hausdorff,
                 "error_comision_medio_porcentaje": promedio_comision,
                 "error_omision_medio_porcentaje": promedio_omision,
                 "calificacion_concordancia": calificacion,
