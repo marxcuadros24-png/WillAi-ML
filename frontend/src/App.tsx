@@ -49,7 +49,10 @@ import {
   moderarDonacion,
   dispararSincronizacion,
   fetchRiesgoOcurrencia,
-  entrenarModeloOcurrencia
+  entrenarModeloOcurrencia,
+  fetchSimulaciones,
+  fetchSimulacionGeoJSON,
+  crearSimulacionPropagacion
 } from './services/api';
 import type {
   Incidente,
@@ -95,7 +98,7 @@ export const App: React.FC = () => {
   });
 
   // Sidebar sub-tab when on '/mapa'
-  const [sidebarTab, setSidebarTab] = useState<'incidentes' | 'firms' | 'viento' | 'riesgo' | 'meteo' | 'brigadas'>('incidentes');
+  const [sidebarTab, setSidebarTab] = useState<'incidentes' | 'firms' | 'viento' | 'riesgo' | 'simulacion' | 'meteo' | 'brigadas'>('incidentes');
   const [selectedIncidente, setSelectedIncidente] = useState<Incidente | null>(null);
 
   // Layer toggles on map
@@ -108,6 +111,11 @@ export const App: React.FC = () => {
   const [showIncidentes, setShowIncidentes] = useState<boolean>(true);
   const [showBrigadas, setShowBrigadas] = useState<boolean>(true);
   const [showViviendas, setShowViviendas] = useState<boolean>(true);
+  // Simulación de Propagación (Cell2Fire Eliptico Andino)
+  const [showSimulacionIsocronas, setShowSimulacionIsocronas] = useState<boolean>(true);
+  const [simulaciones, setSimulaciones] = useState<any[]>([]);
+  const [selectedSimulacionId, setSelectedSimulacionId] = useState<number | null>(null);
+  const [simulacionGeojson, setSimulacionGeojson] = useState<any | null>(null);
 
   // Timeline & Historical filters
   const [timeRange, setTimeRange] = useState<'today' | '24h' | '7d' | '30d' | '3m' | '6m' | 'custom'>('today');
@@ -180,7 +188,8 @@ export const App: React.FC = () => {
         fetchAlertas(),
         fetchDashboardCompleto(),
         fetchViviendas(),
-        fetchRiesgoOcurrencia()
+        fetchRiesgoOcurrencia(),
+        fetchSimulaciones()
       ]);
 
       if (results[0].status === 'fulfilled') setIncidentes(results[0].value);
@@ -199,8 +208,64 @@ export const App: React.FC = () => {
       }
       if (results[8].status === 'fulfilled') setViviendas(results[8].value);
       if (results[9].status === 'fulfilled' && results[9].value) setGrillaOcurrencia(results[9].value);
+      if (results[10].status === 'fulfilled' && results[10].value) {
+        const sims = results[10].value;
+        setSimulaciones(sims);
+        if (sims.length > 0) {
+          const ultimaCompletada = sims.find((s: any) => s.estado === 'COMPLETADO') || sims[0];
+          if (ultimaCompletada) {
+            setSelectedSimulacionId(ultimaCompletada.id_simulacion);
+            fetchSimulacionGeoJSON(ultimaCompletada.id_simulacion).then((geo) => {
+              if (geo) setSimulacionGeojson(geo);
+            });
+          }
+        }
+      }
     } catch (err) {
       console.error('Error al sincronizar datos con backend:', err);
+    }
+  };
+
+  const handleCargarSimulacionGeoJSON = async (id: number) => {
+    setSelectedSimulacionId(id);
+    const geo = await fetchSimulacionGeoJSON(id);
+    if (geo) {
+      setSimulacionGeojson(geo);
+      setShowSimulacionIsocronas(true);
+      showToast(`Isócronas cargadas: Simulación #${id} (${geo.features?.length || 0} horizontes)`);
+    }
+  };
+
+  const handleEjecutarSimulacion = async (
+    lat: number,
+    lon: number,
+    horizonteHoras: number = 6,
+    incidenteId?: number
+  ) => {
+    try {
+      showToast('Iniciando simulación de propagación elíptica andina...');
+      const nuevaSim = await crearSimulacionPropagacion({
+        lat,
+        lon,
+        horizonte_horas: horizonteHoras,
+        incidente: incidenteId,
+        ruta_dem: 'data/coracora_dem_utm18s.tif'
+      });
+      showToast(`Simulación #${nuevaSim.id_simulacion} lanzada exitosamente.`);
+      const sims = await fetchSimulaciones();
+      setSimulaciones(sims);
+      setSelectedSimulacionId(nuevaSim.id_simulacion);
+
+      // Cargar geojson resultante
+      const geo = await fetchSimulacionGeoJSON(nuevaSim.id_simulacion);
+      if (geo) {
+        setSimulacionGeojson(geo);
+        setShowSimulacionIsocronas(true);
+      }
+      return nuevaSim;
+    } catch (err: any) {
+      showToast(`Error al simular: ${err.message}`);
+      throw err;
     }
   };
 
@@ -691,6 +756,16 @@ export const App: React.FC = () => {
     setShowBrigadas,
     showViviendas,
     setShowViviendas,
+    // Simulación de Propagación (Cell2Fire Eliptico Andino)
+    simulaciones,
+    selectedSimulacionId,
+    setSelectedSimulacionId,
+    simulacionGeojson,
+    setSimulacionGeojson,
+    showSimulacionIsocronas,
+    setShowSimulacionIsocronas,
+    handleEjecutarSimulacion,
+    handleCargarSimulacionGeoJSON,
     timeRange,
     handleTimeRangeChange,
     customDesde,

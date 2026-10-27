@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.gis.db import models as gis_models
 from django.utils.translation import gettext_lazy as _
 from apps.incidentes.models import Incidente
 
@@ -121,3 +122,91 @@ class Prediccion(models.Model):
 
     def __str__(self):
         return f"Predicción #{self.id_prediccion}: Peligro {self.get_nivel_display()} ({self.horizonte_desde.strftime('%d/%m')} - {self.horizonte_hasta.strftime('%d/%m')})"
+
+
+class SimulacionPropagacion(gis_models.Model):
+    class EstadoSimulacion(models.TextChoices):
+        PENDIENTE = 'PENDIENTE', _('Pendiente')
+        CORRIENDO = 'CORRIENDO', _('Corriendo')
+        COMPLETADO = 'COMPLETADO', _('Completado')
+        ERROR = 'ERROR', _('Error')
+
+    id_simulacion = models.BigAutoField(primary_key=True)
+    incidente = models.ForeignKey(
+        Incidente,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='id_incidente',
+        related_name='simulaciones_propagacion',
+        verbose_name='Incidente Asociado'
+    )
+    modelo_motor = models.ForeignKey(
+        ModeloPredictivo,
+        on_delete=models.PROTECT,
+        db_column='id_modelo',
+        related_name='simulaciones_propagacion',
+        verbose_name='Modelo Motor de Propagación'
+    )
+    punto_ignicion = gis_models.PointField(srid=4326, verbose_name='Punto de Ignición (WGS84)')
+    horizonte_horas = models.PositiveSmallIntegerField(default=6, verbose_name='Horizonte de Simulación (Horas)')
+    estado = models.CharField(
+        max_length=20,
+        choices=EstadoSimulacion.choices,
+        default=EstadoSimulacion.PENDIENTE,
+        verbose_name='Estado de la Simulación'
+    )
+    parametros_entrada = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name='Parámetros de Entrada (Viento, Dirección, FFMC, DEM)'
+    )
+    requiere_revision_humana = models.BooleanField(
+        default=True,
+        verbose_name='Requiere Revisión Humana (CRÍTICO: no dispara alertas públicas sin operador)'
+    )
+    nivel_incertidumbre = models.CharField(
+        max_length=60,
+        default="ALTA_SIN_CALIBRAR_DNBR",
+        verbose_name='Nivel de Incertidumbre'
+    )
+    errores = models.TextField(null=True, blank=True, verbose_name='Registro de Errores')
+    iniciado_en = models.DateTimeField(null=True, blank=True, verbose_name='Iniciado el')
+    finalizado_en = models.DateTimeField(null=True, blank=True, verbose_name='Finalizado el')
+    creado_en = models.DateTimeField(auto_now_add=True, verbose_name='Creado el')
+
+    class Meta:
+        db_table = 'simulaciones_propagacion'
+        verbose_name = 'Simulación de Propagación'
+        verbose_name_plural = 'Simulaciones de Propagación'
+        ordering = ['-creado_en']
+
+    def __str__(self):
+        return f"Simulación #{self.id_simulacion} ({self.modelo_motor.nombre}) - {self.estado}"
+
+
+class ResultadoPropagacion(gis_models.Model):
+    id_resultado = models.BigAutoField(primary_key=True)
+    simulacion = models.ForeignKey(
+        SimulacionPropagacion,
+        on_delete=models.CASCADE,
+        db_column='id_simulacion',
+        related_name='resultados',
+        verbose_name='Simulación de Origen'
+    )
+    hora_paso = models.PositiveSmallIntegerField(verbose_name='Paso Temporal (Horas: ej. 1, 3, 6)')
+    perimetro = gis_models.MultiPolygonField(srid=4326, verbose_name='Perímetro Isócrona (MultiPolygon WGS84)')
+    area_hectareas = models.FloatField(verbose_name='Área Estimada Quemada (ha)')
+    metadatos = models.JSONField(default=dict, blank=True, verbose_name='Metadatos (Velocidad máx m/min, Celdas quemadas)')
+    creado_en = models.DateTimeField(auto_now_add=True, verbose_name='Registrado el')
+
+    class Meta:
+        db_table = 'resultados_propagacion'
+        verbose_name = 'Resultado de Propagación'
+        verbose_name_plural = 'Resultados de Propagación'
+        ordering = ['simulacion', 'hora_paso']
+        unique_together = (('simulacion', 'hora_paso'),)
+
+    def __str__(self):
+        return f"Isócrona {self.hora_paso}h de Simulación #{self.simulacion_id} ({self.area_hectareas:.2f} ha)"
+

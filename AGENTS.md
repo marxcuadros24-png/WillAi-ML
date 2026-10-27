@@ -79,7 +79,7 @@
 | **1** | **Modelos Base** | ✅ COMPLETADO | `apps.usuarios` (Usuario personalizado, Roles, Permisos, registro de ciudadanos) y `apps.geografia` (Distrito Coracora, Comunidades). Seed cargado con `python manage.py seed_base`. |
 | **2** | **Core Operativo** | ✅ COMPLETADO | `apps.respuesta` (Entidades operativas: Bomberos B-12, SERFOR, OGRD, Brigada Comunal Huaccana; Brigadas y Recursos), `apps.reportes` (Reportes ciudadanos con fotos, validaciones, sync offline), `apps.incidentes` (Flujo de incidentes, despacho de brigadas, bitácora de acciones, actas de cierre). |
 | **3** | **APIs Externas Reales** | ✅ COMPLETADO | `apps.firms` (NASA FIRMS autenticado con MAP_KEY real consumiendo **VIIRS + MODIS**, histórico real de 180 días descargado en BD y SERFOR MapServer) y `apps.meteorologia` (Open-Meteo en vivo con temperatura, humedad, viento y lluvia real de Coracora). |
-| **4** | **Predicciones FWI + ML Viento 12h + Alertas** | ✅ COMPLETADO | `apps.predicciones` (Motor FWI canadiense alimentado por Open-Meteo real + **Modelo ML Random Forest a 12 horas de propagación de viento y conos de dispersión**) y `apps.alertas` (Evaluador de viviendas expuestas, generación automática de alertas y confirmación de lectura). |
+| **4** | **Predicciones FWI + ML Viento 12h + Simulador Elíptico Andino + Alertas** | ✅ COMPLETADO | `apps.predicciones` (Motor FWI canadiense, **Modelo ML Random Forest viento 12h**, **SimuladorElipticoAndino estilo Cell2Fire en Python puro con Dijkstra en vecindad de 8 celdas, corrección de pendiente andina DEM y viento elíptico en UTM 18S**, GeoDjango con backend PostGIS, tablas `SimulacionPropagacion` y `ResultadoPropagacion`) y `apps.alertas` (Evaluador espacial de viviendas expuestas a 5km de isócrona 6h con validación humana obligatoria y confirmación de lectura). |
 | **5** | **Complementarios** | ✅ COMPLETADO | `apps.gamificacion` (insignias, actividades comunitarias, auto-otorgamiento al validar reportes), `apps.donaciones` (ofertas moderadas, inventario de ítems, asignaciones a incidentes/brigadas), `apps.auditoria` (trazabilidad forense, hash SHA-256 anónimo de IP, middleware de logging). |
 | **6** | **Centro de Mando Táctico Web** | ✅ COMPLETADO | Frontend SPA desacoplado en React + Vite + TS con arquitectura modular multi-ruta (`react-router-dom`), autenticación de operadores/admin (`/login`), páginas dedicadas (`/panel`, `/mapa`, `/incidentes`, `/reportes`, `/usuarios`, `/alertas`, `/donaciones`, `/satelites`), modales tácticos operativos (despacho, cierre con acta, emisión de alerta), calibración FWI + ML anti-lluvia, diseño anti-slop (`taste-skill`) y conexión 100% a endpoints reales de PostgreSQL. |
 | **7** | **App Móvil React Native** | ⏳ SIGUIENTE | Aplicación móvil principal en Expo/React Native para todos los usuarios (ciudadanos, brigadistas y verificadores comunales). |
@@ -96,8 +96,11 @@ cd backend
 # Ejecutar chequeo del sistema
 python manage.py check
 
-# Ejecutar las pruebas unitarias completas (100% passing)
-python manage.py test apps.usuarios.test_usuarios apps.geografia.test_geografia apps.respuesta.test_respuesta apps.reportes.test_reportes apps.incidentes.test_incidentes apps.firms.test_firms apps.meteorologia.test_meteorologia apps.predicciones.test_predicciones apps.alertas.test_alertas apps.gamificacion.test_gamificacion apps.donaciones.test_donaciones apps.auditoria.test_auditoria apps.panel.test_panel
+# Ejecutar las pruebas unitarias completas (39 tests passing, 100% passing)
+python manage.py test apps.usuarios.test_usuarios apps.geografia.test_geografia apps.respuesta.test_respuesta apps.reportes.test_reportes apps.incidentes.test_incidentes apps.firms.test_firms apps.meteorologia.test_meteorologia apps.predicciones.test_predicciones apps.predicciones.tests apps.alertas.test_alertas apps.gamificacion.test_gamificacion apps.donaciones.test_donaciones apps.auditoria.test_auditoria apps.panel.test_panel
+
+# Descargar y reproyectar DEM Copernicus GLO-30 de Coracora a EPSG:32718 (data/coracora_dem_utm18s.tif)
+python manage.py descargar_dem
 
 # Sembrar estructura geográfica base y superusuario admin
 python manage.py seed_base

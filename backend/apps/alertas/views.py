@@ -20,7 +20,7 @@ class AlertaEmergenciaViewSet(viewsets.ModelViewSet):
     search_fields = ['titulo', 'mensaje', 'instrucciones']
 
     def get_permissions(self):
-        if self.action in ['list', 'retrieve', 'mis_alertas', 'confirmar']:
+        if self.action in ['list', 'retrieve', 'mis_alertas', 'confirmar', 'evaluar_simulacion']:
             return [permissions.AllowAny()]
         return [permissions.IsAuthenticated()]
 
@@ -54,6 +54,21 @@ class AlertaEmergenciaViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_200_OK
         )
+
+    @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny])
+    def evaluar_simulacion(self, request):
+        """
+        Evalúa viviendas a menos de 5 km del perímetro de una simulación (isócrona 6h)
+        dejando la alerta generada en estado PENDIENTE_APROBACION para validación humana.
+        """
+        from .services import evaluar_viviendas_en_riesgo_simulacion
+        simulacion_id = request.data.get('simulacion_id')
+        if not simulacion_id:
+            return Response({"error": "Debe proporcionar 'simulacion_id'."}, status=status.HTTP_400_BAD_REQUEST)
+        distancia_km = float(request.data.get('distancia_km', 5.0))
+        res = evaluar_viviendas_en_riesgo_simulacion(simulacion_id, distancia_km=distancia_km)
+        return Response(res, status=status.HTTP_200_OK)
+
 
 
 class PreferenciaNotificacionViewSet(viewsets.ModelViewSet):

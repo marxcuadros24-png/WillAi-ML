@@ -55,7 +55,7 @@
 - [x] Crear `requirements.txt` y `docker-compose.yml`
 - [x] Verificar que `python manage.py runserver` funcione (verificado en puerto 8000)
 - [x] Verificar que Django Admin y Swagger carguen (`/admin/` y `/api/docs/` HTTP 200)
-- [x] Crear superusuario inicial de desarrollo (`admin` / `admin12345`)
+- [x] Crear superusuario inicial de desarrollo (gestionado de forma segura vía variables de entorno)
 
 **Criterio de completitud:** `manage.py runserver` corre sin errores y Django Admin es accesible. ✅ CUMPLIDO.
 

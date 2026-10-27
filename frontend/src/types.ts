@@ -427,5 +427,54 @@ export interface CuadroHonorData {
   muro_reciente: MuroReconocimiento[];
 }
 
+export interface SimulacionPropagacionItem {
+  id_simulacion: number;
+  incidente?: number | null;
+  modelo_motor?: {
+    id_modelo: number;
+    nombre: string;
+    version: string;
+  };
+  punto_ignicion: {
+    lat: number;
+    lon: number;
+  };
+  horizonte_horas: number;
+  estado: 'PENDIENTE' | 'CORRIENDO' | 'COMPLETADO' | 'ERROR';
+  parametros_entrada: Record<string, any>;
+  requiere_revision_humana: boolean;
+  nivel_incertidumbre: string;
+  errores?: string | null;
+  creada_en: string;
+  actualizada_en: string;
+  resultados_resumen?: Array<{
+    hora_paso: number;
+    area_hectareas: number;
+  }>;
+}
 
-
+export interface SimulacionGeoJSON {
+  type: 'FeatureCollection';
+  simulacion_id: number;
+  modelo_motor: string;
+  estado: string;
+  requiere_revision_humana: boolean;
+  nivel_incertidumbre: string;
+  advertencia: string;
+  features: Array<{
+    type: 'Feature';
+    id: number;
+    geometry: any;
+    properties: {
+      hora_paso: number;
+      area_hectareas: number;
+      etiqueta: string;
+      velocidad_max_m_min?: number;
+      celdas_quemadas?: number;
+      color: string;
+      fillColor: string;
+      fillOpacity: number;
+      peso_borde: number;
+    };
+  }>;
+}

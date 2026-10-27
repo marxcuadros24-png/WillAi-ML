@@ -4,7 +4,7 @@ DEBUG = True
 
 DATABASES = {
     'default': {
-        'ENGINE': env('DB_ENGINE', default='django.db.backends.postgresql'),
+        'ENGINE': env('DB_ENGINE', default='django.contrib.gis.db.backends.postgis'),
         'NAME': env('DB_NAME', default='alerta_incendios_coracora'),
         'USER': env('DB_USER', default='postgres'),
         'PASSWORD': env('DB_PASSWORD', default='123456'),

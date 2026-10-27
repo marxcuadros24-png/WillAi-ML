@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import { Calendar, Wind, Check, ShieldAlert, MapPin } from 'lucide-react';
+import { Calendar, Wind, Check, ShieldAlert, MapPin, Flame } from 'lucide-react';
 import type { Incidente, FocoCalor, Brigada, PrediccionViento12hData, ViviendaRural, GrillaRiesgoOcurrenciaData } from '../types';
 import {
   LIMITE_PROVINCIAL_PARINACOCHAS,
@@ -37,6 +37,10 @@ interface TacticalMapProps {
   onToggleLimiteProvincial?: (val: boolean) => void;
   onToggleDistritos?: (val: boolean) => void;
   grillaOcurrencia?: GrillaRiesgoOcurrenciaData | null;
+  // Simulación de Propagación de Incendios (Cell2Fire Eliptico Andino)
+  simulacionGeojson?: any | null;
+  showSimulacionIsocronas?: boolean;
+  onToggleSimulacionIsocronas?: (val: boolean) => void;
   // Timeline filter states
   timeRange: 'today' | '24h' | '7d' | '30d' | '3m' | '6m' | 'custom';
   onChangeTimeRange: (val: 'today' | '24h' | '7d' | '30d' | '3m' | '6m' | 'custom') => void;
@@ -68,6 +72,9 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   showViviendas = true,
   showLimiteProvincial = true,
   showDistritos = false,
+  simulacionGeojson = null,
+  showSimulacionIsocronas = true,
+  onToggleSimulacionIsocronas,
   onToggleModis,
   onToggleViirs,
   onToggleSerfor,
@@ -122,6 +129,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     serfor: L.LayerGroup;
     vientoML: L.LayerGroup;
     riesgoOcurrencia: L.LayerGroup;
+    isocronasSimulacion: L.LayerGroup;
     incidentes: L.LayerGroup;
     brigadas: L.LayerGroup;
     viviendas: L.LayerGroup;
@@ -133,6 +141,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     serfor: L.layerGroup(),
     vientoML: L.layerGroup(),
     riesgoOcurrencia: L.layerGroup(),
+    isocronasSimulacion: L.layerGroup(),
     incidentes: L.layerGroup(),
     brigadas: L.layerGroup(),
     viviendas: L.layerGroup(),
@@ -179,6 +188,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     layersRef.current.serfor.addTo(map);
     layersRef.current.vientoML.addTo(map);
     layersRef.current.riesgoOcurrencia.addTo(map);
+    layersRef.current.isocronasSimulacion.addTo(map);
     layersRef.current.incidentes.addTo(map);
     layersRef.current.brigadas.addTo(map);
     layersRef.current.viviendas.addTo(map);
@@ -644,6 +654,79 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       console.warn('Error al renderizar capa GeoJSON de ocurrencia:', e);
     }
   }, [grillaOcurrencia, showRiesgoOcurrencia]);
+
+  // Update Fire Propagation Isochrones Layer (Cell2Fire Eliptico Andino: 1h Amarillo, 3h Naranja, 6h Rojo)
+  useEffect(() => {
+    const layer = layersRef.current.isocronasSimulacion;
+    layer.clearLayers();
+    if (!showSimulacionIsocronas || !simulacionGeojson || !simulacionGeojson.features) return;
+
+    try {
+      // Ordenar descendente por hora_paso (6h abajo, 3h medio, 1h arriba) para evitar oclusión visual
+      const sortedFeatures = [...simulacionGeojson.features].sort(
+        (a: any, b: any) => (b.properties?.hora_paso || 0) - (a.properties?.hora_paso || 0)
+      );
+
+      const isocronasLayer = L.geoJSON({ type: 'FeatureCollection', features: sortedFeatures } as any, {
+        style: (feat) => {
+          const p = feat?.properties || {};
+          const hora = p.hora_paso;
+          // Anillos cromáticos requeridos: 1h amarillo (#FBBF24), 3h naranja (#F97316), 6h rojo (#EF4444)
+          const color = hora === 1 ? '#FBBF24' : hora === 3 ? '#F97316' : '#EF4444';
+          const fillOpacity = hora === 1 ? 0.40 : hora === 3 ? 0.30 : 0.22;
+          return {
+            color: color,
+            weight: 2.8,
+            opacity: 0.95,
+            fillColor: color,
+            fillOpacity: fillOpacity,
+            dashArray: hora === 6 ? '6, 6' : undefined
+          };
+        },
+        onEachFeature: (feat, layerItem: any) => {
+          const p = feat.properties || {};
+          const hora = p.hora_paso;
+          const color = hora === 1 ? '#FBBF24' : hora === 3 ? '#F97316' : '#EF4444';
+
+          layerItem.on({
+            mouseover: () => {
+              layerItem.setStyle({ weight: 4.5, fillOpacity: 0.60 });
+            },
+            mouseout: () => {
+              isocronasLayer.resetStyle(layerItem);
+            }
+          });
+
+          layerItem.bindPopup(`
+            <div style="font-family: inherit; font-size: 12px; color: #f8fafc; padding: 6px; min-width: 250px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 4px;">
+                <strong style="color: ${color}; text-transform: uppercase; font-size: 13px;">
+                  🔥 Isócrona +${hora} Horas
+                </strong>
+                <span style="font-size: 11.5px; color: #38bdf8; font-weight: 800;">${p.area_hectareas} ha</span>
+              </div>
+              <div style="grid-template-columns: 1fr 1fr; display: grid; gap: 4px; font-size: 11px; margin-bottom: 8px;">
+                <div><span style="color: #94a3b8;">Velocidad Máx:</span> <b style="color: #fff;">${p.velocidad_max_m_min ?? 'N/D'} m/min</b></div>
+                <div><span style="color: #94a3b8;">Celdas quemadas:</span> <b style="color: #fff;">${p.celdas_quemadas ?? 'N/D'}</b></div>
+                <div><span style="color: #94a3b8;">Motor:</span> <b style="color: #a78bfa;">Elíptico Andino</b></div>
+                <div><span style="color: #94a3b8;">Resolución:</span> <b style="color: #fff;">30m (Copernicus DEM)</b></div>
+              </div>
+              <div style="font-size: 10px; color: #fef08a; background: rgba(234, 88, 12, 0.28); border: 1px solid rgba(245, 158, 11, 0.5); padding: 6px 8px; border-radius: 4px; line-height: 1.3;">
+                ⚠️ <strong>Simulación pendiente de aprobación COEP/COEL</strong> — No calibrada con dNBR.
+              </div>
+            </div>
+          `);
+        }
+      });
+
+      layer.addLayer(isocronasLayer);
+      if (mapInstanceRef.current && !mapInstanceRef.current.hasLayer(layer)) {
+        layer.addTo(mapInstanceRef.current);
+      }
+    } catch (e) {
+      console.warn('Error al renderizar capa de isócronas de propagación:', e);
+    }
+  }, [simulacionGeojson, showSimulacionIsocronas]);
 
   // Update Incidentes Layer (Generic Circular Markers, excluding closed incidents)
   useEffect(() => {
@@ -1200,6 +1283,31 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           </div>
         )}
 
+        {/* Fire Spread Simulation Isochrones (Cell2Fire Eliptico Andino) */}
+        <label className="map-layer-toggle" id="layer-simulacion-isocronas-toggle" style={{ color: '#fb923c' }}>
+          <input
+            type="checkbox"
+            checked={showSimulacionIsocronas}
+            onChange={(e) => onToggleSimulacionIsocronas?.(e.target.checked)}
+          />
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
+            <Flame size={14} color="#f97316" /> Isócronas Fuego ({simulacionGeojson?.features?.length || 0})
+          </span>
+        </label>
+        {showSimulacionIsocronas && simulacionGeojson && (
+          <div style={{ display: 'flex', gap: '8px', fontSize: '10px', paddingLeft: '22px', marginTop: '-3px', marginBottom: '2px', color: '#cbd5e1' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#FBBF24', display: 'inline-block' }}></span> 1h
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#F97316', display: 'inline-block' }}></span> 3h
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#EF4444', display: 'inline-block' }}></span> 6h
+            </span>
+          </div>
+        )}
+
         {/* Incidentes & Brigadas */}
         <label className="map-layer-toggle" id="layer-inc-toggle">
           <input
@@ -1342,6 +1450,42 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
               <Check size={14} />
               <span>Aplicar Filtro de Fechas</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Badge de Advertencia Flotante de Simulación (COEP / COEL) */}
+      {showSimulacionIsocronas && simulacionGeojson && (
+        <div
+          id="badge-advertencia-simulacion"
+          style={{
+            position: 'absolute',
+            top: '16px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1000,
+            background: 'rgba(15, 23, 42, 0.94)',
+            border: '1px solid rgba(245, 158, 11, 0.7)',
+            boxShadow: '0 8px 28px rgba(0, 0, 0, 0.6), 0 0 16px rgba(245, 158, 11, 0.28)',
+            borderRadius: '9999px',
+            padding: '7px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            backdropFilter: 'blur(10px)',
+            pointerEvents: 'auto',
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', color: '#f59e0b', fontSize: '15px' }}>
+            ⚠️
+          </span>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: '#fef08a', letterSpacing: '0.015em' }}>
+              Simulación pendiente de aprobación COEP/COEL — No calibrada con dNBR
+            </span>
+            <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>
+              Modelo Elíptico Andino (Copernicus DEM 30m + Viento 12h) • Anillos: 1h (Amarillo), 3h (Naranja), 6h (Rojo)
+            </span>
           </div>
         </div>
       )}

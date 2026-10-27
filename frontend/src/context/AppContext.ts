@@ -59,6 +59,16 @@ export interface AppContextType {
   setShowBrigadas: (v: boolean) => void;
   showViviendas: boolean;
   setShowViviendas: (v: boolean) => void;
+  // Simulación de Propagación (Cell2Fire Eliptico Andino)
+  simulaciones: any[];
+  selectedSimulacionId: number | null;
+  setSelectedSimulacionId: (id: number | null) => void;
+  simulacionGeojson: any | null;
+  setSimulacionGeojson: (geo: any | null) => void;
+  showSimulacionIsocronas: boolean;
+  setShowSimulacionIsocronas: (v: boolean) => void;
+  handleEjecutarSimulacion: (lat: number, lon: number, horizonteHoras?: number, incidenteId?: number) => Promise<any>;
+  handleCargarSimulacionGeoJSON: (id: number) => Promise<void>;
   timeRange: 'today' | '24h' | '7d' | '30d' | '3m' | '6m' | 'custom';
   handleTimeRangeChange: (newRange: 'today' | '24h' | '7d' | '30d' | '3m' | '6m' | 'custom') => Promise<void>;
   customDesde: string;
@@ -68,8 +78,8 @@ export interface AppContextType {
   setSelectedWindHourIdx: (idx: number) => void;
   selectedIncidente: Incidente | null;
   setSelectedIncidente: (inc: Incidente | null) => void;
-  sidebarTab: 'incidentes' | 'firms' | 'viento' | 'riesgo' | 'meteo' | 'brigadas';
-  setSidebarTab: (tab: 'incidentes' | 'firms' | 'viento' | 'riesgo' | 'meteo' | 'brigadas') => void;
+  sidebarTab: 'incidentes' | 'firms' | 'viento' | 'riesgo' | 'simulacion' | 'meteo' | 'brigadas';
+  setSidebarTab: (tab: 'incidentes' | 'firms' | 'viento' | 'riesgo' | 'simulacion' | 'meteo' | 'brigadas') => void;
 }
 
 export function useAppContext(): AppContextType {

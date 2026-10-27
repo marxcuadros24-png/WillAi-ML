@@ -1,11 +1,21 @@
+import json
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import ModeloPredictivo, EjecucionModelo, Prediccion
+from django.contrib.gis.geos import Point
+from .models import (
+    ModeloPredictivo,
+    EjecucionModelo,
+    Prediccion,
+    SimulacionPropagacion,
+    ResultadoPropagacion,
+)
 from .serializers import (
     ModeloPredictivoSerializer,
     EjecucionModeloSerializer,
     PrediccionSerializer,
+    SimulacionPropagacionSerializer,
+    ResultadoPropagacionSerializer,
 )
 
 
@@ -147,3 +157,118 @@ class ModeloPredictivoViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ModeloPredictivo.objects.all()
     serializer_class = ModeloPredictivoSerializer
     permission_classes = [permissions.AllowAny]
+
+
+class SimulacionPropagacionViewSet(viewsets.ModelViewSet):
+    """
+    Simulaciones de propagación de incendios forestales estilo Cell2Fire (modelo elíptico andino).
+    Permite solicitar nuevas simulaciones y consultar las isócronas 1h, 3h, 6h en GeoJSON.
+    """
+    queryset = SimulacionPropagacion.objects.select_related('modelo_motor', 'incidente').prefetch_related('resultados').all()
+    serializer_class = SimulacionPropagacionSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def create(self, request, *args, **kwargs):
+        data = request.data
+        lat = float(data.get('latitud', -15.0189))
+        lon = float(data.get('longitud', -73.7806))
+        horizonte_horas = int(data.get('horizonte_horas', 6))
+
+        # Modelo de propagación (CA_ELIPTICO_ANDINO_V1)
+        modelo_id = data.get('modelo_motor_id') or data.get('modelo_motor')
+        if modelo_id:
+            try:
+                modelo_motor = ModeloPredictivo.objects.get(id_modelo=modelo_id)
+            except ModeloPredictivo.DoesNotExist:
+                modelo_motor = None
+        else:
+            modelo_motor = None
+
+        if not modelo_motor:
+            modelo_motor, _ = ModeloPredictivo.objects.get_or_create(
+                nombre="CA_ELIPTICO_ANDINO_V1",
+                version="1.0.0",
+                defaults={
+                    "algoritmo": "Cellular Automata Eliptico Andino con Corrección FWI y DEM",
+                    "descripcion": "Propagación celular elíptica en UTM 18S con balance Rothermel, viento vectorial y aceleración por pendiente andina.",
+                    "estado": ModeloPredictivo.EstadoModelo.VALIDADO,
+                    "metricas_validacion": {"resolucion": "30m", "zona": "Parinacochas"}
+                }
+            )
+
+        incidente_id = data.get('incidente')
+        parametros = data.get('parametros_entrada', {})
+        for param_key in ['viento_kmh', 'dir_viento_grados', 'ffmc', 'dem_path', 'ruta_dem', 'grid_size']:
+            if param_key in data and param_key not in parametros:
+                parametros[param_key] = data[param_key]
+
+        punto = Point(lon, lat, srid=4326)
+
+        simulacion = SimulacionPropagacion.objects.create(
+            incidente_id=incidente_id,
+            modelo_motor=modelo_motor,
+            punto_ignicion=punto,
+            horizonte_horas=horizonte_horas,
+            estado=SimulacionPropagacion.EstadoSimulacion.PENDIENTE,
+            parametros_entrada=parametros,
+            requiere_revision_humana=True,
+            nivel_incertidumbre="ALTA_SIN_CALIBRAR_DNBR",
+        )
+
+        # Disparar tarea asíncrona de Celery
+        from .tasks import ejecutar_simulacion_propagacion_task
+        ejecutar_simulacion_propagacion_task.delay(simulacion.id_simulacion)
+
+        # Refrescar desde BD
+        simulacion.refresh_from_db()
+        serializer = self.get_serializer(simulacion)
+        return Response(serializer.data, status=201)
+
+    @action(detail=True, methods=['get'])
+    def geojson(self, request, pk=None):
+        """
+        Retorna las isócronas de propagación (1h, 3h, 6h) como un FeatureCollection GeoJSON
+        listo para ser renderizado en capas Leaflet en el Centro de Mando Web.
+        """
+        simulacion = self.get_object()
+        resultados = simulacion.resultados.all().order_by('hora_paso')
+
+        colores = {
+            1: "#FBBF24",  # Amarillo 1h
+            3: "#F97316",  # Naranja 3h
+            6: "#EF4444",  # Rojo 6h
+        }
+
+        features = []
+        for r in resultados:
+            if not r.perimetro:
+                continue
+            geom_json = json.loads(r.perimetro.geojson)
+            color = colores.get(r.hora_paso, "#B91C1C")
+            features.append({
+                "type": "Feature",
+                "id": r.id_resultado,
+                "geometry": geom_json,
+                "properties": {
+                    "hora_paso": r.hora_paso,
+                    "area_hectareas": r.area_hectareas,
+                    "etiqueta": f"Isócrona +{r.hora_paso}h ({r.area_hectareas:.1f} ha)",
+                    "velocidad_max_m_min": r.metadatos.get("velocidad_maxima_m_min"),
+                    "celdas_quemadas": r.metadatos.get("celdas_quemadas"),
+                    "color": color,
+                    "fillColor": color,
+                    "fillOpacity": 0.35,
+                    "weight": 2,
+                }
+            })
+
+        fc = {
+            "type": "FeatureCollection",
+            "simulacion_id": simulacion.id_simulacion,
+            "estado": simulacion.estado,
+            "punto_ignicion": json.loads(simulacion.punto_ignicion.geojson) if simulacion.punto_ignicion else None,
+            "requiere_revision_humana": simulacion.requiere_revision_humana,
+            "features": features
+        }
+        return Response(fc)
+

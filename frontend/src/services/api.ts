@@ -12,7 +12,9 @@ import type {
   ViviendaRural,
   CrearViviendaPayload,
   GrillaRiesgoOcurrenciaData,
-  CuadroHonorData
+  CuadroHonorData,
+  SimulacionPropagacionItem,
+  SimulacionGeoJSON
 } from '../types';
 
 const API_BASE = 'http://127.0.0.1:8000/api/v1';
@@ -856,6 +858,92 @@ export async function otorgarInsigniaManual(payload: {
   }
   return data;
 }
+
+/**
+ * Consulta el listado histórico de simulaciones de propagación de fuego.
+ */
+export async function fetchSimulaciones(): Promise<SimulacionPropagacionItem[]> {
+  try {
+    const res = await fetch(`${API_BASE}/predicciones/simulaciones/?_t=${Date.now()}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return Array.isArray(data) ? data : data.results || [];
+  } catch (err) {
+    console.warn('Error al listar simulaciones de propagación:', err);
+    return [];
+  }
+}
+
+/**
+ * Consulta las isócronas vectoriales de propagación (1h, 3h, 6h) en formato GeoJSON FeatureCollection
+ * para renderizado directo en Leaflet.
+ */
+export async function fetchSimulacionGeoJSON(simulacionId: number): Promise<SimulacionGeoJSON | null> {
+  try {
+    const res = await fetch(`${API_BASE}/predicciones/simulaciones/${simulacionId}/geojson/?_t=${Date.now()}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`Error al consultar GeoJSON de simulación #${simulacionId}:`, err);
+    return null;
+  }
+}
+
+/**
+ * Dispara una nueva simulación de propagación celular elíptica andina estilo Cell2Fire
+ * con aceleración por pendiente DEM (Copernicus GLO-30) y vector de viento.
+ */
+export async function crearSimulacionPropagacion(payload: {
+  lat: number;
+  lon: number;
+  horizonte_horas?: number;
+  incidente?: number;
+  viento_kmh?: number;
+  dir_viento_grados?: number;
+  ffmc?: number;
+  ruta_dem?: string;
+  grid_size?: number;
+}): Promise<SimulacionPropagacionItem> {
+  const res = await fetch(`${API_BASE}/predicciones/simulaciones/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || errorData.detail || `Error al crear simulación (${res.status})`);
+  }
+  return await res.json();
+}
+
+/**
+ * Evalúa las viviendas expuestas a menos de 5 km del perímetro de 6h de la simulación
+ * y genera una alerta en estado PENDIENTE_APROBACION para validación de operadores COEP/COEL.
+ */
+export async function evaluarViviendasSimulacion(
+  simulacionId: number,
+  distanciaKm: number = 5.0
+): Promise<{
+  status: string;
+  simulacion_id: number;
+  viviendas_en_riesgo_count: number;
+  viviendas: Array<{ id_vivienda: number; latitud: number; longitud: number; distancia_metros?: number }>;
+  alerta_id?: number;
+  estado_alerta?: string;
+  requiere_confirmacion_humana: boolean;
+}> {
+  const res = await fetch(`${API_BASE}/alertas/alertas/evaluar_simulacion/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ simulacion_id: simulacionId, distancia_km: distanciaKm })
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || `Error al evaluar viviendas (${res.status})`);
+  }
+  return await res.json();
+}
+
 
 
 

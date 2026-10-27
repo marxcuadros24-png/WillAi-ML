@@ -312,3 +312,12 @@ def entrenar_y_generar_ocurrencia_task(test_ratio=0.30):
         "total_celdas": len(grilla.get("features", []))
     }
 
+
+@shared_task(name="ejecutar_simulacion_propagacion_task")
+def ejecutar_simulacion_propagacion_task(simulacion_id: int):
+    """
+    Tarea Celery asíncrona para calcular la propagación del fuego mediante el motor configurado.
+    """
+    from .services import ejecutar_simulacion_propagacion
+    return ejecutar_simulacion_propagacion(simulacion_id)
+

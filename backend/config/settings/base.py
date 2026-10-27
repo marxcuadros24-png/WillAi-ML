@@ -1,4 +1,5 @@
 import os
+import glob
 from pathlib import Path
 import environ
 
@@ -10,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 env = environ.Env(
     DEBUG=(bool, False),
     SECRET_KEY=(str, 'django-insecure-willai-default-key-change-in-production'),
-    ALLOWED_HOSTS=(list, ['127.0.0.1', 'localhost']),
+    ALLOWED_HOSTS=(list, ['127.0.0.1', 'localhost', 'testserver']),
     CORS_ALLOW_ALL_ORIGINS=(bool, True),
 )
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
@@ -18,6 +19,22 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 SECRET_KEY = env('SECRET_KEY')
 DEBUG = env('DEBUG')
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS')
+
+# Windows GeoDjango / GDAL / GEOS configuration
+if os.name == 'nt':
+    try:
+        import rasterio
+        rasterio_libs = os.path.abspath(os.path.join(os.path.dirname(rasterio.__file__), '..', 'rasterio.libs'))
+        if os.path.isdir(rasterio_libs):
+            os.add_dll_directory(rasterio_libs)
+            gdal_dlls = glob.glob(os.path.join(rasterio_libs, 'gdal*.dll'))
+            geos_dlls = glob.glob(os.path.join(rasterio_libs, 'geos_c*.dll'))
+            if gdal_dlls:
+                GDAL_LIBRARY_PATH = gdal_dlls[0]
+            if geos_dlls:
+                GEOS_LIBRARY_PATH = geos_dlls[0]
+    except Exception:
+        pass
 
 # Application definition
 DJANGO_APPS = [
@@ -27,6 +44,7 @@ DJANGO_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.gis',
 ]
 
 THIRD_PARTY_APPS = [
