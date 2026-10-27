@@ -38,6 +38,8 @@ class SimuladorElipticoAndino:
         grid_size: int = 300,
         dem_path: str = None,
         ruta_dem: str = None,
+        combustible_path: str = None,
+        ruta_combustible: str = None,
     ):
         self.lat = float(lat)
         self.lon = float(lon)
@@ -67,12 +69,13 @@ class SimuladorElipticoAndino:
         path_dem_efectivo = dem_path or ruta_dem
         self.dem = self._obtener_grilla_dem(dem_array, path_dem_efectivo)
 
-        # Grilla de tasa de propagación base (R0)
-        # Fallback seguro: pajonal de ichu andino uniforme (GR2 / O-1b) -> R0 = 1.8 m/min
-        if combustible_array is not None and combustible_array.shape == (self.grid_size, self.grid_size):
-            self.combustible = combustible_array.astype(np.float32)
-        else:
-            self.combustible = np.full((self.grid_size, self.grid_size), 1.8, dtype=np.float32)
+        # Cargar o generar grilla de tasa de propagación base (R0)
+        path_combustible_efectivo = combustible_path or ruta_combustible
+        self.combustible = self._obtener_grilla_combustible(combustible_array, path_combustible_efectivo)
+
+        # Garantizar que el punto de ignición posea material combustible para iniciar el frente
+        if self.combustible[self.r0, self.c0] < 0.5:
+            self.combustible[self.r0, self.c0] = 1.20
 
     def _obtener_grilla_dem(self, dem_array, dem_path):
         """
@@ -82,12 +85,19 @@ class SimuladorElipticoAndino:
         if dem_array is not None and dem_array.shape == (self.grid_size, self.grid_size):
             return dem_array.astype(np.float32)
 
+        # Auto-buscar GeoTIFF DEM si no fue provisto
+        if not dem_path:
+            posibles = ["data/coracora_dem_utm18s.tif", "../data/coracora_dem_utm18s.tif"]
+            for p in posibles:
+                if os.path.exists(p):
+                    dem_path = p
+                    break
+
         if dem_path and os.path.exists(dem_path):
             try:
                 import rasterio
                 import rasterio.windows
                 with rasterio.open(dem_path) as src:
-                    # Leer ventana centrada en (x0, y0)
                     py, px = src.index(self.x0, self.y0)
                     half = self.grid_size // 2
                     window = rasterio.windows.Window(
@@ -101,6 +111,40 @@ class SimuladorElipticoAndino:
 
         # Fallback plano: 300x300 celdas a 30m (9km x 9km) con elevación media de Coracora (3,180 msnm)
         return np.full((self.grid_size, self.grid_size), 3180.0, dtype=np.float32)
+
+    def _obtener_grilla_combustible(self, combustible_array, combustible_path):
+        """
+        Carga el GeoTIFF de combustibles (Sentinel-2 L2A) si existe en disco o utiliza la grilla provista.
+        Fallback seguro: pajonal de ichu andino uniforme (GR2 / O-1b) -> R0 = 1.8 m/min.
+        """
+        if combustible_array is not None and combustible_array.shape == (self.grid_size, self.grid_size):
+            return combustible_array.astype(np.float32)
+
+        # Auto-buscar GeoTIFF de combustible si no fue provisto
+        if not combustible_path:
+            posibles = ["data/coracora_combustible_utm18s.tif", "../data/coracora_combustible_utm18s.tif"]
+            for p in posibles:
+                if os.path.exists(p):
+                    combustible_path = p
+                    break
+
+        if combustible_path and os.path.exists(combustible_path):
+            try:
+                import rasterio
+                import rasterio.windows
+                with rasterio.open(combustible_path) as src:
+                    py, px = src.index(self.x0, self.y0)
+                    half = self.grid_size // 2
+                    window = rasterio.windows.Window(
+                        px - half, py - half, self.grid_size, self.grid_size
+                    )
+                    data = src.read(1, window=window, boundless=True, fill_value=1.8)
+                    if data.shape == (self.grid_size, self.grid_size):
+                        return data.astype(np.float32)
+            except Exception:
+                pass
+
+        return np.full((self.grid_size, self.grid_size), 1.8, dtype=np.float32)
 
     def simular(self, horizontes_horas=(1, 3, 6)):
         """
@@ -163,9 +207,11 @@ class SimuladorElipticoAndino:
                     tan_theta = dz / dist
                     phi_pendiente = 5.275 * (max(0.0, tan_theta) ** 2)
 
-                    # Tasa de propagación del frente (ROS en m/min)
-                    r0_comb = float(self.combustible[r, c])
-                    ros = max(0.05, r0_comb * f_ffmc * (1.0 + phi_viento + phi_pendiente))
+                    # Tasa de propagación del frente (ROS en m/min) hacia la celda vecina
+                    r0_comb = float(self.combustible[nr, nc])
+                    if r0_comb <= 0.01:
+                        continue  # Cuerpos de agua o roca estéril incombustible no transmiten fuego
+                    ros = max(0.1, r0_comb * f_ffmc * (1.0 + phi_viento + phi_pendiente))
 
                     if ros > velocidad_maxima_observada:
                         velocidad_maxima_observada = ros
@@ -183,11 +229,12 @@ class SimuladorElipticoAndino:
             mask = (tiempo_arribo <= limite_min).astype(np.uint8)
             celdas_quemadas = int(np.sum(mask))
 
-            perimetro_wgs84, area_ha = self._extraer_perimetro_wgs84(mask)
+            perimetro_wgs84, area_ha, union_poly = self._extraer_perimetro_wgs84(mask)
 
             resultados[h] = {
                 "hora_paso": h,
                 "perimetro": perimetro_wgs84,
+                "poligono_utm": union_poly,
                 "area_hectareas": round(area_ha, 2),
                 "metadatos": {
                     "velocidad_maxima_m_min": round(velocidad_maxima_observada, 2),
@@ -257,4 +304,4 @@ class SimuladorElipticoAndino:
         else:
             django_mp = DjangoMultiPolygon([geos_geom.convex_hull], srid=4326)
 
-        return django_mp, area_ha
+        return django_mp, area_ha, union_poly

@@ -89,6 +89,20 @@ class EstrategiaElipticoAndino(EstrategiaPropagacion):
                     simulacion.save(update_fields=['parametros_entrada'])
                     break
 
+        combustible_path = params.get('ruta_combustible') or params.get('combustible_path')
+        if not combustible_path or not os.path.exists(combustible_path):
+            posibles_rutas_comb = [
+                settings.BASE_DIR / 'data' / 'coracora_combustible_utm18s.tif',
+                settings.BASE_DIR.parent / 'data' / 'coracora_combustible_utm18s.tif',
+            ]
+            for ruta in posibles_rutas_comb:
+                if ruta.exists():
+                    combustible_path = str(ruta.resolve())
+                    params['ruta_combustible'] = combustible_path
+                    simulacion.parametros_entrada = params
+                    simulacion.save(update_fields=['parametros_entrada'])
+                    break
+
         resolucion_m = float(params.get('resolucion_m', 30.0))
         grid_size = int(params.get('grid_size', 300))
 
@@ -110,6 +124,7 @@ class EstrategiaElipticoAndino(EstrategiaPropagacion):
             resolucion_m=resolucion_m,
             grid_size=grid_size,
             dem_path=dem_path,
+            combustible_path=combustible_path,
         )
 
         return simulador.simular(horizontes_horas=horizontes)

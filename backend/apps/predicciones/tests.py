@@ -98,13 +98,15 @@ class SimulacionPropagacionTests(TestCase):
         """
         grid_size = 100
 
-        # Caso A: Terreno plano sin viento
+        # Caso A: Terreno plano sin viento con combustible uniforme
         sim_plano = SimuladorElipticoAndino(
             lat=self.lat_ignicion,
             lon=self.lon_ignicion,
             viento_kmh=0.0,
             dir_viento_grados=0.0,
             ffmc=85.0,
+            dem_array=np.full((grid_size, grid_size), 3180.0, dtype=np.float32),
+            combustible_array=np.full((grid_size, grid_size), 1.8, dtype=np.float32),
             grid_size=grid_size
         )
         res_plano = sim_plano.simular(horizontes_horas=(3,))
@@ -123,6 +125,7 @@ class SimulacionPropagacionTests(TestCase):
             dir_viento_grados=90.0,
             ffmc=85.0,
             dem_array=dem_ladera,
+            combustible_array=np.full((grid_size, grid_size), 1.8, dtype=np.float32),
             grid_size=grid_size
         )
         res_ladera_viento = sim_ladera_viento.simular(horizontes_horas=(3,))
@@ -214,4 +217,82 @@ class SimulacionPropagacionTests(TestCase):
         res_6h = simulacion.resultados.get(hora_paso=6)
         self.assertGreater(res_6h.area_hectareas, 200.0)
         self.assertIsNotNone(res_6h.perimetro)
+
+    def test_validador_dnbr_calculo_metricas_iou(self):
+        """
+        Test 6: Verifica el cálculo matemático exacto de IoU, Dice/F1, Comisión y Omisión
+        usando geometrías controladas con solapamiento conocido.
+        """
+        from shapely.geometry import box
+        from apps.predicciones.validador_dnbr import ValidadorVerdadTerrenoDNBR
+
+        # Caja 1 (Simulación): (0, 0) a (100, 100) -> 10,000 m2
+        poly_sim = box(0, 0, 100, 100)
+        # Caja 2 (Real): (50, 0) a (150, 100) -> 10,000 m2
+        poly_real = box(50, 0, 150, 100)
+        # Intersección: (50, 0) a (100, 100) -> 5,000 m2
+        # Unión: (0, 0) a (150, 100) -> 15,000 m2
+
+        metricas = ValidadorVerdadTerrenoDNBR.calcular_metricas_iou(poly_sim, poly_real)
+
+        self.assertAlmostEqual(metricas["iou_porcentaje"], 33.33, places=1)
+        self.assertAlmostEqual(metricas["dice_f1_porcentaje"], 50.0, places=1)
+        self.assertAlmostEqual(metricas["comision_porcentaje"], 50.0, places=1)
+        self.assertAlmostEqual(metricas["omision_porcentaje"], 50.0, places=1)
+        self.assertEqual(metricas["area_simulada_ha"], 1.0)
+        self.assertEqual(metricas["area_real_ha"], 1.0)
+        self.assertEqual(metricas["area_interseccion_ha"], 0.5)
+
+    def test_validador_dnbr_extraccion_cicatriz_evento(self):
+        """
+        Test 7: Verifica la extracción satelital o calibrada de la cicatriz dNBR
+        para el incendio histórico de Huac-Cana (2026-08-20).
+        """
+        from apps.predicciones.validador_dnbr import (
+            ValidadorVerdadTerrenoDNBR,
+            EVENTOS_HISTORICOS_FIRMS,
+        )
+
+        validador = ValidadorVerdadTerrenoDNBR(umbral_dnbr=0.12, radio_m=3500.0)
+        evento = EVENTOS_HISTORICOS_FIRMS[0]
+
+        poly_real, area_real_ha, stats = validador.extraer_poligono_dnbr_real(evento)
+
+        self.assertTrue(poly_real.is_valid)
+        self.assertFalse(poly_real.is_empty)
+        self.assertGreater(area_real_ha, 100.0)
+        self.assertIn("pixeles_quemados", stats)
+        self.assertGreater(stats["pixeles_quemados"], 500)
+        self.assertGreater(stats["dnbr_max"], 0.3)
+
+    def test_validador_dnbr_evaluar_todos_reporte(self):
+        """
+        Test 8: Verifica la evaluación consolidada de los 3 incendios FIRMS
+        y la generación de métricas macro sin errores.
+        """
+        from apps.predicciones.validador_dnbr import ValidadorVerdadTerrenoDNBR
+
+        validador = ValidadorVerdadTerrenoDNBR(umbral_dnbr=0.12, radio_m=3500.0)
+        reporte = validador.evaluar_todos(guardar_artefacto=False)
+
+        self.assertEqual(reporte["total_eventos_evaluados"], 3)
+        self.assertEqual(len(reporte["eventos"]), 3)
+        macro = reporte["resumen_metricas_macro"]
+        self.assertIn("iou_medio_porcentaje", macro)
+        self.assertGreater(macro["iou_medio_porcentaje"], 0.0)
+        self.assertIn("calificacion_concordancia", macro)
+
+    def test_endpoint_reporte_validacion_dnbr(self):
+        """
+        Test 9: Verifica que el endpoint GET /api/v1/predicciones/simulaciones/reporte_validacion_dnbr/
+        retorne 200 OK con el reporte estructurado de los 3 eventos.
+        """
+        url = "/api/v1/predicciones/simulaciones/reporte_validacion_dnbr/"
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data.get("total_eventos_evaluados"), 3)
+        self.assertIn("resumen_metricas_macro", response.data)
+        self.assertIn("eventos", response.data)
+        self.assertEqual(len(response.data["eventos"]), 3)
 

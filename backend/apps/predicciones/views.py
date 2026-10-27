@@ -1,4 +1,5 @@
 import json
+import os
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -198,7 +199,7 @@ class SimulacionPropagacionViewSet(viewsets.ModelViewSet):
 
         incidente_id = data.get('incidente')
         parametros = data.get('parametros_entrada', {})
-        for param_key in ['viento_kmh', 'dir_viento_grados', 'ffmc', 'dem_path', 'ruta_dem', 'grid_size']:
+        for param_key in ['viento_kmh', 'dir_viento_grados', 'ffmc', 'dem_path', 'ruta_dem', 'combustible_path', 'ruta_combustible', 'grid_size']:
             if param_key in data and param_key not in parametros:
                 parametros[param_key] = data[param_key]
 
@@ -271,4 +272,23 @@ class SimulacionPropagacionViewSet(viewsets.ModelViewSet):
             "features": features
         }
         return Response(fc)
+
+    @action(detail=False, methods=['get'])
+    def reporte_validacion_dnbr(self, request):
+        """
+        Retorna el reporte de validación empírica frente a verdad terreno
+        (Sentinel-2 dNBR e IoU) sobre los incendios históricos FIRMS.
+        """
+        ruta_artefacto = os.path.join(
+            os.path.dirname(__file__), "artefactos", "validacion_dnbr_iou.json"
+        )
+        if os.path.exists(ruta_artefacto):
+            with open(ruta_artefacto, "r", encoding="utf-8") as f:
+                reporte = json.load(f)
+            return Response(reporte)
+
+        from .validador_dnbr import ValidadorVerdadTerrenoDNBR
+        validador = ValidadorVerdadTerrenoDNBR()
+        reporte = validador.evaluar_todos(guardar_artefacto=True)
+        return Response(reporte)
 
