@@ -49,14 +49,65 @@ def buscar_mejor_escena_sentinel2(west=-74.00, south=-15.25, east=-73.55, north=
     except Exception as e:
         print(f"Aviso STAC: {e}. Usando escena de referencia validada.")
 
-    # Escena óptima de referencia 100% despejada (cloud cover 0.004%)
     return {
         "id": "S2A_18LXJ_20260920_0_L2A",
         "assets": {
             "red": {"href": "https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/18/L/XJ/2026/9/S2A_18LXJ_20260920_0_L2A/B04.tif"},
-            "nir": {"href": "https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/18/L/XJ/2026/9/S2A_18LXJ_20260920_0_L2A/B08.tif"}
+            "nir": {"href": "https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/18/L/XJ/2026/9/S2A_18LXJ_20260920_0_L2A/B08.tif"},
+            "swir16": {"href": "https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/18/L/XJ/2026/9/S2A_18LXJ_20260920_0_L2A/B11.tif"}
         }
     }
+
+
+def clasificar_r0_andino(
+    ndvi: np.ndarray,
+    ndmi: np.ndarray = None,
+    dem: np.ndarray = None,
+) -> np.ndarray:
+    """
+    Asigna la tasa de propagación base (R0 en m/min) por píxel para ecosistemas andinos
+    combinando NDVI (vigor/biomasa), NDMI (estrés hídrico y sequedad de combustibles)
+    y DEM (elevación topográfica en msnm).
+    """
+    shape = ndvi.shape
+    r0 = np.full(shape, 1.30, dtype=np.float32)
+
+    # 1. Cobertura base por biomasa andina (NDVI)
+    # Suelo seco / puna árida / interfaz periurbana
+    r0[(ndvi >= -0.05) & (ndvi < 0.14)] = 0.85
+    # Pajonal ralo / pastizal andino disperso
+    r0[(ndvi >= 0.14) & (ndvi < 0.25)] = 1.30
+    # Pajonal denso de Ichu andino (GR2 / O-1b)
+    r0[(ndvi >= 0.25) & (ndvi < 0.42)] = 1.80
+    # Matorral andino / Tolares / Relictos de Queñua
+    r0[ndvi >= 0.42] = 2.60
+
+    # 2. Modulación por contenido de humedad y sequedad (NDMI = (NIR - SWIR1)/(NIR + SWIR1))
+    if ndmi is not None:
+        # Pastos curados y combustibles finos deshidratados (estrés hídrico severo NDMI < -0.05)
+        # aumentan la velocidad de avance del fuego entre 15% y 25%
+        seco_mask = (ndmi < -0.05) & (ndvi >= -0.05)
+        r0[seco_mask & (ndvi < 0.14)] = 1.05
+        r0[seco_mask & (ndvi >= 0.14) & (ndvi < 0.25)] = 1.55
+        r0[seco_mask & (ndvi >= 0.25) & (ndvi < 0.42)] = 2.15
+        r0[seco_mask & (ndvi >= 0.42)] = 2.95
+
+        # Vegetación túrgida o bofedales húmedos (NDMI > 0.20) reducen la velocidad
+        humedo_mask = (ndmi > 0.20) & (ndvi >= 0.10)
+        r0[humedo_mask] = np.maximum(0.30, r0[humedo_mask] * 0.70)
+
+        # Cuerpos de agua limpios (NDVI negativo y NDMI alto o negativo extremo en agua profunda)
+        agua_mask = (ndvi < -0.08) & (ndmi > 0.05)
+        r0[agua_mask] = 0.0
+
+    # Cuerpos de agua o nieve con NDVI fuertemente negativo
+    r0[ndvi < -0.10] = 0.0
+
+    # 3. Zonas de alta montaña (> 4,800 msnm roquedal / nieve perpetua incombustible)
+    if dem is not None:
+        r0[dem > 4800] = 0.0
+
+    return r0.astype(np.float32)
 
 
 def generar_raster_combustibles(forzar=False):
@@ -102,12 +153,13 @@ def generar_raster_combustibles(forzar=False):
     assets = scene.get("assets", {})
     red_href = assets.get("red", {}).get("href")
     nir_href = assets.get("nir", {}).get("href")
+    swir_href = assets.get("swir16", {}).get("href")
 
     r0_array = None
 
     if red_href and nir_href:
         try:
-            print("Extrayendo ventana de reflectancias espectrales Red (B04) y NIR (B08)...")
+            print("Extrayendo ventana de reflectancias espectrales Red (B04), NIR (B08) y SWIR1 (B11)...")
             with rasterio.open(red_href) as s_red, rasterio.open(nir_href) as s_nir:
                 win_red = from_bounds(dem_bounds.left, dem_bounds.bottom, dem_bounds.right, dem_bounds.top, s_red.transform)
                 red_data = s_red.read(1, window=win_red, out_shape=dem_shape, resampling=Resampling.bilinear).astype(np.float32)
@@ -115,27 +167,27 @@ def generar_raster_combustibles(forzar=False):
                 win_nir = from_bounds(dem_bounds.left, dem_bounds.bottom, dem_bounds.right, dem_bounds.top, s_nir.transform)
                 nir_data = s_nir.read(1, window=win_nir, out_shape=dem_shape, resampling=Resampling.bilinear).astype(np.float32)
 
-            denom = np.maximum(nir_data + red_data, 1.0)
-            ndvi = (nir_data - red_data) / denom
+            denom_ndvi = np.maximum(nir_data + red_data, 1.0)
+            ndvi = (nir_data - red_data) / denom_ndvi
+
+            ndmi = None
+            if swir_href:
+                try:
+                    with rasterio.open(swir_href) as s_swir:
+                        win_swir = from_bounds(dem_bounds.left, dem_bounds.bottom, dem_bounds.right, dem_bounds.top, s_swir.transform)
+                        swir_data = s_swir.read(1, window=win_swir, out_shape=dem_shape, resampling=Resampling.bilinear).astype(np.float32)
+                    denom_ndmi = np.maximum(nir_data + swir_data, 1.0)
+                    ndmi = (nir_data - swir_data) / denom_ndmi
+                    print(f"NDMI (humedad de vegetación) calculado: min={ndmi.min():.2f}, max={ndmi.max():.2f}, media={ndmi.mean():.2f}")
+                except Exception as e_swir:
+                    print(f"Aviso al leer SWIR1: {e_swir}. Clasificando sin modulador NDMI.")
+                    ndmi = None
+
             print(f"NDVI satelital calculado: min={ndvi.min():.2f}, max={ndvi.max():.2f}, media={ndvi.mean():.2f}")
 
-            # Calibración de modelos de combustible andinos (R0 base en m/min)
-            # 1. Agua / Glaciares / Rocas de alta reflectancia (NDVI < -0.05): R0 = 0.0 m/min (incombustible)
-            # 2. Suelo seco / Puna árida / Interfaz periurbana (-0.05 <= NDVI < 0.14): R0 = 0.85 m/min
-            # 3. Pajonal ralo / Pastizal andino disperso (0.14 <= NDVI < 0.25): R0 = 1.30 m/min
-            # 4. Pajonal denso de Ichu andino (GR2 / O-1b) (0.25 <= NDVI < 0.42): R0 = 1.80 m/min (estándar)
-            # 5. Matorral andino / Tolares / Relictos de Queñua (NDVI >= 0.42): R0 = 2.60 m/min (leñosa inflamable)
-            r0_array = np.full(dem_shape, 1.8, dtype=np.float32)
-            r0_array[ndvi < -0.05] = 0.0
-            r0_array[(ndvi >= -0.05) & (ndvi < 0.14)] = 0.85
-            r0_array[(ndvi >= 0.14) & (ndvi < 0.25)] = 1.30
-            r0_array[(ndvi >= 0.25) & (ndvi < 0.42)] = 1.80
-            r0_array[ndvi >= 0.42] = 2.60
-
-            # Zonas de alta montaña (> 4,800 msnm cumbres nevadas / roca viva)
-            r0_array[dem_data > 4800] = 0.0
-
-            print(f"Clasificación satelital completada exitosamente.")
+            # Clasificación biofísica andina con NDVI + NDMI + DEM
+            r0_array = clasificar_r0_andino(ndvi, ndmi=ndmi, dem=dem_data)
+            print(f"Clasificación satelital completada exitosamente con clasificar_r0_andino.")
         except Exception as e:
             print(f"Advertencia al leer COG remoto: {e}. Aplicando modelo de cobertura altitudinal calibrado.")
             r0_array = None

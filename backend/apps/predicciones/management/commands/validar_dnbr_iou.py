@@ -23,10 +23,49 @@ class Command(BaseCommand):
             default=3500.0,
             help="Radio de ventana en metros alrededor del foco (default 3500m)"
         )
+        parser.add_argument(
+            "--alfa-r0",
+            type=float,
+            default=1.0,
+            help="Multiplicador de tasa base R0 (default 1.0)"
+        )
+        parser.add_argument(
+            "--alfa-viento",
+            type=float,
+            default=1.0,
+            help="Multiplicador de viento (default 1.0)"
+        )
+        parser.add_argument(
+            "--alfa-pendiente",
+            type=float,
+            default=1.0,
+            help="Multiplicador de pendiente (default 1.0)"
+        )
+        parser.add_argument(
+            "--usar-calibrado",
+            action="store_true",
+            help="Carga los multiplicadores óptimos desde calibracion_lofo_iou.json si existe"
+        )
 
     def handle(self, *args, **options):
+        import os, json
         umbral = options["umbral_dnbr"]
         radio = options["radio_m"]
+        alfa_r0 = options["alfa_r0"]
+        alfa_viento = options["alfa_viento"]
+        alfa_pendiente = options["alfa_pendiente"]
+
+        if options["usar_calibrado"]:
+            ruta_calib = os.path.join(
+                os.path.dirname(__file__), "..", "..", "artefactos", "calibracion_lofo_iou.json"
+            )
+            if os.path.exists(ruta_calib):
+                with open(ruta_calib, "r", encoding="utf-8") as f:
+                    calib_data = json.load(f)
+                    opt = calib_data.get("multiplicadores_optimos", {})
+                    alfa_r0 = opt.get("alfa_r0", alfa_r0)
+                    alfa_viento = opt.get("alfa_viento", alfa_viento)
+                    alfa_pendiente = opt.get("alfa_pendiente", alfa_pendiente)
 
         self.stdout.write(self.style.NOTICE(
             "\n" + "=" * 90 + "\n"
@@ -34,12 +73,17 @@ class Command(BaseCommand):
             "=" * 90
         ))
         self.stdout.write(
-            f"Configuracion: Umbral dNBR={umbral} | Radio de analisis={radio:.0f}m | Grilla=30m UTM 18S\n"
-            "Consultando Element84 Earth Search STAC y ejecutando simulaciones...\n"
+            f"Configuracion: Umbral dNBR={umbral} | Radio={radio:.0f}m | Multiplicadores: R0={alfa_r0}, V={alfa_viento}, P={alfa_pendiente}\n"
+            "Usando imagenes Pre-incendio (NDVI+NDMI) y Clusters FIRMS multi-ignicion...\n"
         )
 
         validador = ValidadorVerdadTerrenoDNBR(umbral_dnbr=umbral, radio_m=radio)
-        reporte = validador.evaluar_todos(guardar_artefacto=True)
+        reporte = validador.evaluar_todos(
+            guardar_artefacto=True,
+            alfa_r0=alfa_r0,
+            alfa_viento=alfa_viento,
+            alfa_pendiente=alfa_pendiente
+        )
 
         # Encabezado de la tabla de resultados
         self.stdout.write("-" * 90)

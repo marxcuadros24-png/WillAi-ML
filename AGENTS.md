@@ -96,17 +96,20 @@ cd backend
 # Ejecutar chequeo del sistema
 python manage.py check
 
-# Ejecutar las pruebas unitarias completas (43 tests passing, 100% passing)
+# Ejecutar las pruebas unitarias completas (47 tests passing, 100% passing)
 python manage.py test apps.usuarios.test_usuarios apps.geografia.test_geografia apps.respuesta.test_respuesta apps.reportes.test_reportes apps.incidentes.test_incidentes apps.firms.test_firms apps.meteorologia.test_meteorologia apps.predicciones.test_predicciones apps.predicciones.tests apps.alertas.test_alertas apps.gamificacion.test_gamificacion apps.donaciones.test_donaciones apps.auditoria.test_auditoria apps.panel.test_panel
 
 # Descargar y reproyectar DEM Copernicus GLO-30 de Coracora a EPSG:32718 (data/coracora_dem_utm18s.tif)
 python manage.py descargar_dem
 
-# Descargar escena libre de nubes Sentinel-2 L2A (Element84 STAC) y generar ráster de combustibles R0 (data/coracora_combustible_utm18s.tif)
+# Descargar escena libre de nubes Sentinel-2 L2A (Element84 STAC) y generar ráster de combustibles R0 con clasificar_r0_andino (data/coracora_combustible_utm18s.tif)
 python manage.py generar_combustibles
 
-# Validar simulador frente a verdad terreno satelital Sentinel-2 (dNBR pre/post e IoU) en 3 incendios históricos FIRMS
-python manage.py validar_dnbr_iou
+# Calibrar multiplicadores físicos (R0, viento, pendiente) con scipy.optimize Leave-One-Fire-Out (LOFO)
+python manage.py calibrar_simulador --test-fire UPAHUACHO --max-iter 20
+
+# Validar simulador frente a verdad terreno satelital Sentinel-2 (dNBR pre/post e IoU) con clusters FIRMS y NDMI pre-incendio
+python manage.py validar_dnbr_iou --usar-calibrado
 
 # Sembrar estructura geográfica base y superusuario admin
 python manage.py seed_base

@@ -1,14 +1,19 @@
 {
   "titulo": "Reporte de Validación de Verdad Terreno (Sentinel-2 dNBR vs Simulador Elíptico Andino)",
-  "motor_simulacion": "SimuladorElipticoAndino (Dijkstra 8-vecindad + DEM Copernicus GLO-30 + Sentinel-2 L2A Fuel)",
+  "motor_simulacion": "SimuladorElipticoAndino (Dijkstra 8-vecindad + Multi-Ignición Cluster FIRMS + Sentinel-2 Pre-incendio NDMI/NDVI)",
   "metodologia_verdad_terreno": "differenced Normalized Burn Ratio (dNBR = NBR_pre - NBR_post) con Sentinel-2 L2A",
   "umbral_severidad_dnbr": 0.12,
+  "multiplicadores_calibracion": {
+    "alfa_r0": 0.811,
+    "alfa_viento": 0.1,
+    "alfa_pendiente": 0.19
+  },
   "total_eventos_evaluados": 3,
   "resumen_metricas_macro": {
-    "iou_medio_porcentaje": 15.68,
-    "dice_f1_medio_porcentaje": 26.95,
-    "error_comision_medio_porcentaje": 69.3,
-    "error_omision_medio_porcentaje": 61.15,
+    "iou_medio_porcentaje": 38.89,
+    "dice_f1_medio_porcentaje": 55.69,
+    "error_comision_medio_porcentaje": 45.3,
+    "error_omision_medio_porcentaje": 36.88,
     "calificacion_concordancia": "Regular (Requiere mayor densidad de modelos locales de combustible)"
   },
   "eventos": [
@@ -21,6 +26,7 @@
         "lat": -15.16314,
         "lon": -73.76752
       },
+      "focos_cluster_count": 4,
       "frp_mw": 460.89,
       "escenas_sentinel2": {
         "pre": "S2C_18LXJ_20260819_0_L2A",
@@ -32,21 +38,27 @@
         "ffmc": 89.2,
         "duracion_horas": 6
       },
+      "multiplicadores_calibracion": {
+        "alfa_r0": 0.811,
+        "alfa_viento": 0.1,
+        "alfa_pendiente": 0.19
+      },
       "estadisticas_dnbr": {
         "dnbr_min": -0.11,
         "dnbr_max": 0.654,
         "dnbr_medio": 0.051,
         "pixeles_quemados": 5737,
-        "umbral_aplicado": 0.12
+        "umbral_aplicado": 0.12,
+        "usando_combustible_pre_ndmi": true
       },
       "metricas_comparativas": {
-        "iou_porcentaje": 12.97,
-        "dice_f1_porcentaje": 22.96,
-        "comision_porcentaje": 83.12,
-        "omision_porcentaje": 64.09,
-        "area_interseccion_ha": 184.5,
-        "area_union_ha": 1422.36,
-        "area_simulada_ha": 1093.14,
+        "iou_porcentaje": 46.71,
+        "dice_f1_porcentaje": 63.68,
+        "comision_porcentaje": 50.42,
+        "omision_porcentaje": 11.01,
+        "area_interseccion_ha": 457.14,
+        "area_union_ha": 978.63,
+        "area_simulada_ha": 922.05,
         "area_real_ha": 513.72
       }
     },
@@ -59,6 +71,7 @@
         "lat": -15.11034,
         "lon": -73.71182
       },
+      "focos_cluster_count": 4,
       "frp_mw": 182.79,
       "escenas_sentinel2": {
         "pre": "S2A_18LXJ_20260930_0_L2A",
@@ -70,21 +83,27 @@
         "ffmc": 87.5,
         "duracion_horas": 6
       },
+      "multiplicadores_calibracion": {
+        "alfa_r0": 0.811,
+        "alfa_viento": 0.1,
+        "alfa_pendiente": 0.19
+      },
       "estadisticas_dnbr": {
         "dnbr_min": -0.261,
         "dnbr_max": 0.679,
         "dnbr_medio": 0.081,
         "pixeles_quemados": 11803,
-        "umbral_aplicado": 0.12
+        "umbral_aplicado": 0.12,
+        "usando_combustible_pre_ndmi": true
       },
       "metricas_comparativas": {
-        "iou_porcentaje": 20.66,
-        "dice_f1_porcentaje": 34.24,
-        "comision_porcentaje": 39.73,
-        "omision_porcentaje": 76.09,
-        "area_interseccion_ha": 252.63,
-        "area_union_ha": 1223.01,
-        "area_simulada_ha": 419.13,
+        "iou_porcentaje": 39.08,
+        "dice_f1_porcentaje": 56.2,
+        "comision_porcentaje": 27.0,
+        "omision_porcentaje": 54.32,
+        "area_interseccion_ha": 482.65,
+        "area_union_ha": 1235.0,
+        "area_simulada_ha": 661.14,
         "area_real_ha": 1056.51
       }
     },
@@ -97,6 +116,7 @@
         "lat": -14.92584,
         "lon": -73.86101
       },
+      "focos_cluster_count": 2,
       "frp_mw": 206.34,
       "escenas_sentinel2": {
         "pre": "S2A_18LXJ_20261010_1_L2A",
@@ -108,21 +128,27 @@
         "ffmc": 90.1,
         "duracion_horas": 6
       },
+      "multiplicadores_calibracion": {
+        "alfa_r0": 0.811,
+        "alfa_viento": 0.1,
+        "alfa_pendiente": 0.19
+      },
       "estadisticas_dnbr": {
         "dnbr_min": -0.936,
         "dnbr_max": 0.546,
         "dnbr_medio": -0.002,
         "pixeles_quemados": 2501,
-        "umbral_aplicado": 0.12
+        "umbral_aplicado": 0.12,
+        "usando_combustible_pre_ndmi": true
       },
       "metricas_comparativas": {
-        "iou_porcentaje": 13.41,
-        "dice_f1_porcentaje": 23.65,
-        "comision_porcentaje": 85.06,
-        "omision_porcentaje": 43.27,
-        "area_interseccion_ha": 126.36,
-        "area_union_ha": 942.03,
-        "area_simulada_ha": 845.64,
+        "iou_porcentaje": 30.89,
+        "dice_f1_porcentaje": 47.2,
+        "comision_porcentaje": 58.49,
+        "omision_porcentaje": 45.32,
+        "area_interseccion_ha": 121.8,
+        "area_union_ha": 394.35,
+        "area_simulada_ha": 293.4,
         "area_real_ha": 222.75
       }
     }

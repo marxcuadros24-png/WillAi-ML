@@ -27,8 +27,8 @@ class SimuladorElipticoAndino:
 
     def __init__(
         self,
-        lat: float,
-        lon: float,
+        lat: float = None,
+        lon: float = None,
         viento_kmh: float = 15.0,
         dir_viento_grados: float = 270.0,
         ffmc: float = 85.0,
@@ -40,21 +40,40 @@ class SimuladorElipticoAndino:
         ruta_dem: str = None,
         combustible_path: str = None,
         ruta_combustible: str = None,
+        puntos_ignicion: list = None,
+        alfa_r0: float = 1.0,
+        alfa_viento: float = 1.0,
+        alfa_pendiente: float = 1.0,
     ):
-        self.lat = float(lat)
-        self.lon = float(lon)
         self.viento_kmh = max(0.0, float(viento_kmh))
         self.dir_viento_grados = float(dir_viento_grados) % 360.0
         self.ffmc = max(10.0, min(101.0, float(ffmc)))
         self.resolucion_m = float(resolucion_m)
         self.grid_size = int(grid_size)
+        self.alfa_r0 = float(alfa_r0)
+        self.alfa_viento = float(alfa_viento)
+        self.alfa_pendiente = float(alfa_pendiente)
 
-        # Proyectar coordenadas de ignición a UTM 18S (EPSG:32718)
+        # Manejo de multi-ignición por cluster FIRMS o punto individual
+        if puntos_ignicion and len(puntos_ignicion) > 0:
+            self.puntos_ignicion = [(float(p[0]), float(p[1])) for p in puntos_ignicion]
+            if lat is None or lon is None:
+                self.lat = sum(p[0] for p in self.puntos_ignicion) / len(self.puntos_ignicion)
+                self.lon = sum(p[1] for p in self.puntos_ignicion) / len(self.puntos_ignicion)
+            else:
+                self.lat = float(lat)
+                self.lon = float(lon)
+        else:
+            self.lat = float(lat) if lat is not None else -15.0189
+            self.lon = float(lon) if lon is not None else -73.7806
+            self.puntos_ignicion = [(self.lat, self.lon)]
+
+        # Proyectar centro geográfico a UTM 18S (EPSG:32718)
         xs, ys = transform('EPSG:4326', 'EPSG:32718', [self.lon], [self.lat])
         self.x0 = xs[0]
         self.y0 = ys[0]
 
-        # Celda central de ignición en la grilla
+        # Celda central de la grilla
         self.r0 = self.grid_size // 2
         self.c0 = self.grid_size // 2
 
@@ -73,9 +92,25 @@ class SimuladorElipticoAndino:
         path_combustible_efectivo = combustible_path or ruta_combustible
         self.combustible = self._obtener_grilla_combustible(combustible_array, path_combustible_efectivo)
 
-        # Garantizar que el punto de ignición posea material combustible para iniciar el frente
-        if self.combustible[self.r0, self.c0] < 0.5:
-            self.combustible[self.r0, self.c0] = 1.20
+        # Mapear todos los focos de ignición a coordenadas de celda (fila, columna)
+        lons_pts = [p[1] for p in self.puntos_ignicion]
+        lats_pts = [p[0] for p in self.puntos_ignicion]
+        xs_pts, ys_pts = transform('EPSG:4326', 'EPSG:32718', lons_pts, lats_pts)
+
+        self.focos = []
+        for px, py in zip(xs_pts, ys_pts):
+            c_idx = int(round((px - self.x_min) / self.resolucion_m))
+            r_idx = int(round((self.y_max - py) / self.resolucion_m))
+            if 0 <= r_idx < self.grid_size and 0 <= c_idx < self.grid_size:
+                self.focos.append((r_idx, c_idx))
+
+        if not self.focos:
+            self.focos = [(self.r0, self.c0)]
+
+        # Garantizar que todos los puntos de ignición posean material combustible para iniciar el frente
+        for rf, cf in self.focos:
+            if self.combustible[rf, cf] < 0.5:
+                self.combustible[rf, cf] = 1.20
 
     def _obtener_grilla_dem(self, dem_array, dem_path):
         """
@@ -152,9 +187,10 @@ class SimuladorElipticoAndino:
         y extrae los perímetros poligonales MultiPolygon WGS84 para cada horizonte.
         """
         tiempo_arribo = np.full((self.grid_size, self.grid_size), np.inf, dtype=np.float64)
-        tiempo_arribo[self.r0, self.c0] = 0.0
-
-        pq = [(0.0, self.r0, self.c0)]
+        pq = []
+        for rf, cf in self.focos:
+            tiempo_arribo[rf, cf] = 0.0
+            heapq.heappush(pq, (0.0, rf, cf))
 
         # Factor de humedad fina FFMC canadienses
         f_ffmc = math.exp(0.05039 * (self.ffmc - 80.0))
@@ -207,11 +243,11 @@ class SimuladorElipticoAndino:
                     tan_theta = dz / dist
                     phi_pendiente = 5.275 * (max(0.0, tan_theta) ** 2)
 
-                    # Tasa de propagación del frente (ROS en m/min) hacia la celda vecina
+                    # Tasa de propagación del frente (ROS en m/min) hacia la celda vecina con multiplicadores de calibración
                     r0_comb = float(self.combustible[nr, nc])
                     if r0_comb <= 0.01:
                         continue  # Cuerpos de agua o roca estéril incombustible no transmiten fuego
-                    ros = max(0.1, r0_comb * f_ffmc * (1.0 + phi_viento + phi_pendiente))
+                    ros = max(0.05, (r0_comb * self.alfa_r0) * f_ffmc * (1.0 + (phi_viento * self.alfa_viento) + (phi_pendiente * self.alfa_pendiente)))
 
                     if ros > velocidad_maxima_observada:
                         velocidad_maxima_observada = ros
@@ -243,6 +279,10 @@ class SimuladorElipticoAndino:
                     "ffmc": self.ffmc,
                     "viento_kmh": self.viento_kmh,
                     "dir_viento_grados": self.dir_viento_grados,
+                    "alfa_r0": self.alfa_r0,
+                    "alfa_viento": self.alfa_viento,
+                    "alfa_pendiente": self.alfa_pendiente,
+                    "focos_ignicion_count": len(self.focos),
                 }
             }
 

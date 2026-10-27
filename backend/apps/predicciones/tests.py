@@ -296,3 +296,125 @@ class SimulacionPropagacionTests(TestCase):
         self.assertIn("eventos", response.data)
         self.assertEqual(len(response.data["eventos"]), 3)
 
+    def test_clasificar_r0_andino_ndvi_ndmi_dem(self):
+        """
+        Test 10: Verifica que clasificar_r0_andino module la tasa base R0 según
+        estrés hídrico NDMI, vigor NDVI y cumbres estériles del DEM.
+        """
+        from scripts.generar_combustibles_coracora import clasificar_r0_andino
+
+        ndvi = np.array([[0.30, 0.30], [-0.15, 0.50]], dtype=np.float32)
+        ndmi_seco = np.array([[-0.10, 0.10], [0.10, -0.10]], dtype=np.float32)
+        dem = np.array([[3200.0, 3200.0], [3200.0, 4900.0]], dtype=np.float32)
+
+        r0 = clasificar_r0_andino(ndvi, ndmi=ndmi_seco, dem=dem)
+
+        # Ichu seco con NDMI < -0.05 debe ser mayor que ichu con humedad normal
+        self.assertGreater(r0[0, 0], r0[0, 1])
+        # Agua con NDVI < -0.10 debe ser 0.0 m/min
+        self.assertEqual(r0[1, 0], 0.0)
+        # Cumbre alta (>4800m) debe ser incombustible (0.0 m/min)
+        self.assertEqual(r0[1, 1], 0.0)
+
+    def test_simulador_multi_ignicion_cluster(self):
+        """
+        Test 11: Verifica que el Simulador admita un cluster de focos FIRMS simultáneos
+        y que la multi-ignición genere un perímetro coherente y mayor que un solo foco.
+        """
+        focos = [
+            (self.lat_ignicion, self.lon_ignicion),
+            (self.lat_ignicion - 0.005, self.lon_ignicion + 0.005),
+        ]
+        # Simulación multi-ignición
+        sim_multi = SimuladorElipticoAndino(
+            puntos_ignicion=focos,
+            viento_kmh=15.0,
+            dir_viento_grados=90.0,
+            ffmc=85.0,
+            grid_size=100,
+            dem_array=np.full((100, 100), 3180.0, dtype=np.float32),
+            combustible_array=np.full((100, 100), 1.8, dtype=np.float32),
+        )
+        self.assertGreaterEqual(len(sim_multi.focos), 2)
+        res_multi = sim_multi.simular(horizontes_horas=(1,))
+
+        # Simulación foco único
+        sim_single = SimuladorElipticoAndino(
+            lat=self.lat_ignicion,
+            lon=self.lon_ignicion,
+            viento_kmh=15.0,
+            dir_viento_grados=90.0,
+            ffmc=85.0,
+            grid_size=100,
+            dem_array=np.full((100, 100), 3180.0, dtype=np.float32),
+            combustible_array=np.full((100, 100), 1.8, dtype=np.float32),
+        )
+        res_single = sim_single.simular(horizontes_horas=(1,))
+
+        self.assertGreater(
+            res_multi[1]["area_hectareas"],
+            res_single[1]["area_hectareas"],
+            "El cluster de múltiples focos debe propagar más área que una ignición puntual."
+        )
+
+    def test_simulador_multiplicadores_calibracion_alfa(self):
+        """
+        Test 12: Verifica que los multiplicadores alfa_r0, alfa_viento y alfa_pendiente
+        incrementen la tasa de avance de manera estrictamente monótona.
+        """
+        grid_size = 100
+        dem_plano = np.full((grid_size, grid_size), 3180.0, dtype=np.float32)
+        comb_uniforme = np.full((grid_size, grid_size), 1.8, dtype=np.float32)
+
+        sim_base = SimuladorElipticoAndino(
+            lat=self.lat_ignicion,
+            lon=self.lon_ignicion,
+            viento_kmh=20.0,
+            dir_viento_grados=90.0,
+            ffmc=85.0,
+            alfa_r0=1.0,
+            alfa_viento=1.0,
+            grid_size=grid_size,
+            dem_array=dem_plano,
+            combustible_array=comb_uniforme,
+        )
+        res_base = sim_base.simular(horizontes_horas=(1,))
+
+        sim_ampliado = SimuladorElipticoAndino(
+            lat=self.lat_ignicion,
+            lon=self.lon_ignicion,
+            viento_kmh=20.0,
+            dir_viento_grados=90.0,
+            ffmc=85.0,
+            alfa_r0=1.5,
+            alfa_viento=1.5,
+            grid_size=grid_size,
+            dem_array=dem_plano,
+            combustible_array=comb_uniforme,
+        )
+        res_ampliado = sim_ampliado.simular(horizontes_horas=(1,))
+
+        self.assertGreater(
+            res_ampliado[1]["area_hectareas"],
+            res_base[1]["area_hectareas"],
+            "Multiplicadores alfa mayores deben producir un área propagada mayor."
+        )
+
+    def test_calibrador_lofo_ejecucion_y_reporte(self):
+        """
+        Test 13: Verifica que CalibradorLOFO ejecute la partición Leave-One-Fire-Out
+        con scipy.optimize y retorne las métricas de train y test no visto.
+        """
+        from apps.predicciones.calibrador_lofo import CalibradorLOFO
+
+        calibrador = CalibradorLOFO(test_id_or_keyword="UPAHUACHO", max_iter=2)
+        self.assertEqual(len(calibrador.train_eventos), 2)
+        self.assertEqual(calibrador.test_evento["id_evento"], "FIRMS-2026-1011-UPAHUACHO")
+
+        rep = calibrador.calibrar()
+        self.assertIn("multiplicadores_optimos", rep)
+        self.assertIn("rendimiento_entrenamiento", rep)
+        self.assertIn("rendimiento_prueba_no_visto", rep)
+        self.assertGreater(rep["rendimiento_entrenamiento"]["iou_calibrado"], 0.0)
+        self.assertGreater(rep["rendimiento_prueba_no_visto"]["iou_calibrado"], 0.0)
+
