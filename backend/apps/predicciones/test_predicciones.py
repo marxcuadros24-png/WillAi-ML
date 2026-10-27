@@ -120,3 +120,70 @@ class PrediccionesModelAndTasksTests(TestCase):
         self.assertIn('metricas', post_resp.data)
         self.assertGreater(post_resp.data['total_celdas'], 0)
 
+    def test_clasificar_nivel_peligro_escalas(self):
+        """
+        Verifica la discriminación entre la escala Canadiense boreal y la escala Pajonal Altoandino.
+        """
+        from apps.predicciones.fwi import clasificar_nivel_peligro
+
+        # FWI = 15.0: Canadiense es 'alto' (> 11.2), pero en Pajonal Altoandino es 'bajo' (< 18.0)
+        self.assertEqual(clasificar_nivel_peligro(15.0, escala='canadiense'), 'alto')
+        self.assertEqual(clasificar_nivel_peligro(15.0, escala='pajonal_altoandino'), 'bajo')
+
+        # FWI = 30.0: Canadiense es 'critico' (>= 21.3), pero en Pajonal Altoandino es 'moderado' (18.0 - 42.0)
+        self.assertEqual(clasificar_nivel_peligro(30.0, escala='canadiense'), 'critico')
+        self.assertEqual(clasificar_nivel_peligro(30.0, escala='pajonal_altoandino'), 'moderado')
+
+        # FWI = 50.0: Canadiense es 'critico', pero en Pajonal Altoandino es 'alto' (42.0 - 65.0)
+        self.assertEqual(clasificar_nivel_peligro(50.0, escala='pajonal_altoandino'), 'alto')
+
+        # FWI = 70.0: En ambas es 'critico'
+        self.assertEqual(clasificar_nivel_peligro(70.0, escala='pajonal_altoandino'), 'critico')
+
+        # Con lluvia activa (rain > 0) o humedad alta (rh >= 75%), siempre inhibe a 'bajo'
+        self.assertEqual(clasificar_nivel_peligro(80.0, rain=2.0), 'bajo')
+        self.assertEqual(clasificar_nivel_peligro(80.0, rh=80.0), 'bajo')
+
+    def test_probabilidad_ignicion_fwi_calibrada(self):
+        """
+        Verifica el cálculo de probabilidad calibrada mediante Platt scaling (sigmoide numéricamente monótona).
+        """
+        from apps.predicciones.fwi import calcular_probabilidad_ignicion_fwi
+
+        p_bajo = calcular_probabilidad_ignicion_fwi(10.0)
+        p_medio = calcular_probabilidad_ignicion_fwi(35.0)
+        p_alto = calcular_probabilidad_ignicion_fwi(70.0)
+
+        self.assertLess(p_bajo, 0.25)
+        self.assertGreater(p_alto, 0.65)
+        self.assertLess(p_bajo, p_medio)
+        self.assertLess(p_medio, p_alto)
+
+        # Lluvia activa inhibe la probabilidad
+        self.assertEqual(calcular_probabilidad_ignicion_fwi(80.0, rain=1.5), 0.02)
+        self.assertEqual(calcular_probabilidad_ignicion_fwi(80.0, rh=85.0), 0.02)
+
+    def test_calibrador_fwi_y_reporte_api(self):
+        """
+        Verifica que el CalibradorFWI compute PR-AUC, ROC-AUC y Brier Score y que el endpoint
+        GET /api/v1/predicciones/predicciones/reporte_calibracion_fwi/ retorne HTTP 200.
+        """
+        from apps.predicciones.calibrador_fwi import CalibradorFWI
+
+        calibrador = CalibradorFWI(dias=180)
+        rep = calibrador.calibrar(guardar_artefacto=True)
+
+        self.assertIn('metricas_evaluacion', rep)
+        met = rep['metricas_evaluacion']
+        self.assertGreater(met['pr_auc_average_precision'], 0.70)
+        self.assertGreater(met['roc_auc'], 0.75)
+        self.assertLess(met['brier_score_calibrado'], 0.22)
+        self.assertGreater(met['mejora_brier_score_pct'], 20.0)
+
+        # Probar endpoint API
+        response = self.client.get('/api/v1/predicciones/predicciones/reporte_calibracion_fwi/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('metricas_evaluacion', response.data)
+        self.assertIn('distribucion_contingencia', response.data)
+
+

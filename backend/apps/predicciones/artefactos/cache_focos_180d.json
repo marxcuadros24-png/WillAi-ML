@@ -1,0 +1,534 @@
+{
+  "2026-10-21": {
+    "focos": 2,
+    "frp": 37.1,
+    "fuentes": {
+      "NASA FIRMS": 2
+    }
+  },
+  "2026-10-20": {
+    "focos": 128,
+    "frp": 1393.7800000000002,
+    "fuentes": {
+      "NASA FIRMS": 128
+    }
+  },
+  "2026-10-19": {
+    "focos": 305,
+    "frp": 2987.8899999999976,
+    "fuentes": {
+      "NASA FIRMS": 305
+    }
+  },
+  "2026-10-18": {
+    "focos": 118,
+    "frp": 1299.9799999999993,
+    "fuentes": {
+      "NASA FIRMS": 118
+    }
+  },
+  "2026-10-17": {
+    "focos": 124,
+    "frp": 1708.8200000000006,
+    "fuentes": {
+      "NASA FIRMS": 124
+    }
+  },
+  "2026-10-16": {
+    "focos": 7,
+    "frp": 46.589999999999996,
+    "fuentes": {
+      "NASA FIRMS": 7
+    }
+  },
+  "2026-10-15": {
+    "focos": 16,
+    "frp": 156.12,
+    "fuentes": {
+      "NASA FIRMS": 16
+    }
+  },
+  "2026-10-14": {
+    "focos": 11,
+    "frp": 103.49000000000001,
+    "fuentes": {
+      "NASA FIRMS": 11
+    }
+  },
+  "2026-10-13": {
+    "focos": 27,
+    "frp": 629.7099999999999,
+    "fuentes": {
+      "NASA FIRMS": 27
+    }
+  },
+  "2026-10-12": {
+    "focos": 17,
+    "frp": 103.03,
+    "fuentes": {
+      "NASA FIRMS": 17
+    }
+  },
+  "2026-10-11": {
+    "focos": 46,
+    "frp": 2067.3899999999994,
+    "fuentes": {
+      "NASA FIRMS": 46
+    }
+  },
+  "2026-10-10": {
+    "focos": 3,
+    "frp": 20.33,
+    "fuentes": {
+      "NASA FIRMS": 3
+    }
+  },
+  "2026-10-09": {
+    "focos": 9,
+    "frp": 88.13,
+    "fuentes": {
+      "NASA FIRMS": 9
+    }
+  },
+  "2026-10-08": {
+    "focos": 11,
+    "frp": 327.19000000000005,
+    "fuentes": {
+      "NASA FIRMS": 11
+    }
+  },
+  "2026-10-07": {
+    "focos": 30,
+    "frp": 621.35,
+    "fuentes": {
+      "NASA FIRMS": 30
+    }
+  },
+  "2026-10-06": {
+    "focos": 15,
+    "frp": 298.9500000000001,
+    "fuentes": {
+      "NASA FIRMS": 15
+    }
+  },
+  "2026-10-05": {
+    "focos": 78,
+    "frp": 2048.2100000000005,
+    "fuentes": {
+      "NASA FIRMS": 78
+    }
+  },
+  "2026-10-04": {
+    "focos": 57,
+    "frp": 2549.3599999999997,
+    "fuentes": {
+      "NASA FIRMS": 57
+    }
+  },
+  "2026-10-03": {
+    "focos": 46,
+    "frp": 1198.119999999999,
+    "fuentes": {
+      "NASA FIRMS": 46
+    }
+  },
+  "2026-10-02": {
+    "focos": 87,
+    "frp": 2440.449999999999,
+    "fuentes": {
+      "NASA FIRMS": 87
+    }
+  },
+  "2026-10-01": {
+    "focos": 19,
+    "frp": 420.80000000000007,
+    "fuentes": {
+      "NASA FIRMS": 19
+    }
+  },
+  "2026-09-30": {
+    "focos": 7,
+    "frp": 34.43,
+    "fuentes": {
+      "NASA FIRMS": 7
+    }
+  },
+  "2026-09-27": {
+    "focos": 21,
+    "frp": 167.87,
+    "fuentes": {
+      "NASA FIRMS": 21
+    }
+  },
+  "2026-09-26": {
+    "focos": 3,
+    "frp": 168.09,
+    "fuentes": {
+      "NASA FIRMS": 3
+    }
+  },
+  "2026-09-25": {
+    "focos": 4,
+    "frp": 16.16,
+    "fuentes": {
+      "NASA FIRMS": 4
+    }
+  },
+  "2026-09-24": {
+    "focos": 3,
+    "frp": 19.8,
+    "fuentes": {
+      "NASA FIRMS": 3
+    }
+  },
+  "2026-09-23": {
+    "focos": 3,
+    "frp": 29.740000000000002,
+    "fuentes": {
+      "NASA FIRMS": 3
+    }
+  },
+  "2026-09-22": {
+    "focos": 2,
+    "frp": 7.4,
+    "fuentes": {
+      "NASA FIRMS": 2
+    }
+  },
+  "2026-09-20": {
+    "focos": 5,
+    "frp": 21.380000000000003,
+    "fuentes": {
+      "NASA FIRMS": 5
+    }
+  },
+  "2026-09-19": {
+    "focos": 9,
+    "frp": 248.95999999999998,
+    "fuentes": {
+      "NASA FIRMS": 9
+    }
+  },
+  "2026-09-17": {
+    "focos": 2,
+    "frp": 2.33,
+    "fuentes": {
+      "NASA FIRMS": 2
+    }
+  },
+  "2026-09-16": {
+    "focos": 1,
+    "frp": 1.28,
+    "fuentes": {
+      "NASA FIRMS": 1
+    }
+  },
+  "2026-09-15": {
+    "focos": 14,
+    "frp": 206.64000000000001,
+    "fuentes": {
+      "NASA FIRMS": 14
+    }
+  },
+  "2026-09-14": {
+    "focos": 2,
+    "frp": 11.52,
+    "fuentes": {
+      "NASA FIRMS": 2
+    }
+  },
+  "2026-09-13": {
+    "focos": 1,
+    "frp": 6.94,
+    "fuentes": {
+      "NASA FIRMS": 1
+    }
+  },
+  "2026-09-12": {
+    "focos": 5,
+    "frp": 50.72,
+    "fuentes": {
+      "NASA FIRMS": 5
+    }
+  },
+  "2026-09-10": {
+    "focos": 2,
+    "frp": 5.2,
+    "fuentes": {
+      "NASA FIRMS": 2
+    }
+  },
+  "2026-09-09": {
+    "focos": 1,
+    "frp": 6.16,
+    "fuentes": {
+      "NASA FIRMS": 1
+    }
+  },
+  "2026-09-06": {
+    "focos": 3,
+    "frp": 24.369999999999997,
+    "fuentes": {
+      "NASA FIRMS": 3
+    }
+  },
+  "2026-09-04": {
+    "focos": 1,
+    "frp": 27.91,
+    "fuentes": {
+      "NASA FIRMS": 1
+    }
+  },
+  "2026-09-03": {
+    "focos": 21,
+    "frp": 53.35,
+    "fuentes": {
+      "NASA FIRMS": 21
+    }
+  },
+  "2026-09-02": {
+    "focos": 89,
+    "frp": 891.7500000000006,
+    "fuentes": {
+      "NASA FIRMS": 89
+    }
+  },
+  "2026-09-01": {
+    "focos": 30,
+    "frp": 444.2600000000002,
+    "fuentes": {
+      "NASA FIRMS": 30
+    }
+  },
+  "2026-08-30": {
+    "focos": 4,
+    "frp": 29.959999999999997,
+    "fuentes": {
+      "NASA FIRMS": 4
+    }
+  },
+  "2026-08-26": {
+    "focos": 1,
+    "frp": 7.17,
+    "fuentes": {
+      "NASA FIRMS": 1
+    }
+  },
+  "2026-08-25": {
+    "focos": 1,
+    "frp": 2.07,
+    "fuentes": {
+      "NASA FIRMS": 1
+    }
+  },
+  "2026-08-21": {
+    "focos": 25,
+    "frp": 349.18000000000006,
+    "fuentes": {
+      "NASA FIRMS": 25
+    }
+  },
+  "2026-08-20": {
+    "focos": 56,
+    "frp": 2393.0500000000015,
+    "fuentes": {
+      "NASA FIRMS": 56
+    }
+  },
+  "2026-08-19": {
+    "focos": 2,
+    "frp": 16.89,
+    "fuentes": {
+      "NASA FIRMS": 2
+    }
+  },
+  "2026-08-15": {
+    "focos": 1,
+    "frp": 2.86,
+    "fuentes": {
+      "NASA FIRMS": 1
+    }
+  },
+  "2026-08-14": {
+    "focos": 2,
+    "frp": 36.35,
+    "fuentes": {
+      "NASA FIRMS": 2
+    }
+  },
+  "2026-08-08": {
+    "focos": 2,
+    "frp": 3.16,
+    "fuentes": {
+      "NASA FIRMS": 2
+    }
+  },
+  "2026-08-07": {
+    "focos": 24,
+    "frp": 146.59999999999997,
+    "fuentes": {
+      "NASA FIRMS": 24
+    }
+  },
+  "2026-08-06": {
+    "focos": 5,
+    "frp": 62.47,
+    "fuentes": {
+      "NASA FIRMS": 5
+    }
+  },
+  "2026-08-03": {
+    "focos": 3,
+    "frp": 65.34,
+    "fuentes": {
+      "NASA FIRMS": 3
+    }
+  },
+  "2026-08-02": {
+    "focos": 12,
+    "frp": 272.75,
+    "fuentes": {
+      "NASA FIRMS": 12
+    }
+  },
+  "2026-07-31": {
+    "focos": 1,
+    "frp": 3.78,
+    "fuentes": {
+      "NASA FIRMS": 1
+    }
+  },
+  "2026-07-29": {
+    "focos": 4,
+    "frp": 45.800000000000004,
+    "fuentes": {
+      "NASA FIRMS": 4
+    }
+  },
+  "2026-07-28": {
+    "focos": 4,
+    "frp": 32.07,
+    "fuentes": {
+      "NASA FIRMS": 4
+    }
+  },
+  "2026-07-27": {
+    "focos": 1,
+    "frp": 1.02,
+    "fuentes": {
+      "NASA FIRMS": 1
+    }
+  },
+  "2026-07-26": {
+    "focos": 3,
+    "frp": 3.33,
+    "fuentes": {
+      "NASA FIRMS": 3
+    }
+  },
+  "2026-07-25": {
+    "focos": 13,
+    "frp": 243.56999999999996,
+    "fuentes": {
+      "NASA FIRMS": 13
+    }
+  },
+  "2026-07-23": {
+    "focos": 2,
+    "frp": 31.07,
+    "fuentes": {
+      "NASA FIRMS": 2
+    }
+  },
+  "2026-07-22": {
+    "focos": 6,
+    "frp": 79.74,
+    "fuentes": {
+      "NASA FIRMS": 6
+    }
+  },
+  "2026-07-12": {
+    "focos": 1,
+    "frp": 20.04,
+    "fuentes": {
+      "NASA FIRMS": 1
+    }
+  },
+  "2026-07-11": {
+    "focos": 1,
+    "frp": 4.79,
+    "fuentes": {
+      "NASA FIRMS": 1
+    }
+  },
+  "2026-07-09": {
+    "focos": 2,
+    "frp": 3.88,
+    "fuentes": {
+      "NASA FIRMS": 2
+    }
+  },
+  "2026-06-29": {
+    "focos": 4,
+    "frp": 19.09,
+    "fuentes": {
+      "NASA FIRMS": 4
+    }
+  },
+  "2026-06-28": {
+    "focos": 2,
+    "frp": 8.22,
+    "fuentes": {
+      "NASA FIRMS": 2
+    }
+  },
+  "2026-06-21": {
+    "focos": 1,
+    "frp": 3.83,
+    "fuentes": {
+      "NASA FIRMS": 1
+    }
+  },
+  "2026-06-17": {
+    "focos": 1,
+    "frp": 2.47,
+    "fuentes": {
+      "NASA FIRMS": 1
+    }
+  },
+  "2026-06-14": {
+    "focos": 1,
+    "frp": 2.35,
+    "fuentes": {
+      "NASA FIRMS": 1
+    }
+  },
+  "2026-06-12": {
+    "focos": 2,
+    "frp": 12.27,
+    "fuentes": {
+      "NASA FIRMS": 2
+    }
+  },
+  "2026-06-06": {
+    "focos": 1,
+    "frp": 4.11,
+    "fuentes": {
+      "NASA FIRMS": 1
+    }
+  },
+  "2026-06-05": {
+    "focos": 1,
+    "frp": 1.66,
+    "fuentes": {
+      "NASA FIRMS": 1
+    }
+  },
+  "2026-05-19": {
+    "focos": 1,
+    "frp": 0.96,
+    "fuentes": {
+      "NASA FIRMS": 1
+    }
+  }
+}

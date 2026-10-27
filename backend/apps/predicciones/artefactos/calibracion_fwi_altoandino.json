@@ -1,0 +1,114 @@
+{
+  "titulo": "Calibración Empírica del Sistema Canadiense FWI para el Pajonal Altoandino",
+  "region": "Coracora, Provincia de Parinacochas, Ayacucho, Perú",
+  "ventana_estudio": {
+    "dias": 181,
+    "fecha_inicio": "2026-04-24",
+    "fecha_fin": "2026-10-21",
+    "total_detecciones_satelitales": 1575,
+    "total_dias_con_fuego": 76,
+    "prevalencia_fuego_pct": 42.0
+  },
+  "parametros_platt_scaling": {
+    "peso_w": 0.0437,
+    "sesgo_b": -2.1175,
+    "formula": "P(Fuego|FWI) = 1 / (1 + exp(-(0.0437 * FWI + -2.1175)))"
+  },
+  "metricas_evaluacion": {
+    "roc_auc": 0.8029,
+    "pr_auc_average_precision": 0.7816,
+    "brier_score_calibrado": 0.1789,
+    "brier_score_canadiense_original": 0.2972,
+    "mejora_brier_score_pct": 39.8
+  },
+  "umbrales_peligro": {
+    "escala_canadiense_estandar": {
+      "bajo": 5.2,
+      "moderado": 11.2,
+      "alto": 21.3
+    },
+    "escala_pajonal_altoandino_calibrada": {
+      "bajo": 18.0,
+      "moderado": 42.0,
+      "alto": 65.0
+    }
+  },
+  "distribucion_contingencia": {
+    "escala_canadiense_estandar": {
+      "bajo": {
+        "rango_fwi": "< 5.2",
+        "total_dias": 47,
+        "dias_con_fuego": 10,
+        "dias_sin_fuego": 37,
+        "probabilidad_empirica_pct": 21.3,
+        "total_focos_detectados": 223,
+        "frp_total_mw": 3552.2
+      },
+      "moderado": {
+        "rango_fwi": "5.2 - 11.2",
+        "total_dias": 0,
+        "dias_con_fuego": 0,
+        "dias_sin_fuego": 0,
+        "probabilidad_empirica_pct": 0.0,
+        "total_focos_detectados": 0,
+        "frp_total_mw": 0
+      },
+      "alto": {
+        "rango_fwi": "11.2 - 21.3",
+        "total_dias": 6,
+        "dias_con_fuego": 0,
+        "dias_sin_fuego": 6,
+        "probabilidad_empirica_pct": 0.0,
+        "total_focos_detectados": 0,
+        "frp_total_mw": 0.0
+      },
+      "critico": {
+        "rango_fwi": ">= 21.3",
+        "total_dias": 128,
+        "dias_con_fuego": 66,
+        "dias_sin_fuego": 62,
+        "probabilidad_empirica_pct": 51.6,
+        "total_focos_detectados": 1352,
+        "frp_total_mw": 23352.7
+      }
+    },
+    "escala_pajonal_altoandino_calibrada": {
+      "bajo": {
+        "rango_fwi": "< 18.0",
+        "total_dias": 49,
+        "dias_con_fuego": 10,
+        "dias_sin_fuego": 39,
+        "probabilidad_empirica_pct": 20.4,
+        "total_focos_detectados": 223,
+        "frp_total_mw": 3552.2
+      },
+      "moderado": {
+        "rango_fwi": "18.0 - 42.0",
+        "total_dias": 43,
+        "dias_con_fuego": 8,
+        "dias_sin_fuego": 35,
+        "probabilidad_empirica_pct": 18.6,
+        "total_focos_detectados": 17,
+        "frp_total_mw": 299.3
+      },
+      "alto": {
+        "rango_fwi": "42.0 - 65.0",
+        "total_dias": 61,
+        "dias_con_fuego": 34,
+        "dias_sin_fuego": 27,
+        "probabilidad_empirica_pct": 55.7,
+        "total_focos_detectados": 338,
+        "frp_total_mw": 5432.1
+      },
+      "critico": {
+        "rango_fwi": ">= 65.0",
+        "total_dias": 28,
+        "dias_con_fuego": 24,
+        "dias_sin_fuego": 4,
+        "probabilidad_empirica_pct": 85.7,
+        "total_focos_detectados": 997,
+        "frp_total_mw": 17621.3
+      }
+    }
+  }
+}

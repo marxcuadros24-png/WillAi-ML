@@ -76,10 +76,11 @@ def calcular_riesgo_fwi_task(lat=CORACORA_LAT, lon=CORACORA_LON):
             fwi=fwi_res['fwi']
         )
     except Exception as e:
+        prob_calib = fwi_res.get('probabilidad_fuego', 0.05)
         ml_res = {
-            'probabilidad_fuego': min(1.0, round(fwi_res['fwi'] / 50.0, 4)),
-            'probabilidad_pct': round(min(1.0, fwi_res['fwi'] / 50.0) * 100, 1),
-            'clase_ml': 'not fire' if fwi_res['fwi'] < 5.2 else 'fire',
+            'probabilidad_fuego': prob_calib,
+            'probabilidad_pct': round(prob_calib * 100, 1),
+            'clase_ml': 'not fire' if fwi_res['nivel_peligro'] == 'bajo' else 'fire',
             'nivel_ml': fwi_res['nivel_peligro'],
             'estado_combustible': 'Normal',
             'diagnostico': fwi_res.get('diagnostico', ''),
@@ -92,7 +93,7 @@ def calcular_riesgo_fwi_task(lat=CORACORA_LAT, lon=CORACORA_LON):
         prob_final = ml_res.get('probabilidad_fuego', 0.02)
     else:
         nivel_final = fwi_res['nivel_peligro']
-        prob_final = max(ml_res.get('probabilidad_fuego', 0.0), min(1.0, round(fwi_res['fwi'] / 50.0, 4)))
+        prob_final = max(ml_res.get('probabilidad_fuego', 0.0), fwi_res.get('probabilidad_fuego', 0.02))
 
     fwi_res['temp'] = temp
     fwi_res['rh'] = rh

@@ -150,6 +150,24 @@ class PrediccionViewSet(viewsets.ReadOnlyModelViewSet):
         else:
             return Response({"error": res.get("error", "Error desconocido")}, status=500)
 
+    @action(detail=False, methods=['get'])
+    def reporte_calibracion_fwi(self, request):
+        """
+        Retorna el reporte de calibración empírica del Sistema Canadiense FWI
+        para el Pajonal Altoandino (PR-AUC, ROC-AUC y Brier Score vs NASA FIRMS + SERFOR).
+        """
+        ruta_artefacto = os.path.join(
+            os.path.dirname(__file__), "artefactos", "calibracion_fwi_altoandino.json"
+        )
+        if os.path.exists(ruta_artefacto):
+            with open(ruta_artefacto, "r", encoding="utf-8") as f:
+                return Response(json.load(f))
+
+        from .calibrador_fwi import CalibradorFWI
+        calibrador = CalibradorFWI(dias=180)
+        rep = calibrador.calibrar(guardar_artefacto=True)
+        return Response(rep)
+
 
 class ModeloPredictivoViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -315,4 +333,23 @@ class SimulacionPropagacionViewSet(viewsets.ModelViewSet):
         calibrador = CalibradorLOFO()
         rep = calibrador.calibrar_3fold_cv()
         return Response(rep)
+
+    @action(detail=False, methods=['get'])
+    def reporte_calibracion_fwi(self, request):
+        """
+        Retorna el reporte de calibración empírica del Sistema Canadiense FWI
+        para el Pajonal Altoandino (PR-AUC, ROC-AUC y Brier Score vs NASA FIRMS + SERFOR).
+        """
+        ruta_artefacto = os.path.join(
+            os.path.dirname(__file__), "artefactos", "calibracion_fwi_altoandino.json"
+        )
+        if os.path.exists(ruta_artefacto):
+            with open(ruta_artefacto, "r", encoding="utf-8") as f:
+                return Response(json.load(f))
+
+        from .calibrador_fwi import CalibradorFWI
+        calibrador = CalibradorFWI(dias=180)
+        rep = calibrador.calibrar(guardar_artefacto=True)
+        return Response(rep)
+
 

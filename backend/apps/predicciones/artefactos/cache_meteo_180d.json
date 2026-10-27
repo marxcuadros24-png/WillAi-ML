@@ -1,0 +1,1094 @@
+{
+  "fecha_inicio": "2026-04-24",
+  "fecha_fin": "2026-10-21",
+  "lat": -15.0189,
+  "lon": -73.7806,
+  "serie": {
+    "2026-04-24": {
+      "temp_max": 16.6,
+      "humidity_mean": 73.0,
+      "rain_sum": 2.0,
+      "wind_max": 10.2
+    },
+    "2026-04-25": {
+      "temp_max": 17.7,
+      "humidity_mean": 72.0,
+      "rain_sum": 2.3,
+      "wind_max": 12.8
+    },
+    "2026-04-26": {
+      "temp_max": 16.4,
+      "humidity_mean": 76.0,
+      "rain_sum": 2.6,
+      "wind_max": 10.2
+    },
+    "2026-04-27": {
+      "temp_max": 17.0,
+      "humidity_mean": 76.0,
+      "rain_sum": 0.2,
+      "wind_max": 10.4
+    },
+    "2026-04-28": {
+      "temp_max": 18.7,
+      "humidity_mean": 68.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.0
+    },
+    "2026-04-29": {
+      "temp_max": 17.4,
+      "humidity_mean": 65.0,
+      "rain_sum": 0.0,
+      "wind_max": 9.8
+    },
+    "2026-04-30": {
+      "temp_max": 17.0,
+      "humidity_mean": 65.0,
+      "rain_sum": 0.4,
+      "wind_max": 9.4
+    },
+    "2026-05-01": {
+      "temp_max": 19.5,
+      "humidity_mean": 64.0,
+      "rain_sum": 0.3,
+      "wind_max": 13.6
+    },
+    "2026-05-02": {
+      "temp_max": 19.7,
+      "humidity_mean": 70.0,
+      "rain_sum": 1.6,
+      "wind_max": 14.6
+    },
+    "2026-05-03": {
+      "temp_max": 21.2,
+      "humidity_mean": 62.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.9
+    },
+    "2026-05-04": {
+      "temp_max": 17.4,
+      "humidity_mean": 69.0,
+      "rain_sum": 0.0,
+      "wind_max": 10.8
+    },
+    "2026-05-05": {
+      "temp_max": 18.4,
+      "humidity_mean": 67.0,
+      "rain_sum": 0.0,
+      "wind_max": 8.5
+    },
+    "2026-05-06": {
+      "temp_max": 18.9,
+      "humidity_mean": 70.0,
+      "rain_sum": 0.4,
+      "wind_max": 10.6
+    },
+    "2026-05-07": {
+      "temp_max": 20.4,
+      "humidity_mean": 64.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.1
+    },
+    "2026-05-08": {
+      "temp_max": 19.2,
+      "humidity_mean": 62.0,
+      "rain_sum": 0.0,
+      "wind_max": 15.5
+    },
+    "2026-05-09": {
+      "temp_max": 18.3,
+      "humidity_mean": 59.0,
+      "rain_sum": 0.0,
+      "wind_max": 10.2
+    },
+    "2026-05-10": {
+      "temp_max": 18.0,
+      "humidity_mean": 58.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.0
+    },
+    "2026-05-11": {
+      "temp_max": 18.0,
+      "humidity_mean": 59.0,
+      "rain_sum": 0.0,
+      "wind_max": 12.9
+    },
+    "2026-05-12": {
+      "temp_max": 17.5,
+      "humidity_mean": 53.0,
+      "rain_sum": 0.1,
+      "wind_max": 11.7
+    },
+    "2026-05-13": {
+      "temp_max": 16.5,
+      "humidity_mean": 57.0,
+      "rain_sum": 0.0,
+      "wind_max": 12.7
+    },
+    "2026-05-14": {
+      "temp_max": 16.8,
+      "humidity_mean": 53.0,
+      "rain_sum": 0.0,
+      "wind_max": 8.8
+    },
+    "2026-05-15": {
+      "temp_max": 17.6,
+      "humidity_mean": 58.0,
+      "rain_sum": 0.0,
+      "wind_max": 8.3
+    },
+    "2026-05-16": {
+      "temp_max": 18.0,
+      "humidity_mean": 54.0,
+      "rain_sum": 0.0,
+      "wind_max": 9.4
+    },
+    "2026-05-17": {
+      "temp_max": 18.5,
+      "humidity_mean": 48.0,
+      "rain_sum": 0.0,
+      "wind_max": 9.2
+    },
+    "2026-05-18": {
+      "temp_max": 18.6,
+      "humidity_mean": 46.0,
+      "rain_sum": 0.0,
+      "wind_max": 9.6
+    },
+    "2026-05-19": {
+      "temp_max": 20.1,
+      "humidity_mean": 42.0,
+      "rain_sum": 0.0,
+      "wind_max": 10.9
+    },
+    "2026-05-20": {
+      "temp_max": 20.5,
+      "humidity_mean": 53.0,
+      "rain_sum": 0.1,
+      "wind_max": 11.8
+    },
+    "2026-05-21": {
+      "temp_max": 18.8,
+      "humidity_mean": 51.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.1
+    },
+    "2026-05-22": {
+      "temp_max": 16.5,
+      "humidity_mean": 66.0,
+      "rain_sum": 3.0,
+      "wind_max": 8.4
+    },
+    "2026-05-23": {
+      "temp_max": 15.3,
+      "humidity_mean": 72.0,
+      "rain_sum": 5.8,
+      "wind_max": 11.0
+    },
+    "2026-05-24": {
+      "temp_max": 15.6,
+      "humidity_mean": 75.0,
+      "rain_sum": 13.0,
+      "wind_max": 11.5
+    },
+    "2026-05-25": {
+      "temp_max": 16.5,
+      "humidity_mean": 68.0,
+      "rain_sum": 2.9,
+      "wind_max": 12.2
+    },
+    "2026-05-26": {
+      "temp_max": 17.4,
+      "humidity_mean": 60.0,
+      "rain_sum": 1.0,
+      "wind_max": 12.0
+    },
+    "2026-05-27": {
+      "temp_max": 16.8,
+      "humidity_mean": 59.0,
+      "rain_sum": 0.3,
+      "wind_max": 9.8
+    },
+    "2026-05-28": {
+      "temp_max": 16.7,
+      "humidity_mean": 57.0,
+      "rain_sum": 0.6,
+      "wind_max": 10.0
+    },
+    "2026-05-29": {
+      "temp_max": 18.2,
+      "humidity_mean": 56.0,
+      "rain_sum": 0.0,
+      "wind_max": 8.8
+    },
+    "2026-05-30": {
+      "temp_max": 17.7,
+      "humidity_mean": 56.0,
+      "rain_sum": 0.0,
+      "wind_max": 8.2
+    },
+    "2026-05-31": {
+      "temp_max": 19.0,
+      "humidity_mean": 50.0,
+      "rain_sum": 0.0,
+      "wind_max": 12.7
+    },
+    "2026-06-01": {
+      "temp_max": 18.2,
+      "humidity_mean": 43.0,
+      "rain_sum": 0.0,
+      "wind_max": 9.0
+    },
+    "2026-06-02": {
+      "temp_max": 18.1,
+      "humidity_mean": 40.0,
+      "rain_sum": 0.0,
+      "wind_max": 9.4
+    },
+    "2026-06-03": {
+      "temp_max": 17.8,
+      "humidity_mean": 43.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.1
+    },
+    "2026-06-04": {
+      "temp_max": 17.3,
+      "humidity_mean": 50.0,
+      "rain_sum": 0.0,
+      "wind_max": 9.3
+    },
+    "2026-06-05": {
+      "temp_max": 16.8,
+      "humidity_mean": 51.0,
+      "rain_sum": 0.0,
+      "wind_max": 10.9
+    },
+    "2026-06-06": {
+      "temp_max": 17.0,
+      "humidity_mean": 50.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.9
+    },
+    "2026-06-07": {
+      "temp_max": 15.7,
+      "humidity_mean": 50.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.4
+    },
+    "2026-06-08": {
+      "temp_max": 15.3,
+      "humidity_mean": 51.0,
+      "rain_sum": 0.0,
+      "wind_max": 12.1
+    },
+    "2026-06-09": {
+      "temp_max": 14.3,
+      "humidity_mean": 48.0,
+      "rain_sum": 0.0,
+      "wind_max": 8.6
+    },
+    "2026-06-10": {
+      "temp_max": 15.2,
+      "humidity_mean": 41.0,
+      "rain_sum": 0.0,
+      "wind_max": 9.6
+    },
+    "2026-06-11": {
+      "temp_max": 18.3,
+      "humidity_mean": 25.0,
+      "rain_sum": 0.0,
+      "wind_max": 9.2
+    },
+    "2026-06-12": {
+      "temp_max": 18.1,
+      "humidity_mean": 31.0,
+      "rain_sum": 0.0,
+      "wind_max": 10.8
+    },
+    "2026-06-13": {
+      "temp_max": 19.1,
+      "humidity_mean": 44.0,
+      "rain_sum": 0.0,
+      "wind_max": 9.9
+    },
+    "2026-06-14": {
+      "temp_max": 17.0,
+      "humidity_mean": 45.0,
+      "rain_sum": 0.0,
+      "wind_max": 10.8
+    },
+    "2026-06-15": {
+      "temp_max": 18.3,
+      "humidity_mean": 51.0,
+      "rain_sum": 0.0,
+      "wind_max": 10.7
+    },
+    "2026-06-16": {
+      "temp_max": 20.7,
+      "humidity_mean": 49.0,
+      "rain_sum": 0.0,
+      "wind_max": 14.4
+    },
+    "2026-06-17": {
+      "temp_max": 17.5,
+      "humidity_mean": 56.0,
+      "rain_sum": 0.7,
+      "wind_max": 8.0
+    },
+    "2026-06-18": {
+      "temp_max": 17.3,
+      "humidity_mean": 54.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.0
+    },
+    "2026-06-19": {
+      "temp_max": 19.5,
+      "humidity_mean": 25.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.0
+    },
+    "2026-06-20": {
+      "temp_max": 20.1,
+      "humidity_mean": 31.0,
+      "rain_sum": 0.0,
+      "wind_max": 14.4
+    },
+    "2026-06-21": {
+      "temp_max": 19.8,
+      "humidity_mean": 31.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.2
+    },
+    "2026-06-22": {
+      "temp_max": 20.8,
+      "humidity_mean": 24.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.9
+    },
+    "2026-06-23": {
+      "temp_max": 18.6,
+      "humidity_mean": 19.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.6
+    },
+    "2026-06-24": {
+      "temp_max": 17.9,
+      "humidity_mean": 18.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.7
+    },
+    "2026-06-25": {
+      "temp_max": 18.7,
+      "humidity_mean": 22.0,
+      "rain_sum": 0.0,
+      "wind_max": 9.6
+    },
+    "2026-06-26": {
+      "temp_max": 18.9,
+      "humidity_mean": 41.0,
+      "rain_sum": 0.0,
+      "wind_max": 10.2
+    },
+    "2026-06-27": {
+      "temp_max": 18.7,
+      "humidity_mean": 49.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.1
+    },
+    "2026-06-28": {
+      "temp_max": 20.7,
+      "humidity_mean": 47.0,
+      "rain_sum": 0.0,
+      "wind_max": 10.8
+    },
+    "2026-06-29": {
+      "temp_max": 19.2,
+      "humidity_mean": 51.0,
+      "rain_sum": 0.1,
+      "wind_max": 11.0
+    },
+    "2026-06-30": {
+      "temp_max": 20.1,
+      "humidity_mean": 45.0,
+      "rain_sum": 0.0,
+      "wind_max": 15.4
+    },
+    "2026-07-01": {
+      "temp_max": 17.9,
+      "humidity_mean": 49.0,
+      "rain_sum": 0.2,
+      "wind_max": 9.3
+    },
+    "2026-07-02": {
+      "temp_max": 16.0,
+      "humidity_mean": 69.0,
+      "rain_sum": 3.6,
+      "wind_max": 10.5
+    },
+    "2026-07-03": {
+      "temp_max": 17.7,
+      "humidity_mean": 66.0,
+      "rain_sum": 5.3,
+      "wind_max": 9.4
+    },
+    "2026-07-04": {
+      "temp_max": 16.0,
+      "humidity_mean": 67.0,
+      "rain_sum": 0.8,
+      "wind_max": 7.9
+    },
+    "2026-07-05": {
+      "temp_max": 17.4,
+      "humidity_mean": 63.0,
+      "rain_sum": 0.1,
+      "wind_max": 13.5
+    },
+    "2026-07-06": {
+      "temp_max": 17.5,
+      "humidity_mean": 57.0,
+      "rain_sum": 0.4,
+      "wind_max": 12.9
+    },
+    "2026-07-07": {
+      "temp_max": 19.1,
+      "humidity_mean": 53.0,
+      "rain_sum": 0.0,
+      "wind_max": 10.4
+    },
+    "2026-07-08": {
+      "temp_max": 19.7,
+      "humidity_mean": 48.0,
+      "rain_sum": 0.0,
+      "wind_max": 16.2
+    },
+    "2026-07-09": {
+      "temp_max": 19.2,
+      "humidity_mean": 43.0,
+      "rain_sum": 0.2,
+      "wind_max": 10.5
+    },
+    "2026-07-10": {
+      "temp_max": 19.8,
+      "humidity_mean": 33.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.0
+    },
+    "2026-07-11": {
+      "temp_max": 20.0,
+      "humidity_mean": 22.0,
+      "rain_sum": 0.0,
+      "wind_max": 12.4
+    },
+    "2026-07-12": {
+      "temp_max": 20.5,
+      "humidity_mean": 21.0,
+      "rain_sum": 0.0,
+      "wind_max": 12.8
+    },
+    "2026-07-13": {
+      "temp_max": 20.2,
+      "humidity_mean": 33.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.4
+    },
+    "2026-07-14": {
+      "temp_max": 19.8,
+      "humidity_mean": 43.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.2
+    },
+    "2026-07-15": {
+      "temp_max": 19.1,
+      "humidity_mean": 36.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.2
+    },
+    "2026-07-16": {
+      "temp_max": 19.0,
+      "humidity_mean": 47.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.1
+    },
+    "2026-07-17": {
+      "temp_max": 19.7,
+      "humidity_mean": 45.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.2
+    },
+    "2026-07-18": {
+      "temp_max": 19.6,
+      "humidity_mean": 37.0,
+      "rain_sum": 0.0,
+      "wind_max": 12.6
+    },
+    "2026-07-19": {
+      "temp_max": 19.5,
+      "humidity_mean": 29.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.2
+    },
+    "2026-07-20": {
+      "temp_max": 18.0,
+      "humidity_mean": 33.0,
+      "rain_sum": 0.0,
+      "wind_max": 10.8
+    },
+    "2026-07-21": {
+      "temp_max": 18.3,
+      "humidity_mean": 35.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.2
+    },
+    "2026-07-22": {
+      "temp_max": 20.2,
+      "humidity_mean": 23.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.4
+    },
+    "2026-07-23": {
+      "temp_max": 21.0,
+      "humidity_mean": 20.0,
+      "rain_sum": 0.0,
+      "wind_max": 10.8
+    },
+    "2026-07-24": {
+      "temp_max": 22.3,
+      "humidity_mean": 31.0,
+      "rain_sum": 0.0,
+      "wind_max": 16.5
+    },
+    "2026-07-25": {
+      "temp_max": 20.7,
+      "humidity_mean": 33.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.6
+    },
+    "2026-07-26": {
+      "temp_max": 21.5,
+      "humidity_mean": 31.0,
+      "rain_sum": 0.0,
+      "wind_max": 15.5
+    },
+    "2026-07-27": {
+      "temp_max": 20.6,
+      "humidity_mean": 37.0,
+      "rain_sum": 0.0,
+      "wind_max": 12.8
+    },
+    "2026-07-28": {
+      "temp_max": 21.5,
+      "humidity_mean": 31.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.6
+    },
+    "2026-07-29": {
+      "temp_max": 22.1,
+      "humidity_mean": 36.0,
+      "rain_sum": 0.0,
+      "wind_max": 14.9
+    },
+    "2026-07-30": {
+      "temp_max": 19.6,
+      "humidity_mean": 41.0,
+      "rain_sum": 0.0,
+      "wind_max": 16.1
+    },
+    "2026-07-31": {
+      "temp_max": 20.3,
+      "humidity_mean": 30.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.5
+    },
+    "2026-08-01": {
+      "temp_max": 20.5,
+      "humidity_mean": 12.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.5
+    },
+    "2026-08-02": {
+      "temp_max": 20.2,
+      "humidity_mean": 18.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.0
+    },
+    "2026-08-03": {
+      "temp_max": 21.9,
+      "humidity_mean": 21.0,
+      "rain_sum": 0.0,
+      "wind_max": 12.1
+    },
+    "2026-08-04": {
+      "temp_max": 21.9,
+      "humidity_mean": 19.0,
+      "rain_sum": 0.0,
+      "wind_max": 15.3
+    },
+    "2026-08-05": {
+      "temp_max": 21.9,
+      "humidity_mean": 18.0,
+      "rain_sum": 0.0,
+      "wind_max": 12.6
+    },
+    "2026-08-06": {
+      "temp_max": 22.0,
+      "humidity_mean": 16.0,
+      "rain_sum": 0.0,
+      "wind_max": 16.0
+    },
+    "2026-08-07": {
+      "temp_max": 21.4,
+      "humidity_mean": 25.0,
+      "rain_sum": 0.0,
+      "wind_max": 14.6
+    },
+    "2026-08-08": {
+      "temp_max": 20.7,
+      "humidity_mean": 33.0,
+      "rain_sum": 0.0,
+      "wind_max": 14.7
+    },
+    "2026-08-09": {
+      "temp_max": 19.7,
+      "humidity_mean": 42.0,
+      "rain_sum": 1.1,
+      "wind_max": 16.3
+    },
+    "2026-08-10": {
+      "temp_max": 13.7,
+      "humidity_mean": 82.0,
+      "rain_sum": 23.6,
+      "wind_max": 14.6
+    },
+    "2026-08-11": {
+      "temp_max": 18.5,
+      "humidity_mean": 69.0,
+      "rain_sum": 6.3,
+      "wind_max": 13.5
+    },
+    "2026-08-12": {
+      "temp_max": 17.5,
+      "humidity_mean": 63.0,
+      "rain_sum": 0.3,
+      "wind_max": 14.1
+    },
+    "2026-08-13": {
+      "temp_max": 17.6,
+      "humidity_mean": 63.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.5
+    },
+    "2026-08-14": {
+      "temp_max": 17.0,
+      "humidity_mean": 66.0,
+      "rain_sum": 0.0,
+      "wind_max": 14.3
+    },
+    "2026-08-15": {
+      "temp_max": 17.8,
+      "humidity_mean": 61.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.5
+    },
+    "2026-08-16": {
+      "temp_max": 15.9,
+      "humidity_mean": 59.0,
+      "rain_sum": 0.9,
+      "wind_max": 12.2
+    },
+    "2026-08-17": {
+      "temp_max": 17.1,
+      "humidity_mean": 63.0,
+      "rain_sum": 0.9,
+      "wind_max": 16.2
+    },
+    "2026-08-18": {
+      "temp_max": 17.0,
+      "humidity_mean": 58.0,
+      "rain_sum": 0.0,
+      "wind_max": 12.5
+    },
+    "2026-08-19": {
+      "temp_max": 19.6,
+      "humidity_mean": 30.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.5
+    },
+    "2026-08-20": {
+      "temp_max": 22.0,
+      "humidity_mean": 24.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.3
+    },
+    "2026-08-21": {
+      "temp_max": 20.5,
+      "humidity_mean": 28.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.3
+    },
+    "2026-08-22": {
+      "temp_max": 19.2,
+      "humidity_mean": 40.0,
+      "rain_sum": 0.6,
+      "wind_max": 12.9
+    },
+    "2026-08-23": {
+      "temp_max": 15.1,
+      "humidity_mean": 63.0,
+      "rain_sum": 3.6,
+      "wind_max": 16.2
+    },
+    "2026-08-24": {
+      "temp_max": 16.6,
+      "humidity_mean": 54.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.0
+    },
+    "2026-08-25": {
+      "temp_max": 19.7,
+      "humidity_mean": 37.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.4
+    },
+    "2026-08-26": {
+      "temp_max": 21.7,
+      "humidity_mean": 36.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.2
+    },
+    "2026-08-27": {
+      "temp_max": 22.1,
+      "humidity_mean": 40.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.8
+    },
+    "2026-08-28": {
+      "temp_max": 21.3,
+      "humidity_mean": 35.0,
+      "rain_sum": 0.0,
+      "wind_max": 10.8
+    },
+    "2026-08-29": {
+      "temp_max": 21.7,
+      "humidity_mean": 36.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.7
+    },
+    "2026-08-30": {
+      "temp_max": 22.2,
+      "humidity_mean": 33.0,
+      "rain_sum": 0.0,
+      "wind_max": 12.6
+    },
+    "2026-08-31": {
+      "temp_max": 22.9,
+      "humidity_mean": 28.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.2
+    },
+    "2026-09-01": {
+      "temp_max": 23.0,
+      "humidity_mean": 31.0,
+      "rain_sum": 0.0,
+      "wind_max": 12.7
+    },
+    "2026-09-02": {
+      "temp_max": 22.2,
+      "humidity_mean": 42.0,
+      "rain_sum": 0.0,
+      "wind_max": 12.6
+    },
+    "2026-09-03": {
+      "temp_max": 21.5,
+      "humidity_mean": 41.0,
+      "rain_sum": 0.0,
+      "wind_max": 14.7
+    },
+    "2026-09-04": {
+      "temp_max": 21.9,
+      "humidity_mean": 51.0,
+      "rain_sum": 0.7,
+      "wind_max": 14.2
+    },
+    "2026-09-05": {
+      "temp_max": 21.3,
+      "humidity_mean": 49.0,
+      "rain_sum": 0.2,
+      "wind_max": 14.4
+    },
+    "2026-09-06": {
+      "temp_max": 21.4,
+      "humidity_mean": 46.0,
+      "rain_sum": 0.0,
+      "wind_max": 18.8
+    },
+    "2026-09-07": {
+      "temp_max": 19.0,
+      "humidity_mean": 49.0,
+      "rain_sum": 0.7,
+      "wind_max": 12.3
+    },
+    "2026-09-08": {
+      "temp_max": 17.6,
+      "humidity_mean": 49.0,
+      "rain_sum": 0.1,
+      "wind_max": 9.2
+    },
+    "2026-09-09": {
+      "temp_max": 18.8,
+      "humidity_mean": 44.0,
+      "rain_sum": 0.0,
+      "wind_max": 14.1
+    },
+    "2026-09-10": {
+      "temp_max": 20.1,
+      "humidity_mean": 40.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.3
+    },
+    "2026-09-11": {
+      "temp_max": 20.6,
+      "humidity_mean": 39.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.7
+    },
+    "2026-09-12": {
+      "temp_max": 20.8,
+      "humidity_mean": 40.0,
+      "rain_sum": 0.0,
+      "wind_max": 16.8
+    },
+    "2026-09-13": {
+      "temp_max": 21.6,
+      "humidity_mean": 39.0,
+      "rain_sum": 0.0,
+      "wind_max": 12.5
+    },
+    "2026-09-14": {
+      "temp_max": 22.2,
+      "humidity_mean": 34.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.3
+    },
+    "2026-09-15": {
+      "temp_max": 21.3,
+      "humidity_mean": 32.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.9
+    },
+    "2026-09-16": {
+      "temp_max": 19.6,
+      "humidity_mean": 49.0,
+      "rain_sum": 2.3,
+      "wind_max": 13.8
+    },
+    "2026-09-17": {
+      "temp_max": 16.7,
+      "humidity_mean": 68.0,
+      "rain_sum": 6.1,
+      "wind_max": 15.1
+    },
+    "2026-09-18": {
+      "temp_max": 16.3,
+      "humidity_mean": 55.0,
+      "rain_sum": 2.4,
+      "wind_max": 12.7
+    },
+    "2026-09-19": {
+      "temp_max": 19.7,
+      "humidity_mean": 29.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.2
+    },
+    "2026-09-20": {
+      "temp_max": 20.9,
+      "humidity_mean": 27.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.9
+    },
+    "2026-09-21": {
+      "temp_max": 20.7,
+      "humidity_mean": 32.0,
+      "rain_sum": 0.0,
+      "wind_max": 14.1
+    },
+    "2026-09-22": {
+      "temp_max": 19.7,
+      "humidity_mean": 43.0,
+      "rain_sum": 0.0,
+      "wind_max": 11.9
+    },
+    "2026-09-23": {
+      "temp_max": 21.6,
+      "humidity_mean": 45.0,
+      "rain_sum": 0.0,
+      "wind_max": 16.9
+    },
+    "2026-09-24": {
+      "temp_max": 22.0,
+      "humidity_mean": 37.0,
+      "rain_sum": 0.0,
+      "wind_max": 15.7
+    },
+    "2026-09-25": {
+      "temp_max": 21.2,
+      "humidity_mean": 45.0,
+      "rain_sum": 0.1,
+      "wind_max": 13.0
+    },
+    "2026-09-26": {
+      "temp_max": 22.2,
+      "humidity_mean": 48.0,
+      "rain_sum": 0.0,
+      "wind_max": 17.8
+    },
+    "2026-09-27": {
+      "temp_max": 21.0,
+      "humidity_mean": 49.0,
+      "rain_sum": 0.0,
+      "wind_max": 15.9
+    },
+    "2026-09-28": {
+      "temp_max": 20.0,
+      "humidity_mean": 46.0,
+      "rain_sum": 1.3,
+      "wind_max": 9.6
+    },
+    "2026-09-29": {
+      "temp_max": 17.8,
+      "humidity_mean": 41.0,
+      "rain_sum": 0.4,
+      "wind_max": 15.0
+    },
+    "2026-09-30": {
+      "temp_max": 20.2,
+      "humidity_mean": 34.0,
+      "rain_sum": 0.0,
+      "wind_max": 16.4
+    },
+    "2026-10-01": {
+      "temp_max": 22.8,
+      "humidity_mean": 20.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.2
+    },
+    "2026-10-02": {
+      "temp_max": 23.6,
+      "humidity_mean": 21.0,
+      "rain_sum": 0.0,
+      "wind_max": 13.9
+    },
+    "2026-10-03": {
+      "temp_max": 22.7,
+      "humidity_mean": 19.0,
+      "rain_sum": 0.0,
+      "wind_max": 15.9
+    },
+    "2026-10-04": {
+      "temp_max": 22.9,
+      "humidity_mean": 31.0,
+      "rain_sum": 0.0,
+      "wind_max": 17.7
+    },
+    "2026-10-05": {
+      "temp_max": 23.7,
+      "humidity_mean": 34.0,
+      "rain_sum": 0.1,
+      "wind_max": 16.4
+    },
+    "2026-10-06": {
+      "temp_max": 24.3,
+      "humidity_mean": 24.0,
+      "rain_sum": 0.0,
+      "wind_max": 15.5
+    },
+    "2026-10-07": {
+      "temp_max": 24.2,
+      "humidity_mean": 26.0,
+      "rain_sum": 0.0,
+      "wind_max": 15.9
+    },
+    "2026-10-08": {
+      "temp_max": 23.9,
+      "humidity_mean": 20.0,
+      "rain_sum": 0.0,
+      "wind_max": 17.0
+    },
+    "2026-10-09": {
+      "temp_max": 23.1,
+      "humidity_mean": 19.0,
+      "rain_sum": 0.0,
+      "wind_max": 15.4
+    },
+    "2026-10-10": {
+      "temp_max": 24.0,
+      "humidity_mean": 27.0,
+      "rain_sum": 0.0,
+      "wind_max": 17.5
+    },
+    "2026-10-11": {
+      "temp_max": 22.8,
+      "humidity_mean": 32.0,
+      "rain_sum": 0.0,
+      "wind_max": 15.1
+    },
+    "2026-10-12": {
+      "temp_max": 23.2,
+      "humidity_mean": 23.0,
+      "rain_sum": 0.0,
+      "wind_max": 16.4
+    },
+    "2026-10-13": {
+      "temp_max": 22.4,
+      "humidity_mean": 18.0,
+      "rain_sum": 0.0,
+      "wind_max": 16.6
+    },
+    "2026-10-14": {
+      "temp_max": 23.4,
+      "humidity_mean": 25.0,
+      "rain_sum": 0.0,
+      "wind_max": 15.5
+    },
+    "2026-10-15": {
+      "temp_max": 24.1,
+      "humidity_mean": 28.0,
+      "rain_sum": 0.0,
+      "wind_max": 15.7
+    },
+    "2026-10-16": {
+      "temp_max": 24.7,
+      "humidity_mean": 24.0,
+      "rain_sum": 0.0,
+      "wind_max": 17.4
+    },
+    "2026-10-17": {
+      "temp_max": 26.5,
+      "humidity_mean": 25.0,
+      "rain_sum": 0.0,
+      "wind_max": 18.1
+    },
+    "2026-10-18": {
+      "temp_max": 23.7,
+      "humidity_mean": 25.0,
+      "rain_sum": 0.0,
+      "wind_max": 15.1
+    },
+    "2026-10-19": {
+      "temp_max": 22.7,
+      "humidity_mean": 32.0,
+      "rain_sum": 0.0,
+      "wind_max": 14.5
+    },
+    "2026-10-20": {
+      "temp_max": 20.4,
+      "humidity_mean": 37.0,
+      "rain_sum": 0.3,
+      "wind_max": 14.2
+    },
+    "2026-10-21": {
+      "temp_max": 20.5,
+      "humidity_mean": 51.0,
+      "rain_sum": 1.6,
+      "wind_max": 12.6
+    }
+  }
+}
