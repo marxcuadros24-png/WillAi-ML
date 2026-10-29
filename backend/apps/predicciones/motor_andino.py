@@ -3,7 +3,7 @@ Motor de Simulación de Propagación de Incendios Forestales Estilo Cell2Fire en
 SimuladorElipticoAndino:
 - Modelo físico de propagación elíptica andina (Rothermel / FBP modificado).
 - Cálculo de tiempo mínimo de arribo con Dijkstra en vecindad de 8 celdas.
-- Aceleración por viento (WindProphet) y pendiente (DEM).
+- Aceleración por viento meteorológico andino y pendiente (DEM).
 - Proyección métrica UTM 18S (EPSG:32718) y salida en WGS84 (EPSG:4326).
 """
 import math

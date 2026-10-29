@@ -7,7 +7,6 @@ export const SatelitesPage: React.FC = () => {
     lotesSatelitales,
     loadAllData,
     handleDispararSyncManual,
-    handleEntrenarVientoManual
   } = useAppContext();
 
   useEffect(() => {
@@ -18,7 +17,6 @@ export const SatelitesPage: React.FC = () => {
     <SatelitesAdmin
       lotes={lotesSatelitales}
       onDispararSync={handleDispararSyncManual}
-      onEntrenarViento={handleEntrenarVientoManual}
     />
   );
 };

@@ -5,7 +5,6 @@ import type {
   MetricasFWI,
   Brigada,
   AlertaComunitaria,
-  PrediccionViento12hData,
   ReporteCiudadano,
   DonacionComunitaria,
   LoteSatelital,
@@ -22,7 +21,6 @@ export interface AppContextType {
   brigadas: Brigada[];
   viviendas: ViviendaRural[];
   alertas: AlertaComunitaria[];
-  viento12h: PrediccionViento12hData;
   grillaOcurrencia: GrillaRiesgoOcurrenciaData | null;
   reportes: ReporteCiudadano[];
   donaciones: DonacionComunitaria[];
@@ -40,7 +38,6 @@ export interface AppContextType {
   handleConvertirReporteAIncidente: (reporte: ReporteCiudadano) => void;
   handleModerarDonacionAction: (oferta: DonacionComunitaria, accion: 'aprobar' | 'rechazar') => Promise<void>;
   handleDispararSyncManual: (tipo: 'firms' | 'meteo' | 'fwi') => Promise<void>;
-  handleEntrenarVientoManual: () => Promise<void>;
   handleEntrenarOcurrenciaManual: () => Promise<void>;
   // Map specific state
   showModis: boolean;
@@ -49,8 +46,6 @@ export interface AppContextType {
   setShowViirs: (v: boolean) => void;
   showSerfor: boolean;
   setShowSerfor: (v: boolean) => void;
-  showVientoML: boolean;
-  setShowVientoML: (v: boolean) => void;
   showRiesgoOcurrencia: boolean;
   setShowRiesgoOcurrencia: (v: boolean) => void;
   showIncidentes: boolean;
@@ -74,12 +69,10 @@ export interface AppContextType {
   customDesde: string;
   customHasta: string;
   handleApplyCustomDates: (desde: string, hasta: string) => Promise<void>;
-  selectedWindHourIdx: number;
-  setSelectedWindHourIdx: (idx: number) => void;
   selectedIncidente: Incidente | null;
   setSelectedIncidente: (inc: Incidente | null) => void;
-  sidebarTab: 'incidentes' | 'firms' | 'viento' | 'riesgo' | 'simulacion' | 'meteo' | 'brigadas';
-  setSidebarTab: (tab: 'incidentes' | 'firms' | 'viento' | 'riesgo' | 'simulacion' | 'meteo' | 'brigadas') => void;
+  sidebarTab: 'incidentes' | 'firms' | 'riesgo' | 'simulacion' | 'meteo' | 'brigadas';
+  setSidebarTab: (tab: 'incidentes' | 'firms' | 'riesgo' | 'simulacion' | 'meteo' | 'brigadas') => void;
 }
 
 export function useAppContext(): AppContextType {

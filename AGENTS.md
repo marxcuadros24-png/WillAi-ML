@@ -54,12 +54,9 @@
    - Retries automáticos, User-Agent explícito y tolerancia a fallos.
    - Endpoint: `GET /api/v1/meteorologia/observaciones/actual/`.
    - Comando manual: `python manage.py importar_meteo`.
-4. **Motor de Machine Learning de Viento (12 Horas):**
-   - Implementación: `apps/predicciones/ml_viento.py` (Random Forest Multi-Output Regressor descomponiendo vectores $u, v$).
-   - Consume series horarias pasadas (14 días) y de pronóstico reales de Open-Meteo.
-   - Predice velocidad, dirección meteorológica, rumbo de propagación del fuego/humo ($(\theta + 180)^\circ$), ráfagas y conos GeoJSON de dispersión para las próximas 12 horas.
-   - Endpoints: `GET /api/v1/predicciones/predicciones/viento_12h/` y `POST /api/v1/predicciones/predicciones/entrenar_viento/`.
-   - Comando manual: `python manage.py entrenar_viento`.
+4. **Meteorología y Vector de Viento Andino:**
+   - Consumo directo de la serie horaria y de pronóstico de Open-Meteo para el vector de viento ($u, v$, velocidad, dirección meteorológica y ráfagas).
+   - Alimentación directa al `SimuladorElipticoAndino` con ensamble estocástico de propagación ($\pm 15^\circ$) sobre DEM Copernicus y combustibles locales.
 5. **Motor de Machine Learning de Riesgo de Ocurrencia / Susceptibilidad Territorial:**
    - Implementación: `apps/predicciones/ml_ocurrencia.py` (RandomForestClassifier Calibrado con sigmoide/Platt scaling + comparación frente a Línea Base de Regresión Logística).
    - Prevención de fuga de información: División temporal estricta (70% días iniciales para entrenamiento, 30% cronológico final para prueba) y buffer espacial de 6 km para pseudo-negativos.
@@ -86,7 +83,7 @@
 | **1** | **Modelos Base** | ✅ COMPLETADO | `apps.usuarios` (Usuario personalizado, Roles, Permisos, registro de ciudadanos) y `apps.geografia` (Distrito Coracora, Comunidades). Seed cargado con `python manage.py seed_base`. |
 | **2** | **Core Operativo** | ✅ COMPLETADO | `apps.respuesta` (Entidades operativas: Bomberos B-12, SERFOR, OGRD, Brigada Comunal Huaccana; Brigadas y Recursos), `apps.reportes` (Reportes ciudadanos con fotos, validaciones, sync offline), `apps.incidentes` (Flujo de incidentes, despacho de brigadas, bitácora de acciones, actas de cierre). |
 | **3** | **APIs Externas Reales** | ✅ COMPLETADO | `apps.firms` (NASA FIRMS autenticado con MAP_KEY real consumiendo **VIIRS + MODIS**, histórico real de 180 días descargado en BD y SERFOR MapServer) y `apps.meteorologia` (Open-Meteo en vivo con temperatura, humedad, viento y lluvia real de Coracora). |
-| **4** | **Predicciones FWI Calibrado Altoandino + ML Viento 12h + Simulador Elíptico Andino (Ensamble +-15°) + LOFO 3-Fold + Sentinel-2 dNBR/IoU + Cortafuegos Viales y Fluviales** | ✅ COMPLETADO | `apps.predicciones` (**Calibración local FWI Pajonal Altoandino con PR-AUC 0.78 y Brier 0.17**, **Modelo ML Random Forest viento 12h**, **SimuladorElípticoAndino estilo Cell2Fire en Python puro con Dijkstra en 8 celdas, corrección DEM, viento elíptico en UTM 18S con Banda de Incertidumbre +-15° y quemado dinámico de cortafuegos físicos sobre R0: carreteras, 91 trochas carrozables y ríos/quebradas**, **Ráster de combustibles Sentinel-2 L2A con freno a bofedales $0.08\times$**, **Validador Verdad Terreno Sentinel-2 dNBR con depuración de outliers <2ha y distancia Hausdorff**, **Calibrador LOFO 3-Fold CV**, PostGIS, tablas `SimulacionPropagacion` y `ResultadoPropagacion`) y `apps.alertas` (Evaluador de viviendas expuestas a 5km de isócrona 6h). |
+| **4** | **Predicciones FWI Calibrado Altoandino + Simulador Elíptico Andino (Ensamble +-15°) + LOFO 3-Fold + Sentinel-2 dNBR/IoU + Cortafuegos Viales y Fluviales** | ✅ COMPLETADO | `apps.predicciones` (**Calibración local FWI Pajonal Altoandino con PR-AUC 0.78 y Brier 0.17**, **SimuladorElípticoAndino estilo Cell2Fire en Python puro con Dijkstra en 8 celdas, corrección DEM, viento elíptico en UTM 18S con Banda de Incertidumbre +-15° y quemado dinámico de cortafuegos físicos sobre R0: carreteras, 91 trochas carrozables y ríos/quebradas**, **Ráster de combustibles Sentinel-2 L2A con freno a bofedales $0.08\times$**, **Validador Verdad Terreno Sentinel-2 dNBR con depuración de outliers <2ha y distancia Hausdorff**, **Calibrador LOFO 3-Fold CV**, PostGIS, tablas `SimulacionPropagacion` y `ResultadoPropagacion`) y `apps.alertas` (Evaluador de viviendas expuestas a 5km de isócrona 6h). |
 | **5** | **Complementarios** | ✅ COMPLETADO | `apps.gamificacion` (insignias, actividades comunitarias, auto-otorgamiento al validar reportes), `apps.donaciones` (ofertas moderadas, inventario de ítems, asignaciones a incidentes/brigadas), `apps.auditoria` (trazabilidad forense, hash SHA-256 anónimo de IP, middleware de logging). |
 | **6** | **Centro de Mando Táctico Web** | ✅ COMPLETADO | Frontend SPA desacoplado en React + Vite + TS con arquitectura modular multi-ruta (`react-router-dom`), autenticación de operadores/admin (`/login`), páginas dedicadas (`/panel`, `/mapa`, `/incidentes`, `/reportes`, `/usuarios`, `/alertas`, `/donaciones`, `/satelites`), modales tácticos operativos (despacho, cierre con acta, emisión de alerta), calibración FWI + ML anti-lluvia, diseño anti-slop (`taste-skill`) y conexión 100% a endpoints reales de PostgreSQL. |
 | **7** | **App Móvil React Native** | ⏳ SIGUIENTE | Aplicación móvil principal en Expo/React Native para todos los usuarios (ciudadanos, brigadistas y verificadores comunales). |
@@ -141,9 +138,6 @@ python manage.py importar_meteo
 
 # Calcular índice FWI Canadiense con datos meteorológicos reales y escala calibrada
 python manage.py calcular_fwi
-
-# Entrenar modelo Machine Learning de viento (12 horas) con series Open-Meteo
-python manage.py entrenar_viento
 
 # Entrenar modelo Machine Learning de riesgo de ocurrencia (NASA FIRMS + Open-Meteo)
 python manage.py entrenar_ocurrencia --test-ratio 0.30

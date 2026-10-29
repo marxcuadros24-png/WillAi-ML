@@ -155,38 +155,6 @@ export interface AlertaComunitaria {
   confirmaciones_lectura: number;
 }
 
-export interface PrediccionVientoPaso {
-  paso_hora: number;
-  hora_iso: string;
-  hora_label: string;
-  velocidad_kmh: number;
-  rafagas_kmh: number;
-  direccion_viento_grados: number;
-  direccion_viento_cardinal: string;
-  rumbo_propagacion_grados: number;
-  hacia_cardinal: string;
-  riesgo_propagacion: 'bajo' | 'moderado' | 'alto' | 'critico';
-  cono_dispersion: any;
-}
-
-export interface PrediccionViento12hData {
-  id_prediccion: number;
-  horizonte_desde?: string;
-  horizonte_hasta?: string;
-  nivel_pico: string;
-  cono_principal_geojson: any;
-  metricas_entrenamiento: {
-    rmse_vectorial: number;
-    r2_score: number;
-    muestras_entrenamiento: number;
-    muestras_validacion: number;
-    algoritmo: string;
-    entrenado_en: string;
-  };
-  pronostico_12h: PrediccionVientoPaso[];
-  coordenadas: { lat: number; lon: number };
-}
-
 export interface HistorialMensualItem {
   mes: string;
   nombre?: string;

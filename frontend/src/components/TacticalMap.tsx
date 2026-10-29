@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import { Calendar, Wind, Check, ShieldAlert, MapPin, Flame, Route, Droplets } from 'lucide-react';
-import type { Incidente, FocoCalor, Brigada, PrediccionViento12hData, ViviendaRural, GrillaRiesgoOcurrenciaData } from '../types';
+import { Calendar, Check, ShieldAlert, MapPin, Flame, Route, Droplets } from 'lucide-react';
+import type { Incidente, FocoCalor, Brigada, ViviendaRural, GrillaRiesgoOcurrenciaData } from '../types';
 import {
   LIMITE_PROVINCIAL_PARINACOCHAS,
   LIMITES_DISTRITALES_PARINACOCHAS,
@@ -17,13 +17,11 @@ interface TacticalMapProps {
   focos: FocoCalor[];
   brigadas: Brigada[];
   viviendas?: ViviendaRural[];
-  viento12h: PrediccionViento12hData | null;
   onSelectIncidente: (incidente: Incidente) => void;
   // Sensor layer states
   showModis: boolean;
   showViirs: boolean;
   showSerfor: boolean;
-  showVientoML: boolean;
   showRiesgoOcurrencia?: boolean;
   showIncidentes: boolean;
   showBrigadas: boolean;
@@ -35,7 +33,6 @@ interface TacticalMapProps {
   onToggleModis: (val: boolean) => void;
   onToggleViirs: (val: boolean) => void;
   onToggleSerfor: (val: boolean) => void;
-  onToggleVientoML: (val: boolean) => void;
   onToggleRiesgoOcurrencia?: (val: boolean) => void;
   onToggleIncidentes: (val: boolean) => void;
   onToggleBrigadas: (val: boolean) => void;
@@ -55,8 +52,6 @@ interface TacticalMapProps {
   fechaDesde?: string;
   fechaHasta?: string;
   onApplyCustomDates?: (desde: string, hasta: string) => void;
-  // Selected hour in 12h forecast
-  selectedHourIdx?: number;
   selectedIncidente?: Incidente | null;
   focusCoords?: [number, number] | null;
   onMapCreateIncident?: (lat: number, lon: number) => void;
@@ -69,12 +64,10 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   focos,
   brigadas,
   viviendas = [],
-  viento12h,
   onSelectIncidente,
   showModis,
   showViirs,
   showSerfor,
-  showVientoML,
   showRiesgoOcurrencia = true,
   showIncidentes,
   showBrigadas,
@@ -89,7 +82,6 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   onToggleModis,
   onToggleViirs,
   onToggleSerfor,
-  onToggleVientoML,
   onToggleRiesgoOcurrencia,
   onToggleIncidentes,
   onToggleBrigadas,
@@ -104,7 +96,6 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   fechaDesde,
   fechaHasta,
   onApplyCustomDates,
-  selectedHourIdx = 0,
   selectedIncidente = null,
   focusCoords = null,
   onMapCreateIncident,
@@ -149,7 +140,6 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     modis: L.LayerGroup;
     viirs: L.LayerGroup;
     serfor: L.LayerGroup;
-    vientoML: L.LayerGroup;
     riesgoOcurrencia: L.LayerGroup;
     isocronasSimulacion: L.LayerGroup;
     incidentes: L.LayerGroup;
@@ -163,7 +153,6 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     modis: L.layerGroup(),
     viirs: L.layerGroup(),
     serfor: L.layerGroup(),
-    vientoML: L.layerGroup(),
     riesgoOcurrencia: L.layerGroup(),
     isocronasSimulacion: L.layerGroup(),
     incidentes: L.layerGroup(),
@@ -212,7 +201,6 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     layersRef.current.modis.addTo(map);
     layersRef.current.viirs.addTo(map);
     layersRef.current.serfor.addTo(map);
-    layersRef.current.vientoML.addTo(map);
     layersRef.current.riesgoOcurrencia.addTo(map);
     layersRef.current.isocronasSimulacion.addTo(map);
     layersRef.current.incidentes.addTo(map);
@@ -543,99 +531,6 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       layer.addLayer(marker);
     });
   }, [focosSerfor, showSerfor]);
-
-  // Update Wind ML Propagation Layer (12 Hours Forecast & Dispersion Cone)
-  useEffect(() => {
-    const layer = layersRef.current.vientoML;
-    layer.clearLayers();
-    if (!showVientoML || !viento12h || !viento12h.pronostico_12h) return;
-
-    const pasoActivo = viento12h.pronostico_12h[selectedHourIdx] || viento12h.pronostico_12h[0];
-    if (!pasoActivo) return;
-
-    const conoGeoJSON = pasoActivo.cono_dispersion || viento12h.cono_principal_geojson;
-
-    // Render dispersion cone polygon
-    if (conoGeoJSON && conoGeoJSON.coordinates) {
-      const riskColors: Record<string, string> = {
-        critico: '#ef4444',
-        alto: '#f97316',
-        moderado: '#eab308',
-        bajo: '#06b6d4'
-      };
-      const strokeColor = riskColors[pasoActivo.riesgo_propagacion] || '#06b6d4';
-
-      const polygon = L.geoJSON(conoGeoJSON as any, {
-        style: {
-          color: strokeColor,
-          weight: 2,
-          fillColor: strokeColor,
-          fillOpacity: 0.28,
-          dashArray: '6, 6'
-        }
-      });
-
-      polygon.bindPopup(`
-        <div style="font-family: var(--font-sans); min-width: 240px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-            <span style="font-size: 10px; font-weight: 700; color: #38bdf8; text-transform: uppercase;">🌪️ MODELO ML PROPAGACIÓN VIENTO (12H)</span>
-            <span style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); color: ${strokeColor}; font-weight: 700;">
-              ${pasoActivo.riesgo_propagacion.toUpperCase()}
-            </span>
-          </div>
-          <h4 style="font-size: 13px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
-            Pronóstico: ${pasoActivo.hora_label} (+${pasoActivo.paso_hora}h)
-          </h4>
-          <div style="font-size: 11px; color: #cbd5e1; display: flex; flex-direction: column; gap: 3px;">
-            <span><strong>Velocidad Viento:</strong> <span style="color: #38bdf8; font-weight: 700;">${pasoActivo.velocidad_kmh} km/h</span> (Ráfagas: ${pasoActivo.rafagas_kmh} km/h)</span>
-            <span><strong>Viene desde:</strong> ${pasoActivo.direccion_viento_cardinal} (${pasoActivo.direccion_viento_grados}°)</span>
-            <span><strong>Propaga fuego hacia:</strong> <strong style="color: #f97316;">${pasoActivo.hacia_cardinal} (${pasoActivo.rumbo_propagacion_grados}°)</strong></span>
-            <span><strong>Algoritmo:</strong> ${viento12h.metricas_entrenamiento?.algoritmo || 'Random Forest Multi-Output'} (R²: ${viento12h.metricas_entrenamiento?.r2_score || 0.72})</span>
-          </div>
-        </div>
-      `);
-      layer.addLayer(polygon);
-
-      // Render directional arrow indicator at center origin
-      const angle = pasoActivo.rumbo_propagacion_grados;
-      const arrowHtml = `
-        <div style="
-          width: 38px;
-          height: 38px;
-          border-radius: 50%;
-          background: rgba(15, 23, 42, 0.9);
-          border: 2px solid ${strokeColor};
-          box-shadow: 0 0 16px ${strokeColor};
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-        ">
-          <div style="transform: rotate(${angle}deg); color: ${strokeColor}; font-size: 20px; font-weight: 900; line-height: 1;">
-            ➔
-          </div>
-        </div>
-      `;
-
-      const arrowIcon = L.divIcon({
-        html: arrowHtml,
-        className: 'custom-wind-arrow',
-        iconSize: [38, 38],
-        iconAnchor: [19, 19]
-      });
-
-      const arrowMarker = L.marker(CORACORA_COORDS, { icon: arrowIcon });
-      arrowMarker.bindPopup(`
-        <div style="font-family: var(--font-sans); min-width: 220px;">
-          <div style="color: #38bdf8; font-size: 11px; font-weight: 700;">VECTOR DE VIENTO ML: HORA +${pasoActivo.paso_hora}</div>
-          <p style="font-size: 12px; margin: 4px 0; color: #ffffff;">
-            El fuego y el humo avanzarán con rumbo <strong>${pasoActivo.rumbo_propagacion_grados}° (${pasoActivo.hacia_cardinal})</strong> a <strong>${pasoActivo.velocidad_kmh} km/h</strong>.
-          </p>
-        </div>
-      `);
-      layer.addLayer(arrowMarker);
-    }
-  }, [viento12h, showVientoML, selectedHourIdx]);
 
   // Update Occurrence Risk Grid Layer (Machine Learning Susceptibility Grid)
   useEffect(() => {
@@ -1540,18 +1435,6 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
         <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '4px 0' }} />
 
-        {/* Wind ML 12h Propagation Layer Toggle */}
-        <label className="map-layer-toggle" id="layer-viento-ml-toggle" style={{ color: '#38bdf8' }}>
-          <input
-            type="checkbox"
-            checked={showVientoML}
-            onChange={(e) => onToggleVientoML(e.target.checked)}
-          />
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
-            <Wind size={14} color="#38bdf8" /> Cono Viento ML (12h)
-          </span>
-        </label>
-
         {/* Occurrence Risk ML Grid Layer Toggle */}
         <label className="map-layer-toggle" id="layer-ocurrencia-ml-toggle" style={{ color: '#f59e0b' }}>
           <input
@@ -1798,7 +1681,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
               Simulación pendiente de aprobación COEP/COEL — No calibrada con dNBR
             </span>
             <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>
-              Modelo Elíptico Andino (Copernicus DEM 30m + Viento 12h) • Anillos: 1h (Amarillo), 3h (Naranja), 6h (Rojo)
+              Modelo Elíptico Andino (Copernicus DEM 30m + Viento Andino) • Anillos: 1h (Amarillo), 3h (Naranja), 6h (Rojo)
             </span>
           </div>
         </div>

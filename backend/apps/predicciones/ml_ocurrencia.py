@@ -6,7 +6,7 @@ Diferenciación conceptual:
 - Riesgo de Ocurrencia / Susceptibilidad: Probabilidad espacial y temporal de ignición
   basada en factores ambientales (meteorología reciente, sequedad, FWI) y biofísicos
   (topografía, proximidad a centros poblados y estacionalidad).
-- Propagación cinemática del fuego/humo: Modelada por separado en `ml_viento.py`.
+- Propagación cinemática del frente de fuego: Modelada por el Simulador Elíptico Andino (`motor_andino.py`).
 """
 import os
 import json

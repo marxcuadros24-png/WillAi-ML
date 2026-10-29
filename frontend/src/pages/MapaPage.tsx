@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   Flame,
   Radio,
-  Wind,
   Thermometer,
   Shield,
   ShieldAlert,
@@ -24,7 +23,6 @@ export const MapaPage: React.FC = () => {
     focos,
     brigadas,
     viviendas,
-    viento12h,
     selectedIncidente,
     setSelectedIncidente,
     showModis,
@@ -33,8 +31,6 @@ export const MapaPage: React.FC = () => {
     setShowViirs,
     showSerfor,
     setShowSerfor,
-    showVientoML,
-    setShowVientoML,
     showIncidentes,
     setShowIncidentes,
     showBrigadas,
@@ -50,8 +46,6 @@ export const MapaPage: React.FC = () => {
     customDesde,
     customHasta,
     handleApplyCustomDates,
-    selectedWindHourIdx,
-    setSelectedWindHourIdx,
     sidebarTab,
     setSidebarTab,
     fwi,
@@ -61,7 +55,6 @@ export const MapaPage: React.FC = () => {
     onOpenDispatch,
     onOpenChangeStatus,
     onOpenCloseIncident,
-    handleEntrenarVientoManual,
     handleDispararSyncManual,
     // Simulación de Propagación
     simulaciones,
@@ -110,7 +103,6 @@ export const MapaPage: React.FC = () => {
         focos={focos}
         brigadas={brigadas}
         viviendas={viviendas}
-        viento12h={viento12h}
         selectedIncidente={selectedIncidente}
         focusCoords={focusCoords}
         onSelectIncidente={(inc) => {
@@ -120,7 +112,6 @@ export const MapaPage: React.FC = () => {
         showModis={showModis}
         showViirs={showViirs}
         showSerfor={showSerfor}
-        showVientoML={showVientoML}
         showRiesgoOcurrencia={showRiesgoOcurrencia}
         showIncidentes={showIncidentes}
         showBrigadas={showBrigadas}
@@ -132,7 +123,6 @@ export const MapaPage: React.FC = () => {
         onToggleModis={setShowModis}
         onToggleViirs={setShowViirs}
         onToggleSerfor={setShowSerfor}
-        onToggleVientoML={setShowVientoML}
         onToggleRiesgoOcurrencia={setShowRiesgoOcurrencia}
         onToggleIncidentes={setShowIncidentes}
         onToggleBrigadas={setShowBrigadas}
@@ -147,7 +137,6 @@ export const MapaPage: React.FC = () => {
         fechaDesde={customDesde}
         fechaHasta={customHasta}
         onApplyCustomDates={handleApplyCustomDates}
-        selectedHourIdx={selectedWindHourIdx}
         onMapCreateIncident={onOpenCreateIncidentWithCoords}
         onMapCreateVivienda={onOpenCreateViviendaWithCoords}
         onMapSetSimCoords={(lat, lon) => {
@@ -178,14 +167,6 @@ export const MapaPage: React.FC = () => {
           >
             <Radio size={14} />
             <span>Satelital</span>
-          </button>
-          <button
-            className={`sidebar-tab-btn ${sidebarTab === 'viento' ? 'active' : ''}`}
-            onClick={() => setSidebarTab('viento')}
-            title="Modelo ML Viento 12h"
-          >
-            <Wind size={14} color="#38bdf8" />
-            <span style={{ color: '#38bdf8' }}>Viento ML</span>
           </button>
           <button
             className={`sidebar-tab-btn ${sidebarTab === 'riesgo' ? 'active' : ''}`}
@@ -433,53 +414,6 @@ export const MapaPage: React.FC = () => {
                   </div>
                 </div>
               ))}
-            </div>
-          )}
-
-          {/* Sidebar Content: Viento ML 12h */}
-          {sidebarTab === 'viento' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '13px', fontWeight: 700, color: '#38bdf8' }}>
-                  PROPAGACIÓN DE VIENTO ML (12H)
-                </span>
-                <button
-                  className="btn-admin btn-admin-outline"
-                  style={{ padding: '4px 10px', fontSize: '11.5px' }}
-                  onClick={handleEntrenarVientoManual}
-                >
-                  <RefreshCw size={12} />
-                  Reentrenar
-                </button>
-              </div>
-
-              <div style={{ background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '8px', padding: '12px', fontSize: '12px' }}>
-                <div style={{ color: '#38bdf8', fontWeight: 700, fontSize: '12.5px' }}>MODELO: {viento12h.metricas_entrenamiento.algoritmo}</div>
-                <div style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
-                  R² Score: <strong>{viento12h.metricas_entrenamiento.r2_score}</strong> • RMSE: <strong>{viento12h.metricas_entrenamiento.rmse_vectorial} m/s</strong>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {viento12h.pronostico_12h?.map((p, idx) => (
-                  <div
-                    key={idx}
-                    className={`feed-card ${selectedWindHourIdx === idx ? 'active' : ''}`}
-                    onClick={() => setSelectedWindHourIdx(idx)}
-                    style={{ padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-                  >
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '13px', color: '#ffffff' }}>+{p.paso_hora}h ({p.hora_label})</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                        {p.velocidad_kmh} km/h • Ráfagas: {p.rafagas_kmh} km/h
-                      </div>
-                    </div>
-                    <span style={{ fontSize: '11px', color: '#f97316', fontWeight: 700, background: 'rgba(249,115,22,0.1)', padding: '2px 8px', borderRadius: '4px' }}>
-                      Hacia {p.hacia_cardinal}
-                    </span>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
 
@@ -1048,7 +982,7 @@ export const MapaPage: React.FC = () => {
 
                 <div style={{ fontSize: '10.5px', color: '#94a3b8', marginBottom: '10px', background: 'rgba(0,0,0,0.3)', padding: '6px 8px', borderRadius: '4px' }}>
                   <div>🏔️ Topografía: <strong>Copernicus GLO-30 DEM (30m)</strong></div>
-                  <div>💨 Viento: <strong>WindProphet ML (Open-Meteo)</strong></div>
+                  <div>💨 Viento: <strong>Vector Meteorológico Open-Meteo</strong></div>
                   <div>🌱 Combustible: <strong>Mosaico Sierra Andina (Pajonal Mixto / Roquedales / Bofedales)</strong></div>
                   <div>🎯 Calibración: <strong>LOFO 3-Fold (alfa_r0: 0.495, escala anti-exageración)</strong></div>
                 </div>

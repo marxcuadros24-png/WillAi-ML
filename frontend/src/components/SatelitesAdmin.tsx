@@ -1,18 +1,16 @@
 import React, { useState } from 'react';
-import { Satellite, RefreshCw, CheckCircle2, Radio, CloudSun, Wind, AlertCircle } from 'lucide-react';
+import { Satellite, RefreshCw, CheckCircle2, Radio, CloudSun, AlertCircle } from 'lucide-react';
 import type { LoteSatelital } from '../types';
 import { Pagination } from './Pagination';
 
 interface SatelitesAdminProps {
   lotes: LoteSatelital[];
   onDispararSync: (tipo: 'firms' | 'meteo' | 'fwi') => Promise<void>;
-  onEntrenarViento: () => Promise<void>;
 }
 
 export const SatelitesAdmin: React.FC<SatelitesAdminProps> = ({
   lotes,
   onDispararSync,
-  onEntrenarViento,
 }) => {
   const [loadingType, setLoadingType] = useState<string | null>(null);
 
@@ -30,15 +28,6 @@ export const SatelitesAdmin: React.FC<SatelitesAdminProps> = ({
     setLoadingType(tipo);
     try {
       await onDispararSync(tipo);
-    } finally {
-      setLoadingType(null);
-    }
-  };
-
-  const handleTrain = async () => {
-    setLoadingType('viento');
-    try {
-      await onEntrenarViento();
     } finally {
       setLoadingType(null);
     }
@@ -159,38 +148,6 @@ export const SatelitesAdmin: React.FC<SatelitesAdminProps> = ({
           >
             <RefreshCw size={15} className={loadingType === 'fwi' ? 'spin' : ''} />
             {loadingType === 'fwi' ? 'Calculando FWI...' : 'Recalcular FWI Canadiense'}
-          </button>
-        </div>
-
-        <div
-          style={{
-            background: 'rgba(15, 23, 42, 0.85)',
-            border: '1px solid rgba(16, 185, 129, 0.3)',
-            borderRadius: 'var(--radius-md)',
-            padding: '18px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            gap: '14px',
-          }}
-        >
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#34d399', fontWeight: 700 }}>
-              <Wind size={18} />
-              Modelo ML Viento 12h
-            </div>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '6px' }}>
-              Re-entrena el algoritmo Random Forest Multi-Output con series temporales pasadas para dispersión a 12h.
-            </p>
-          </div>
-          <button
-            className="btn-admin btn-admin-success"
-            style={{ width: '100%', justifyContent: 'center' }}
-            disabled={loadingType !== null}
-            onClick={handleTrain}
-          >
-            <RefreshCw size={15} className={loadingType === 'viento' ? 'spin' : ''} />
-            {loadingType === 'viento' ? 'Entrenando Random Forest...' : 'Re-entrenar Modelo ML 12h'}
           </button>
         </div>
       </div>

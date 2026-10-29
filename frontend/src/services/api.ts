@@ -4,7 +4,6 @@ import type {
   MetricasFWI,
   Brigada,
   AlertaComunitaria,
-  PrediccionViento12hData,
   HistorialFirmsResponse,
   UsuarioSistema,
   RolSistema,
@@ -47,29 +46,12 @@ export const INITIAL_HISTORIAL_FIRMS: HistorialFirmsResponse = {
   historial_mensual: []
 };
 
-export const INITIAL_VIENTO_12H: PrediccionViento12hData = {
-  id_prediccion: 0,
-  nivel_pico: 'bajo',
-  cono_principal_geojson: null,
-  metricas_entrenamiento: {
-    rmse_vectorial: 0,
-    r2_score: 0,
-    muestras_entrenamiento: 0,
-    muestras_validacion: 0,
-    algoritmo: 'RandomForestRegressor Multi-Output (Open-Meteo)',
-    entrenado_en: ''
-  },
-  coordenadas: { lat: -15.0189, lon: -73.7806 },
-  pronostico_12h: []
-};
-
 // Aliases para compatibilidad durante migración
 export const SEED_INCIDENTES = INITIAL_INCIDENTES;
 export const SEED_FOCOS_FIRMS = INITIAL_FOCOS;
 export const SEED_FWI = INITIAL_FWI;
 export const SEED_BRIGADAS = INITIAL_BRIGADAS;
 export const SEED_ALERTAS = INITIAL_ALERTAS;
-export const SEED_VIENTO_12H = INITIAL_VIENTO_12H;
 export const SEED_HISTORIAL_FIRMS = INITIAL_HISTORIAL_FIRMS;
 
 function degToCardinal(deg: number): string {
@@ -167,37 +149,6 @@ export async function fetchHistorialFirms(meses: number = 6): Promise<HistorialF
     console.warn('Error al consultar historial satelital:', err);
     return INITIAL_HISTORIAL_FIRMS;
   }
-}
-
-/**
- * Consulta la predicción de viento y conos de dispersión a 12 horas
- * generada por el modelo Random Forest entrenado sobre la serie horaria real de Open-Meteo.
- */
-export async function fetchPrediccionViento12h(): Promise<PrediccionViento12hData> {
-  try {
-    const res = await fetch(`${API_BASE}/predicciones/predicciones/viento_12h/`, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (err) {
-    console.warn('Error al consultar predicción ML de viento:', err);
-    return INITIAL_VIENTO_12H;
-  }
-}
-
-/**
- * Dispara el re-entrenamiento del modelo ML de propagación con los últimos datos reales de Open-Meteo.
- */
-export async function entrenarModeloViento(lat: number = -15.0189, lon: number = -73.7806): Promise<any> {
-  const res = await fetch(`${API_BASE}/predicciones/predicciones/entrenar_viento/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ latitud: lat, longitud: lon })
-  });
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Error en API de entrenamiento: ${errText}`);
-  }
-  return await res.json();
 }
 
 /**

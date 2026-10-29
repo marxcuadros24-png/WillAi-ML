@@ -25,14 +25,11 @@ import {
   INITIAL_FWI,
   INITIAL_BRIGADAS,
   INITIAL_ALERTAS,
-  INITIAL_VIENTO_12H,
   INITIAL_HISTORIAL_FIRMS,
   SECTORES_CORACORA,
   fetchIncidentes,
   fetchFocosFirms,
   fetchHistorialFirms,
-  fetchPrediccionViento12h,
-  entrenarModeloViento,
   fetchFWI,
   fetchBrigadas,
   fetchViviendas,
@@ -61,7 +58,6 @@ import type {
   Brigada,
   ViviendaRural,
   AlertaComunitaria,
-  PrediccionViento12hData,
   HistorialFirmsResponse,
   ReporteCiudadano,
   DonacionComunitaria,
@@ -78,7 +74,6 @@ export const App: React.FC = () => {
   const [brigadas, setBrigadas] = useState<Brigada[]>(INITIAL_BRIGADAS);
   const [viviendas, setViviendas] = useState<ViviendaRural[]>([]);
   const [alertas, setAlertas] = useState<AlertaComunitaria[]>(INITIAL_ALERTAS);
-  const [viento12h, setViento12h] = useState<PrediccionViento12hData>(INITIAL_VIENTO_12H);
   const [, setHistorialFirms] = useState<HistorialFirmsResponse>(INITIAL_HISTORIAL_FIRMS);
 
   // Administrative Data State
@@ -98,14 +93,13 @@ export const App: React.FC = () => {
   });
 
   // Sidebar sub-tab when on '/mapa'
-  const [sidebarTab, setSidebarTab] = useState<'incidentes' | 'firms' | 'viento' | 'riesgo' | 'simulacion' | 'meteo' | 'brigadas'>('incidentes');
+  const [sidebarTab, setSidebarTab] = useState<'incidentes' | 'firms' | 'riesgo' | 'simulacion' | 'meteo' | 'brigadas'>('incidentes');
   const [selectedIncidente, setSelectedIncidente] = useState<Incidente | null>(null);
 
   // Layer toggles on map
   const [showModis, setShowModis] = useState<boolean>(true);
   const [showViirs, setShowViirs] = useState<boolean>(true);
   const [showSerfor, setShowSerfor] = useState<boolean>(true);
-  const [showVientoML, setShowVientoML] = useState<boolean>(true);
   const [showRiesgoOcurrencia, setShowRiesgoOcurrencia] = useState<boolean>(true);
   const [grillaOcurrencia, setGrillaOcurrencia] = useState<GrillaRiesgoOcurrenciaData | null>(null);
   const [showIncidentes, setShowIncidentes] = useState<boolean>(true);
@@ -121,7 +115,6 @@ export const App: React.FC = () => {
   const [timeRange, setTimeRange] = useState<'today' | '24h' | '7d' | '30d' | '3m' | '6m' | 'custom'>('today');
   const [customDesde, setCustomDesde] = useState<string>('2026-05-01');
   const [customHasta, setCustomHasta] = useState<string>('2026-10-22');
-  const [selectedWindHourIdx, setSelectedWindHourIdx] = useState<number>(0);
 
   // Modals state
   const [isCreateIncidentOpen, setIsCreateIncidentOpen] = useState(false);
@@ -181,7 +174,6 @@ export const App: React.FC = () => {
       const results = await Promise.allSettled([
         fetchIncidentes(),
         fetchFocosFirms(1),
-        fetchPrediccionViento12h(),
         fetchHistorialFirms(6),
         fetchFWI(),
         fetchBrigadas(),
@@ -194,22 +186,21 @@ export const App: React.FC = () => {
 
       if (results[0].status === 'fulfilled') setIncidentes(results[0].value);
       if (results[1].status === 'fulfilled') setFocos(results[1].value);
-      if (results[2].status === 'fulfilled') setViento12h(results[2].value);
-      if (results[3].status === 'fulfilled') setHistorialFirms(results[3].value);
-      if (results[4].status === 'fulfilled') setFwi(results[4].value);
-      if (results[5].status === 'fulfilled') setBrigadas(results[5].value);
-      if (results[6].status === 'fulfilled') setAlertas(results[6].value);
-      if (results[7].status === 'fulfilled' && results[7].value) {
-        const dash = results[7].value;
+      if (results[2].status === 'fulfilled') setHistorialFirms(results[2].value);
+      if (results[3].status === 'fulfilled') setFwi(results[3].value);
+      if (results[4].status === 'fulfilled') setBrigadas(results[4].value);
+      if (results[5].status === 'fulfilled') setAlertas(results[5].value);
+      if (results[6].status === 'fulfilled' && results[6].value) {
+        const dash = results[6].value;
         if (dash.reportes) setReportes(dash.reportes);
         if (dash.donaciones) setDonaciones(dash.donaciones);
         if (dash.lotes_satelitales) setLotesSatelitales(dash.lotes_satelitales);
         if (dash.metricas) setMetricas(dash.metricas);
       }
-      if (results[8].status === 'fulfilled') setViviendas(results[8].value);
-      if (results[9].status === 'fulfilled' && results[9].value) setGrillaOcurrencia(results[9].value);
-      if (results[10].status === 'fulfilled' && results[10].value) {
-        const sims = results[10].value;
+      if (results[7].status === 'fulfilled') setViviendas(results[7].value);
+      if (results[8].status === 'fulfilled' && results[8].value) setGrillaOcurrencia(results[8].value);
+      if (results[9].status === 'fulfilled' && results[9].value) {
+        const sims = results[9].value;
         setSimulaciones(sims);
         if (sims.length > 0) {
           const ultimaCompletada = sims.find((s: any) => s.estado === 'COMPLETADO') || sims[0];
@@ -672,16 +663,6 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleEntrenarVientoManual = async () => {
-    try {
-      const res = await entrenarModeloViento();
-      showToast(`Modelo ML Viento 12h re-entrenado: RMSE ${res.rmse_vectorial} m/s, R² ${res.r2_score}`);
-      await loadAllData();
-    } catch (err) {
-      showToast('Error al entrenar modelo de viento');
-    }
-  };
-
   const handleEntrenarOcurrenciaManual = async () => {
     try {
       showToast('Re-entrenando modelo ML de riesgo de ocurrencia (NASA FIRMS + Open-Meteo)...');
@@ -703,7 +684,6 @@ export const App: React.FC = () => {
     brigadas,
     viviendas,
     alertas,
-    viento12h,
     grillaOcurrencia,
     reportes,
     donaciones,
@@ -738,7 +718,6 @@ export const App: React.FC = () => {
     handleConvertirReporteAIncidente,
     handleModerarDonacionAction,
     handleDispararSyncManual,
-    handleEntrenarVientoManual,
     handleEntrenarOcurrenciaManual,
     showModis,
     setShowModis,
@@ -746,8 +725,6 @@ export const App: React.FC = () => {
     setShowViirs,
     showSerfor,
     setShowSerfor,
-    showVientoML,
-    setShowVientoML,
     showRiesgoOcurrencia,
     setShowRiesgoOcurrencia,
     showIncidentes,
@@ -771,8 +748,6 @@ export const App: React.FC = () => {
     customDesde,
     customHasta,
     handleApplyCustomDates,
-    selectedWindHourIdx,
-    setSelectedWindHourIdx,
     selectedIncidente,
     setSelectedIncidente,
     sidebarTab,
