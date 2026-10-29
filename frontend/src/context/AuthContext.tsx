@@ -6,6 +6,10 @@ interface AuthContextType {
   user: UsuarioAuth | null;
   token: string | null;
   isAuthenticated: boolean;
+  isAdmin: boolean;
+  isOperador: boolean;
+  rolDisplay: string;
+  rolCodigo: 'administrador' | 'operador_emergencia';
   loading: boolean;
   login: (username: string, pass: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -57,12 +61,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const isAdmin = Boolean(
+    user?.is_admin ||
+    user?.is_superuser ||
+    user?.rol_principal === 'administrador' ||
+    user?.roles?.includes('administrador')
+  );
+
+  const isOperador = Boolean(user && !isAdmin);
+  const rolCodigo: 'administrador' | 'operador_emergencia' = isAdmin ? 'administrador' : 'operador_emergencia';
+  const rolDisplay = isAdmin ? 'Administrador Institucional' : 'Operador de Emergencias';
+
   return (
     <AuthContext.Provider
       value={{
         user,
         token,
         isAuthenticated: !!user,
+        isAdmin,
+        isOperador,
+        rolDisplay,
+        rolCodigo,
         loading,
         login,
         logout

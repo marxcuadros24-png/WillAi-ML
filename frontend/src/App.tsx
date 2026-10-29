@@ -782,7 +782,7 @@ export const App: React.FC = () => {
             <Route path="reportes" element={<ReportesPage />} />
             <Route path="brigadas" element={<BrigadasPage />} />
             <Route path="viviendas" element={<ViviendasPage />} />
-            <Route path="usuarios" element={<UsuariosPage />} />
+            <Route path="usuarios" element={<ProtectedRoute requireAdmin><UsuariosPage /></ProtectedRoute>} />
             <Route path="logros" element={<LogrosPage />} />
             <Route path="alertas" element={<AlertasPage />} />
             <Route path="donaciones" element={<DonacionesPage />} />

@@ -40,7 +40,7 @@ export const Layout: React.FC<LayoutProps> = ({ context }) => {
     onOpenCreateIncident,
     onOpenAlertModal
   } = context;
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin, rolDisplay } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
@@ -91,7 +91,7 @@ export const Layout: React.FC<LayoutProps> = ({ context }) => {
       case '/viviendas':
         return 'Padrón de Viviendas Rurales Vulnerables';
       case '/usuarios':
-        return 'Gestión de Usuarios & Personal';
+        return 'Gestión de Usuarios & Personal (Exclusivo Administrador)';
       case '/logros':
         return 'Cuadro de Honor & Logros Comunitarios';
       case '/alertas':
@@ -329,14 +329,24 @@ export const Layout: React.FC<LayoutProps> = ({ context }) => {
               </div>
             )}
 
-            <NavLink
-              to="/usuarios"
-              className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}
-              title="Gestión de Usuarios y Brigadas"
-            >
-              <Users size={18} />
-              {sidebarOpen && <span>Usuarios & Personal</span>}
-            </NavLink>
+            {/* Gestión de Usuarios: Solo visible para rol Administrador */}
+            {isAdmin && (
+              <NavLink
+                to="/usuarios"
+                className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}
+                title="Gestión de Usuarios y Personal (Exclusivo Administrador)"
+              >
+                <Users size={18} color="#f59e0b" />
+                {sidebarOpen && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                    <span>Usuarios & Personal</span>
+                    <span style={{ fontSize: '9px', background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>
+                      ADMIN
+                    </span>
+                  </div>
+                )}
+              </NavLink>
+            )}
 
             <NavLink
               to="/logros"
@@ -425,9 +435,9 @@ export const Layout: React.FC<LayoutProps> = ({ context }) => {
                   width: '36px',
                   height: '36px',
                   borderRadius: '50%',
-                  background: 'rgba(56, 189, 248, 0.2)',
-                  border: '1px solid rgba(56, 189, 248, 0.4)',
-                  color: '#38bdf8',
+                  background: isAdmin ? 'rgba(245, 158, 11, 0.2)' : 'rgba(56, 189, 248, 0.2)',
+                  border: isAdmin ? '1px solid rgba(245, 158, 11, 0.5)' : '1px solid rgba(56, 189, 248, 0.4)',
+                  color: isAdmin ? '#f59e0b' : '#38bdf8',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -443,8 +453,16 @@ export const Layout: React.FC<LayoutProps> = ({ context }) => {
                   <div style={{ fontSize: '12px', fontWeight: 700, color: '#ffffff', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                     {user?.nombre || user?.username}
                   </div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                    {user?.is_superuser ? 'Superadministrador' : (user?.roles?.[0] || 'Operador COEP')}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }} title={rolDisplay}>
+                    {isAdmin ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '9.5px', color: '#f59e0b', fontWeight: 800, letterSpacing: '0.03em' }}>
+                        <Shield size={10} color="#f59e0b" /> ADMINISTRADOR
+                      </span>
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '9.5px', color: '#38bdf8', fontWeight: 800, letterSpacing: '0.03em' }}>
+                        <Radio size={10} color="#38bdf8" /> OPERADOR COEP
+                      </span>
+                    )}
                   </div>
                 </div>
               )}

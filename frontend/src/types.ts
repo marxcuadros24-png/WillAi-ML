@@ -242,10 +242,15 @@ export interface UsuarioSistema {
   is_superuser: boolean;
   roles: string[];
   roles_codigos: string[];
+  rol_principal?: 'administrador' | 'operador_emergencia' | 'movil' | string;
+  is_admin?: boolean;
+  is_operador?: boolean;
   insignias?: Array<{ codigo: string; nombre: string; icono: string }>;
   creado_en: string;
   ultimo_acceso: string;
 }
+
+export type RolCentroMando = 'administrador' | 'operador_emergencia';
 
 export interface UsuarioAuth {
   id: number;
@@ -253,6 +258,9 @@ export interface UsuarioAuth {
   nombre: string;
   email: string;
   roles: string[];
+  rol_principal?: RolCentroMando;
+  is_admin?: boolean;
+  is_operador?: boolean;
   is_staff: boolean;
   is_superuser: boolean;
 }

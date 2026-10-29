@@ -38,9 +38,15 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const autofillDemo = () => {
+  const autofillAdmin = () => {
     setUsername('admin');
     setPassword('admin12345');
+    setErrorMsg(null);
+  };
+
+  const autofillOperador = () => {
+    setUsername('operador.coep');
+    setPassword('willai2026');
     setErrorMsg(null);
   };
 
@@ -89,8 +95,8 @@ export const LoginPage: React.FC = () => {
       <div
         style={{
           width: '100%',
-          maxWidth: '460px',
-          background: 'rgba(15, 23, 42, 0.85)',
+          maxWidth: '470px',
+          background: 'rgba(15, 23, 42, 0.88)',
           border: '1px solid rgba(255, 255, 255, 0.12)',
           borderRadius: '20px',
           padding: '36px 32px',
@@ -101,7 +107,7 @@ export const LoginPage: React.FC = () => {
         }}
       >
         {/* Cabecera con Logo Institucional */}
-        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
           <div
             style={{
               width: '64px',
@@ -122,10 +128,36 @@ export const LoginPage: React.FC = () => {
             WillAI • CENTRO DE MANDO
           </h1>
           <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-            Sistema de Alerta Temprana de Incendios Forestales
+            Sistema Táctico de Alerta Temprana de Incendios
             <br />
             <strong style={{ color: '#cbd5e1' }}>Coracora • Parinacochas • Ayacucho</strong>
           </p>
+        </div>
+
+        {/* Roles autorizados banner */}
+        <div
+          style={{
+            background: 'rgba(56, 189, 248, 0.06)',
+            border: '1px solid rgba(56, 189, 248, 0.25)',
+            borderRadius: '10px',
+            padding: '10px 14px',
+            marginBottom: '20px',
+            fontSize: '11px',
+            color: '#94a3b8',
+            lineHeight: 1.45
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, color: '#38bdf8', marginBottom: '3px' }}>
+            <ShieldCheck size={14} color="#38bdf8" />
+            <span>ACCESO EXCLUSIVO: 2 ROLES AUTORIZADOS</span>
+          </div>
+          <div>
+            1. <strong>Administrador:</strong> Control total, usuarios y auditoría.
+            <br />
+            2. <strong>Operador de Emergencia:</strong> Satélites, FWI, despacho y alertas.
+            <br />
+            <span style={{ color: '#64748b' }}>* Cuentas comunales/brigadistas deben ingresar mediante la App Móvil WillAI.</span>
+          </div>
         </div>
 
         {/* Mensaje de Error */}
@@ -139,12 +171,12 @@ export const LoginPage: React.FC = () => {
               borderRadius: '10px',
               fontSize: '12px',
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'flex-start',
               gap: '10px',
               marginBottom: '20px'
             }}
           >
-            <AlertCircle size={16} style={{ flexShrink: 0 }} />
+            <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
             <span>{errorMsg}</span>
           </div>
         )}
@@ -154,7 +186,7 @@ export const LoginPage: React.FC = () => {
           <div>
             <label className="admin-form-label" style={{ display: 'flex', justifyContent: 'space-between', color: '#cbd5e1' }}>
               <span>Usuario o Correo Institucional</span>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Operador / Admin</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Admin u Operador</span>
             </label>
             <div style={{ position: 'relative' }}>
               <input
@@ -162,7 +194,7 @@ export const LoginPage: React.FC = () => {
                 required
                 className="admin-input"
                 style={{ paddingLeft: '38px', height: '44px', fontSize: '14px' }}
-                placeholder="ej. admin o admin@willai.pe"
+                placeholder="ej. admin o operador.coep"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />
@@ -236,29 +268,57 @@ export const LoginPage: React.FC = () => {
           </button>
         </form>
 
-        {/* Acceso rápido de demostración */}
-        <div style={{ marginTop: '22px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '16px', textAlign: 'center' }}>
-          <button
-            type="button"
-            onClick={autofillDemo}
-            style={{
-              background: 'rgba(56, 189, 248, 0.1)',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
-              color: '#38bdf8',
-              borderRadius: '8px',
-              padding: '6px 14px',
-              fontSize: '11px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <ShieldCheck size={14} />
-            <span>Usar credenciales por defecto (admin / admin12345)</span>
-          </button>
+        {/* Acceso rápido de demostración para los 2 roles */}
+        <div style={{ marginTop: '22px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '16px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '10px' }}>
+            Acceso Rápido de Prueba (Credenciales Oficiales):
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={autofillAdmin}
+              style={{
+                background: 'rgba(245, 158, 11, 0.12)',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                color: '#f59e0b',
+                borderRadius: '8px',
+                padding: '8px 10px',
+                fontSize: '11px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <ShieldCheck size={14} color="#f59e0b" />
+              <span>1. Administrador</span>
+            </button>
+            <button
+              type="button"
+              onClick={autofillOperador}
+              style={{
+                background: 'rgba(56, 189, 248, 0.12)',
+                border: '1px solid rgba(56, 189, 248, 0.35)',
+                color: '#38bdf8',
+                borderRadius: '8px',
+                padding: '8px 10px',
+                fontSize: '11px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <Radio size={14} color="#38bdf8" />
+              <span>2. Operador COEP</span>
+            </button>
+          </div>
         </div>
 
         {/* Pie institucional */}

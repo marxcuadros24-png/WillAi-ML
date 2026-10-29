@@ -174,3 +174,115 @@ class PanelWebTestCase(TestCase):
         self.assertEqual(oferta.estado, 'publicada')
         self.assertIsNotNone(oferta.publicada_en)
 
+    def test_login_roles_y_rechazo_movil(self):
+        from apps.usuarios.models import Rol, UsuarioRol
+        rol_admin, _ = Rol.objects.get_or_create(codigo='administrador', defaults={'nombre': 'Administrador'})
+        rol_op, _ = Rol.objects.get_or_create(codigo='operador_emergencia', defaults={'nombre': 'Operador de emergencia'})
+        rol_pob, _ = Rol.objects.get_or_create(codigo='poblador', defaults={'nombre': 'Poblador'})
+
+        # 1. Login con rol Administrador
+        admin_user = Usuario.objects.create_superuser(
+            username='admin_test',
+            email='admin@test.pe',
+            password='Password123!'
+        )
+        UsuarioRol.objects.create(usuario=admin_user, rol=rol_admin)
+
+        res_admin = self.client.post('/panel/api/login/', {'username': 'admin_test', 'password': 'Password123!'})
+        self.assertEqual(res_admin.status_code, 200)
+        data_admin = res_admin.json()
+        self.assertTrue(data_admin['success'])
+        self.assertEqual(data_admin['user']['rol_principal'], 'administrador')
+        self.assertTrue(data_admin['user']['is_admin'])
+
+        # 2. Login con rol Operador de Emergencia
+        op_user = Usuario.objects.create_user(
+            username='op_tactico',
+            email='op@test.pe',
+            password='Password123!',
+            is_staff=True
+        )
+        UsuarioRol.objects.create(usuario=op_user, rol=rol_op)
+
+        res_op = self.client.post('/panel/api/login/', {'username': 'op_tactico', 'password': 'Password123!'})
+        self.assertEqual(res_op.status_code, 200)
+        data_op = res_op.json()
+        self.assertTrue(data_op['success'])
+        self.assertEqual(data_op['user']['rol_principal'], 'operador_emergencia')
+        self.assertFalse(data_op['user']['is_admin'])
+        self.assertTrue(data_op['user']['is_operador'])
+
+        # 3. Intento de login con cuenta de Poblador (App Móvil) -> 403 Denegado
+        poblador = Usuario.objects.create_user(
+            username='poblador_movil',
+            email='poblador@test.pe',
+            password='Password123!',
+            is_staff=False
+        )
+        UsuarioRol.objects.create(usuario=poblador, rol=rol_pob)
+
+        res_poblador = self.client.post('/panel/api/login/', {'username': 'poblador_movil', 'password': 'Password123!'})
+        self.assertEqual(res_poblador.status_code, 403)
+        data_poblador = res_poblador.json()
+        self.assertFalse(data_poblador['success'])
+        self.assertIn('App Móvil', data_poblador['error'])
+
+    def test_permisos_exclusivos_administrador(self):
+        from apps.usuarios.models import Rol, UsuarioRol
+        from apps.meteorologia.models import Vivienda
+
+        rol_admin, _ = Rol.objects.get_or_create(codigo='administrador', defaults={'nombre': 'Administrador'})
+        admin_user = Usuario.objects.create_superuser(
+            username='admin_boss',
+            email='boss@test.pe',
+            password='Password123!'
+        )
+        UsuarioRol.objects.create(usuario=admin_user, rol=rol_admin)
+
+        # Operador no tiene permisos para crear usuarios
+        self.client.force_login(self.operador)
+        res_crear_op = self.client.post('/panel/api/usuarios/crear/', {
+            'username': 'nuevo_usuario_op',
+            'codigo_rol': 'operador_emergencia'
+        })
+        self.assertEqual(res_crear_op.status_code, 403)
+
+        # Admin sí puede crear usuarios
+        self.client.force_login(admin_user)
+        res_crear_admin = self.client.post('/panel/api/usuarios/crear/', {
+            'username': 'nuevo_usuario_op',
+            'codigo_rol': 'operador_emergencia'
+        })
+        self.assertEqual(res_crear_admin.status_code, 200)
+
+        # Operador no puede cambiar estado
+        self.client.force_login(self.operador)
+        target = Usuario.objects.get(username='nuevo_usuario_op')
+        res_estado_op = self.client.post(f'/panel/api/usuarios/{target.id_usuario}/cambiar-estado/', {
+            'estado': 'suspendido'
+        })
+        self.assertEqual(res_estado_op.status_code, 403)
+
+        # Admin sí puede cambiar estado
+        self.client.force_login(admin_user)
+        res_estado_admin = self.client.post(f'/panel/api/usuarios/{target.id_usuario}/cambiar-estado/', {
+            'estado': 'suspendido'
+        })
+        self.assertEqual(res_estado_admin.status_code, 200)
+
+        # Operador no puede eliminar viviendas
+        vivienda = Vivienda.objects.create(
+            comunidad=self.comunidad,
+            codigo='VIV-SEC-999',
+            latitud=-15.01,
+            longitud=-73.78
+        )
+        self.client.force_login(self.operador)
+        res_del_viv_op = self.client.post(f'/panel/api/viviendas/{vivienda.id_vivienda}/eliminar/')
+        self.assertEqual(res_del_viv_op.status_code, 403)
+
+        # Admin sí puede eliminar viviendas
+        self.client.force_login(admin_user)
+        res_del_viv_admin = self.client.post(f'/panel/api/viviendas/{vivienda.id_vivienda}/eliminar/')
+        self.assertEqual(res_del_viv_admin.status_code, 200)
+

@@ -13,7 +13,8 @@ import {
   Eye,
   EyeOff,
   Award,
-  Shield
+  Shield,
+  Radio
 } from 'lucide-react';
 import type { UsuarioSistema, RolSistema } from '../types';
 import { fetchUsuarios, cambiarEstadoUsuario, asignarRolUsuario, crearUsuarioOperativo } from '../services/api';
@@ -153,8 +154,9 @@ export const UsuariosAdmin: React.FC = () => {
   const usuariosPaginados = usuariosFiltrados.slice(startIndex, startIndex + pageSize);
 
   const totalActivos = usuarios.filter(u => u.estado === 'activo').length;
-  const totalOperadores = usuarios.filter(u => u.is_staff || u.roles_codigos.includes('operador_emergencia') || u.roles_codigos.includes('administrador')).length;
-  const totalBrigadistas = usuarios.filter(u => u.roles_codigos.includes('brigadista')).length;
+  const totalAdmins = usuarios.filter(u => u.is_superuser || u.roles_codigos.includes('administrador')).length;
+  const totalOperadores = usuarios.filter(u => !u.is_superuser && !u.roles_codigos.includes('administrador') && (u.is_staff || u.roles_codigos.includes('operador_emergencia'))).length;
+  const totalMovil = usuarios.filter(u => !u.is_staff && !u.is_superuser && !u.roles_codigos.includes('administrador') && !u.roles_codigos.includes('operador_emergencia')).length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -187,10 +189,10 @@ export const UsuariosAdmin: React.FC = () => {
         <div>
           <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Users size={20} color="#38bdf8" />
-            GESTIÓN DE USUARIOS, OPERADORES & BRIGADISTAS
+            GESTIÓN DE PERSONAL Y ROLES DEL CENTRO DE MANDO
           </h2>
           <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
-            Administración centralizada de cuentas, roles operativos y credenciales de acceso.
+            Administración de cuentas con acceso al panel: Administrador y Operador de Emergencias.
           </p>
         </div>
 
@@ -201,7 +203,7 @@ export const UsuariosAdmin: React.FC = () => {
           </button>
           <button className="btn-admin btn-admin-primary" onClick={() => setIsCreateModalOpen(true)}>
             <UserPlus size={16} />
-            Nuevo Operador / Brigadista
+            Nuevo Operador / Administrador
           </button>
         </div>
       </div>
@@ -209,7 +211,7 @@ export const UsuariosAdmin: React.FC = () => {
       {/* Métricas de Cuentas */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
         <div className="admin-stat-card">
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>TOTAL USUARIOS</span>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>TOTAL CUENTAS</span>
           <div style={{ fontSize: '24px', fontWeight: 800, color: '#ffffff', margin: '4px 0' }}>
             {usuarios.length}
           </div>
@@ -217,19 +219,31 @@ export const UsuariosAdmin: React.FC = () => {
         </div>
 
         <div className="admin-stat-card">
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>OPERADORES & COEP</span>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: '#38bdf8', margin: '4px 0' }}>
-            {totalOperadores}
+          <span style={{ fontSize: '11px', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Shield size={12} color="#f59e0b" /> 1. ADMINISTRADORES
+          </span>
+          <div style={{ fontSize: '24px', fontWeight: 800, color: '#f59e0b', margin: '4px 0' }}>
+            {totalAdmins}
           </div>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Acceso a Centro de Mando</span>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Gobierno total y auditoría</span>
         </div>
 
         <div className="admin-stat-card">
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>BRIGADISTAS EN TERRENO</span>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: '#f97316', margin: '4px 0' }}>
-            {totalBrigadistas}
+          <span style={{ fontSize: '11px', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Radio size={12} color="#38bdf8" /> 2. OPERADORES COEP
+          </span>
+          <div style={{ fontSize: '24px', fontWeight: 800, color: '#38bdf8', margin: '4px 0' }}>
+            {totalOperadores}
           </div>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Asignables a incidentes</span>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Monitoreo, FWI y despacho</span>
+        </div>
+
+        <div className="admin-stat-card">
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>CUENTAS APP MÓVIL</span>
+          <div style={{ fontSize: '24px', fontWeight: 800, color: '#94a3b8', margin: '4px 0' }}>
+            {totalMovil}
+          </div>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Pobladores y Brigadistas</span>
         </div>
       </div>
 
@@ -389,14 +403,18 @@ export const UsuariosAdmin: React.FC = () => {
 
                     <td>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                        {u.roles.length === 0 ? (
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Ciudadano Estándar</span>
+                        {u.is_superuser || u.roles_codigos.includes('administrador') ? (
+                          <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.45)', fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 800 }}>
+                            <Shield size={11} color="#f59e0b" /> Administrador
+                          </span>
+                        ) : u.is_staff || u.roles_codigos.includes('operador_emergencia') ? (
+                          <span className="badge" style={{ background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.45)', fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 800 }}>
+                            <Radio size={11} color="#38bdf8" /> Operador de Emergencia
+                          </span>
                         ) : (
-                          u.roles.map((r, idx) => (
-                            <span key={idx} className="badge badge-cyan" style={{ fontSize: '10px' }}>
-                              {r}
-                            </span>
-                          ))
+                          <span className="badge" style={{ background: 'rgba(100, 116, 139, 0.15)', color: '#94a3b8', border: '1px solid rgba(100, 116, 139, 0.3)', fontSize: '10px' }}>
+                            App Móvil ({u.roles.join(', ') || 'Comunal'})
+                          </span>
                         )}
                       </div>
                     </td>
@@ -575,27 +593,14 @@ export const UsuariosAdmin: React.FC = () => {
               {/* Sección 3: Credenciales y Rol Operativo */}
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px' }}>
                 <div className="form-group">
-                  <label className="form-label">Rol Operativo Inicial *</label>
+                  <label className="form-label">Rol del Centro de Mando *</label>
                   <select
                     className="admin-select"
                     value={newRole}
                     onChange={(e) => setNewRole(e.target.value)}
                   >
-                    {roles.length > 0 ? (
-                      roles.map((r) => (
-                        <option key={r.codigo} value={r.codigo}>
-                          {r.nombre}
-                        </option>
-                      ))
-                    ) : (
-                      <>
-                        <option value="operador_emergencia">Operador COEP / COEL</option>
-                        <option value="brigadista">Brigadista Combatiente</option>
-                        <option value="verificador">Verificador Comunal</option>
-                        <option value="administrador">Administrador General</option>
-                        <option value="poblador">Ciudadano / Poblador</option>
-                      </>
-                    )}
+                    <option value="operador_emergencia">2. Operador de Emergencia (COEP / COEL)</option>
+                    <option value="administrador">1. Administrador Institucional (Gobierno Total)</option>
                   </select>
                 </div>
 
@@ -625,18 +630,12 @@ export const UsuariosAdmin: React.FC = () => {
 
               {/* Indicador Táctico de Privilegios */}
               <div style={{ background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: '8px', padding: '10px 14px', fontSize: '11.5px', color: '#e2e8f0', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                <Shield size={14} color="#38bdf8" style={{ marginTop: '2px', flexShrink: 0 }} />
+                <Shield size={14} color={newRole === 'administrador' ? '#f59e0b' : '#38bdf8'} style={{ marginTop: '2px', flexShrink: 0 }} />
                 <div>
                   <b>Privilegios del Rol:</b>{' '}
-                {newRole === 'operador_emergencia' || newRole === 'operador'
-                  ? 'Centro de Mando, despacho y movilización de brigadas y emisión de alertas comunitarias.'
-                  : newRole === 'brigadista'
-                  ? 'Respuesta en terreno, bitácora de combate de incendios y solicitud de refuerzos.'
-                  : newRole === 'verificador'
-                  ? 'Fiscalización y validación comunal de reportes ciudadanos de humo o calor.'
-                  : newRole === 'administrador'
-                  ? 'Acceso total y configuración de usuarios, donaciones y parámetros del sistema.'
-                  : 'Reporte ciudadano y visualización de mapa de emergencia.'}
+                  {newRole === 'administrador'
+                    ? 'Control total del Centro de Mando, gestión y reseteo de cuentas de personal, auditoría forense y eliminación de registros.'
+                    : 'Monitoreo satelital NASA FIRMS, meteorología Open-Meteo, simulación física andina, despacho de brigadas, emisión de alertas comunitarias y validación técnica.'}
                 </div>
               </div>
 

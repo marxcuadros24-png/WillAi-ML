@@ -24,14 +24,22 @@ from apps.auditoria.services import registrar_auditoria
 Usuario = get_user_model()
 
 
-def es_operador(user):
-    """Verifica si el usuario tiene rol operativo de emergencias o es staff."""
+def es_administrador(user):
+    """Verifica si el usuario es superusuario o tiene rol de administrador institucional."""
     return user.is_authenticated and (
-        user.is_staff or
-        getattr(user, 'tiene_rol', lambda r: False)('coep') or
-        getattr(user, 'tiene_rol', lambda r: False)('coel') or
-        getattr(user, 'tiene_rol', lambda r: False)('operador')
+        user.is_superuser or
+        getattr(user, 'tiene_rol', lambda r: False)('administrador')
     )
+
+
+def es_operador(user):
+    """Verifica si el usuario tiene rol operativo de emergencias o es administrador del Centro de Mando."""
+    if not user.is_authenticated:
+        return False
+    if user.is_staff or user.is_superuser:
+        return True
+    roles = set(user.roles.values_list('codigo', flat=True)) if hasattr(user, 'roles') else set()
+    return bool(roles.intersection({'administrador', 'operador_emergencia', 'operador', 'coep', 'coel'}))
 
 
 def obtener_usuario_operativo(request):
@@ -301,8 +309,11 @@ def validar_reporte_rapido(request, id_reporte):
 @require_http_methods(["POST", "DELETE"])
 def eliminar_reporte_rapido(request, id_reporte):
     """
-    Elimina físicamente un reporte falso, descartado o duplicado de la base de datos.
+    Elimina físicamente un reporte falso, descartado o duplicado de la base de datos (Exclusivo Administrador).
     """
+    if request.user.is_authenticated and not (request.user.is_superuser or request.user.tiene_rol('administrador')):
+        return JsonResponse({'success': False, 'error': 'Permiso denegado: Solo el Administrador puede eliminar reportes de la base de datos.'}, status=403)
+
     reporte = get_object_or_404(Reporte, id_reporte=id_reporte)
     id_rep = reporte.id_reporte
     comunidad_nombre = reporte.comunidad.nombre if reporte.comunidad else 'Coracora'
@@ -717,6 +728,7 @@ def moderar_donacion_rapida(request, id_oferta):
 def panel_usuarios_api(request):
     """
     Retorna la lista de usuarios del sistema con sus roles, teléfonos, correos y estado.
+    Solo expone los roles autorizados para el Centro de Mando Táctico ('administrador' y 'operador_emergencia').
     """
     from apps.usuarios.models import Rol
     usuarios = Usuario.objects.prefetch_related('roles', 'insignias_obtenidas__insignia').order_by('-creado_en')
@@ -726,6 +738,11 @@ def panel_usuarios_api(request):
             {'codigo': ui.insignia.codigo, 'nombre': ui.insignia.nombre, 'icono': ui.insignia.icono_url or 'award'}
             for ui in u.insignias_obtenidas.all()
         ]
+        u_roles = list(u.roles.values_list('codigo', flat=True))
+        es_admin = u.is_superuser or 'administrador' in u_roles
+        es_op = bool(set(u_roles).intersection({'operador_emergencia', 'operador', 'coep', 'coel'})) or u.is_staff
+        rol_principal = 'administrador' if es_admin else ('operador_emergencia' if es_op else 'movil')
+
         lista.append({
             'id': u.id_usuario,
             'uuid': str(u.uuid),
@@ -737,12 +754,16 @@ def panel_usuarios_api(request):
             'is_staff': u.is_staff,
             'is_superuser': u.is_superuser,
             'roles': [r.nombre for r in u.roles.all()],
-            'roles_codigos': [r.codigo for r in u.roles.all()],
+            'roles_codigos': u_roles,
+            'rol_principal': rol_principal,
+            'is_admin': es_admin,
+            'is_operador': es_op and not es_admin,
             'insignias': ins_list,
             'creado_en': u.creado_en.strftime('%d/%m/%Y'),
             'ultimo_acceso': u.last_login.strftime('%d/%m/%Y %H:%M') if u.last_login else 'Nunca'
         })
-    roles = [{'codigo': r.codigo, 'nombre': r.nombre} for r in Rol.objects.all()]
+    # Catálogo restringido a los 2 roles oficiales del Centro de Mando Táctico
+    roles = [{'codigo': r.codigo, 'nombre': r.nombre} for r in Rol.objects.filter(codigo__in=['administrador', 'operador_emergencia']).order_by('nombre')]
     return JsonResponse({'usuarios': lista, 'roles': roles})
 
 
@@ -750,8 +771,11 @@ def panel_usuarios_api(request):
 @require_POST
 def cambiar_estado_usuario(request, id_usuario):
     """
-    Activa o suspende a un usuario desde el panel administrativo.
+    Activa o suspende a un usuario desde el panel administrativo (Exclusivo Administrador).
     """
+    if request.user.is_authenticated and not es_administrador(request.user):
+        return JsonResponse({'success': False, 'error': 'Acceso denegado: Solo el Administrador puede modificar el estado de los usuarios.'}, status=403)
+
     u = get_object_or_404(Usuario, id_usuario=id_usuario)
     data = get_request_data(request)
     nuevo_estado = data.get('estado')
@@ -773,17 +797,28 @@ def cambiar_estado_usuario(request, id_usuario):
 @require_POST
 def asignar_rol_usuario(request, id_usuario):
     """
-    Asigna o retira un rol a un usuario.
+    Asigna o retira un rol a un usuario (Exclusivo Administrador).
+    Solo permite los 2 roles válidos del Centro de Mando ('administrador' y 'operador_emergencia').
     """
+    if request.user.is_authenticated and not es_administrador(request.user):
+        return JsonResponse({'success': False, 'error': 'Acceso denegado: Solo el Administrador puede asignar o revocar roles de usuario.'}, status=403)
+
     from apps.usuarios.models import Rol, UsuarioRol
     u = get_object_or_404(Usuario, id_usuario=id_usuario)
     data = get_request_data(request)
     codigo_rol = data.get('codigo_rol')
     accion = data.get('accion', 'asignar')
 
+    if codigo_rol not in ['administrador', 'operador_emergencia']:
+        return JsonResponse({'success': False, 'error': 'Rol no válido para el Centro de Mando Táctico. Solo se admiten Administrador y Operador de Emergencia.'}, status=400)
+
     rol = get_object_or_404(Rol, codigo=codigo_rol)
     if accion == 'asignar':
         UsuarioRol.objects.get_or_create(usuario=u, rol=rol)
+        # Mantener is_staff coherente si es operador o admin
+        if not u.is_staff:
+            u.is_staff = True
+            u.save(update_fields=['is_staff'])
     else:
         UsuarioRol.objects.filter(usuario=u, rol=rol).delete()
 
@@ -802,8 +837,12 @@ def asignar_rol_usuario(request, id_usuario):
 @require_POST
 def crear_usuario_operativo(request):
     """
-    Crea un nuevo usuario operador, verificador o brigadista desde el panel.
+    Crea un nuevo usuario operador o administrador desde el panel (Exclusivo Administrador).
+    Restringido estrictamente a los 2 roles del Centro de Mando Táctico.
     """
+    if request.user.is_authenticated and not es_administrador(request.user):
+        return JsonResponse({'success': False, 'error': 'Acceso denegado: Solo el Administrador puede registrar nuevos usuarios en el Centro de Mando.'}, status=403)
+
     from apps.usuarios.models import Rol, UsuarioRol
     data = get_request_data(request)
     username = data.get('username')
@@ -811,7 +850,10 @@ def crear_usuario_operativo(request):
     password = data.get('password', 'willai2026')
     nombre = data.get('nombre', '')
     telefono = data.get('telefono', None)
-    codigo_rol = data.get('codigo_rol', 'operador')
+    codigo_rol = data.get('codigo_rol', 'operador_emergencia')
+
+    if codigo_rol not in ['administrador', 'operador_emergencia']:
+        codigo_rol = 'operador_emergencia'
 
     if not username:
         return JsonResponse({'success': False, 'error': 'El nombre de usuario es obligatorio'}, status=400)
@@ -825,12 +867,13 @@ def crear_usuario_operativo(request):
         password=password,
         nombre_visible=nombre,
         telefono=telefono or None,
-        estado=Usuario.Estado.ACTIVO
+        estado=Usuario.Estado.ACTIVO,
+        is_staff=True,
+        is_superuser=(codigo_rol == 'administrador')
     )
-    if codigo_rol:
-        rol = Rol.objects.filter(codigo=codigo_rol).first()
-        if rol:
-            UsuarioRol.objects.create(usuario=u, rol=rol)
+    rol = Rol.objects.filter(codigo=codigo_rol).first()
+    if rol:
+        UsuarioRol.objects.create(usuario=u, rol=rol)
 
     registrar_auditoria(
         accion="CREAR_USUARIO_OPERATIVO",
@@ -852,7 +895,8 @@ def crear_usuario_operativo(request):
 def panel_login_api(request):
     """
     Autenticación de operadores y administradores para el Centro de Mando Táctico.
-    Acepta username o email y password.
+    Restringido estrictamente a los 2 roles autorizados: 'administrador' y 'operador_emergencia'.
+    Los roles de campo / móviles ('poblador', 'brigadista', 'verificador') son rechazados con HTTP 403.
     """
     data = get_request_data(request)
     username = data.get('username', '').strip()
@@ -876,6 +920,27 @@ def panel_login_api(request):
     if user.estado != Usuario.Estado.ACTIVO:
         return JsonResponse({'success': False, 'error': 'La cuenta se encuentra suspendida o pendiente de activación.'}, status=403)
 
+    # Verificación de roles exclusivos del Centro de Mando Táctico
+    is_admin = es_administrador(user)
+    is_operador = es_operador(user)
+
+    if not (is_admin or is_operador):
+        registrar_auditoria(
+            accion="LOGIN_CENTRO_MANDO_DENEGADO",
+            entidad="Usuario",
+            id_registro=str(user.id_usuario),
+            request=request,
+            detalles={
+                'username': user.username,
+                'motivo': 'rol_movil_exclusivo',
+                'roles': list(user.roles.values_list('codigo', flat=True))
+            }
+        )
+        return JsonResponse({
+            'success': False,
+            'error': 'Acceso restringido: Esta cuenta posee un perfil exclusivo de la App Móvil de WillAI (Poblador, Brigadista o Verificador Comunal). El Centro de Mando Web Táctico está reservado exclusivamente para los roles de Administrador y Operador de Emergencia (COEP/COEL/OGRD).'
+        }, status=403)
+
     django_login(request, user)
     user.last_login = timezone.now()
     user.save(update_fields=['last_login'])
@@ -885,23 +950,28 @@ def panel_login_api(request):
         entidad="Usuario",
         id_registro=str(user.id_usuario),
         request=request,
-        detalles={'username': user.username, 'ip': request.META.get('REMOTE_ADDR')}
+        detalles={'username': user.username, 'ip': request.META.get('REMOTE_ADDR'), 'rol': 'administrador' if is_admin else 'operador_emergencia'}
     )
 
     roles = [r.codigo for r in user.roles.all()]
-    if user.is_superuser and 'administrador' not in roles:
+    if is_admin and 'administrador' not in roles:
         roles.append('administrador')
-    if user.is_staff and 'operador_emergencia' not in roles:
+    if not is_admin and 'operador_emergencia' not in roles:
         roles.append('operador_emergencia')
+
+    rol_principal = 'administrador' if is_admin else 'operador_emergencia'
 
     return JsonResponse({
         'success': True,
         'user': {
             'id': user.id_usuario,
             'username': user.username,
-            'nombre': user.get_full_name() or user.nombre_visible or user.username,
+            'nombre': user.nombre_completo,
             'email': user.email,
             'roles': roles,
+            'rol_principal': rol_principal,
+            'is_admin': is_admin,
+            'is_operador': not is_admin,
             'is_staff': user.is_staff,
             'is_superuser': user.is_superuser
         },
@@ -1196,8 +1266,11 @@ def asignar_miembros_brigada(request, id_brigada):
 @require_http_methods(["POST", "DELETE"])
 def eliminar_brigada(request, id_brigada):
     """
-    Elimina una brigada del sistema.
+    Elimina una brigada del sistema (Exclusivo Administrador).
     """
+    if request.user.is_authenticated and not es_administrador(request.user):
+        return JsonResponse({'success': False, 'error': 'Acceso denegado: Solo el Administrador puede eliminar brigadas operativas del sistema.'}, status=403)
+
     brigada = get_object_or_404(Brigada, id_brigada=id_brigada)
     nombre = brigada.nombre
 
@@ -1379,8 +1452,11 @@ def editar_vivienda_rapida(request, id_vivienda):
 @require_http_methods(["POST", "DELETE"])
 def eliminar_vivienda_rapida(request, id_vivienda):
     """
-    Elimina una vivienda rural del padrón.
+    Elimina una vivienda rural del padrón (Exclusivo Administrador).
     """
+    if request.user.is_authenticated and not es_administrador(request.user):
+        return JsonResponse({'success': False, 'error': 'Acceso denegado: Solo el Administrador puede eliminar viviendas del padrón oficial.'}, status=403)
+
     vivienda = get_object_or_404(Vivienda, id_vivienda=id_vivienda)
     cod = vivienda.codigo or str(vivienda.id_vivienda)
 
