@@ -42,11 +42,11 @@ const COMUNIDADES_CORACORA = [
 ];
 
 const FUNCIONES_BRIGADISTA = [
-  { valor: 'Jefe de Brigada', label: '🎖️ Jefe de Brigada / Líder' },
-  { valor: 'Combatiente de Incendios', label: '🔥 Combatiente de Incendios' },
-  { valor: 'Conductor / Logística', label: '🚒 Conductor / Logística' },
-  { valor: 'Primeros Auxilios', label: '🩹 Primeros Auxilios / Rescate' },
-  { valor: 'Radioperador', label: '📻 Radioperador / Comunicaciones' }
+  { valor: 'Jefe de Brigada', label: 'Jefe de Brigada / Líder' },
+  { valor: 'Combatiente de Incendios', label: 'Combatiente de Incendios' },
+  { valor: 'Conductor / Logística', label: 'Conductor / Logística' },
+  { valor: 'Primeros Auxilios', label: 'Primeros Auxilios / Rescate' },
+  { valor: 'Radioperador', label: 'Radioperador / Comunicaciones' }
 ];
 
 interface SelectedMemberState {
@@ -219,7 +219,7 @@ export const BrigadasAdmin: React.FC = () => {
       const res = await crearBrigada(payload);
       if (res.success) {
         setIsCreateModalOpen(false);
-        showNotification(`✅ Brigada "${newNombre}" creada exitosamente con ${selectedMembers.length} integrantes.`);
+        showNotification(`Brigada "${newNombre}" creada exitosamente con ${selectedMembers.length} integrantes.`);
         await cargarDatos();
       }
     } catch (err: any) {
@@ -236,7 +236,7 @@ export const BrigadasAdmin: React.FC = () => {
     try {
       await asignarMiembrosBrigada(editingBrigada.id, editMembersList);
       setIsEditMembersModalOpen(false);
-      showNotification(`✅ Dotación de "${editingBrigada.nombre}" actualizada con ${editMembersList.length} miembros.`);
+      showNotification(`Dotación de "${editingBrigada.nombre}" actualizada con ${editMembersList.length} miembros.`);
       await cargarDatos();
     } catch (err: any) {
       alert(`Error al actualizar integrantes: ${err.message || 'Error de conexión'}`);
@@ -267,7 +267,7 @@ export const BrigadasAdmin: React.FC = () => {
     }
     try {
       await eliminarBrigada(brigada.id);
-      showNotification(`🗑️ Brigada "${brigada.nombre}" eliminada exitosamente.`);
+      showNotification(`Brigada "${brigada.nombre}" eliminada exitosamente.`);
       await cargarDatos();
     } catch (err: any) {
       alert(`Error al eliminar brigada: ${err.message}`);
@@ -423,13 +423,17 @@ export const BrigadasAdmin: React.FC = () => {
         <div className="stat-card" style={{ borderLeft: '4px solid #10b981' }}>
           <div className="stat-label">BRIGADAS DISPONIBLES</div>
           <div className="stat-value" style={{ color: '#10b981' }}>{brigadasDisponibles}</div>
-          <div style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>🟢 Listas para despacho inmediato</div>
+          <div style={{ fontSize: '11px', color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <CheckCircle2 size={12} color="#10b981" /> Listas para despacho inmediato
+          </div>
         </div>
 
         <div className="stat-card" style={{ borderLeft: '4px solid #ef4444' }}>
           <div className="stat-label">DESPLEGADAS EN INCIDENTE</div>
           <div className="stat-value" style={{ color: '#ef4444' }}>{brigadasDesplegadas}</div>
-          <div style={{ fontSize: '11px', color: '#ef4444', fontWeight: 600 }}>🔥 Combatiendo focos activos</div>
+          <div style={{ fontSize: '11px', color: '#ef4444', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Flame size={12} color="#ef4444" /> Combatiendo focos activos
+          </div>
         </div>
 
         <div className="stat-card" style={{ borderLeft: '4px solid #f59e0b' }}>
@@ -488,9 +492,9 @@ export const BrigadasAdmin: React.FC = () => {
               style={{ fontSize: '12px', padding: '7px 32px 7px 10px', width: 'auto' }}
             >
               <option value="todos">Todos los Estados ({brigadas.length})</option>
-              <option value="disponible">🟢 Disponibles ({brigadasDisponibles})</option>
-              <option value="desplegada">🔴 Desplegadas ({brigadasDesplegadas})</option>
-              <option value="inactiva">⚪ Inactivas</option>
+              <option value="disponible">Disponibles ({brigadasDisponibles})</option>
+              <option value="desplegada">Desplegadas ({brigadasDesplegadas})</option>
+              <option value="inactiva">Inactivas</option>
             </select>
           </div>
 
@@ -624,11 +628,13 @@ export const BrigadasAdmin: React.FC = () => {
                             gap: '4px'
                           }}
                         >
-                          🟢 DISPONIBLE
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                          DISPONIBLE
                         </span>
                       ) : (
-                        <span className="badge badge-gray" style={{ fontSize: '11px', padding: '3px 8px' }}>
-                          ⚪ {b.estado.toUpperCase()}
+                        <span className="badge badge-gray" style={{ fontSize: '11px', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#94a3b8', display: 'inline-block' }} />
+                          {b.estado.toUpperCase()}
                         </span>
                       )}
                     </div>
@@ -650,8 +656,8 @@ export const BrigadasAdmin: React.FC = () => {
                       }}
                     >
                       <div>
-                        <div style={{ fontSize: '10px', fontWeight: 800, color: '#ef4444', letterSpacing: '0.04em' }}>
-                          🔥 OPERANDO EN INCIDENTE ACTIVO
+                        <div style={{ fontSize: '10px', fontWeight: 800, color: '#ef4444', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Flame size={12} color="#ef4444" /> OPERANDO EN INCIDENTE ACTIVO
                         </div>
                         <div style={{ fontSize: '12px', fontWeight: 700, color: '#ffffff' }}>
                           [{b.incidente_asignado.codigo}] {b.incidente_asignado.titulo}
@@ -721,8 +727,8 @@ export const BrigadasAdmin: React.FC = () => {
                         marginBottom: '8px'
                       }}
                     >
-                      <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
-                        👥 DOTACIÓN DE INTEGRANTES ({integrantes.length})
+                      <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <Users size={13} color="var(--text-muted)" /> DOTACIÓN DE INTEGRANTES ({integrantes.length})
                       </span>
                       <button
                         type="button"

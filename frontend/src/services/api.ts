@@ -225,11 +225,11 @@ export async function fetchFWI(forzarRefresco: boolean = false): Promise<Metrica
 
     let recomendacion = 'Condiciones normales de bajo peligro.';
     if (rain > 0.0) {
-      recomendacion = `🌧️ Lluvia activa en Coracora (${rain} mm). Combustible vegetal saturado; peligro de fuego nulo o mínimo.`;
+      recomendacion = `Lluvia activa en Coracora (${rain} mm). Combustible vegetal saturado; peligro de fuego nulo o mínimo.`;
     } else if (rh >= 75.0) {
-      recomendacion = `💧 Alta humedad ambiental (${rh}%). Inhibición natural de focos de ignición.`;
+      recomendacion = `Alta humedad ambiental (${rh}%). Inhibición natural de focos de ignición.`;
     } else if (nivelPeligro === 'Extremo' || nivelPeligro === 'Alto') {
-      recomendacion = '🔥 Alerta Meteorológica: Precaución ante viento y baja humedad en Parinacochas.';
+      recomendacion = 'Alerta Meteorológica: Precaución ante viento y baja humedad en Parinacochas.';
     }
 
     return {

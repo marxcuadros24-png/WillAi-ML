@@ -69,15 +69,35 @@ export const IncidentesAdmin: React.FC<IncidentesAdminProps> = ({
   const getEstadoBadge = (est: string) => {
     switch (est) {
       case 'en_combate':
-        return <span className="badge-status badge-status-red">🔥 EN COMBATE</span>;
+        return (
+          <span className="badge-status badge-status-red" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <Flame size={12} color="#f87171" /> EN COMBATE
+          </span>
+        );
       case 'controlado':
-        return <span className="badge-status badge-status-amber">🛡️ CONTROLADO</span>;
+        return (
+          <span className="badge-status badge-status-amber" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <Shield size={12} color="#fbbf24" /> CONTROLADO
+          </span>
+        );
       case 'extinguido':
-        return <span className="badge-status badge-status-emerald">💧 EXTINGUIDO</span>;
+        return (
+          <span className="badge-status badge-status-emerald" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <CheckCircle2 size={12} color="#34d399" /> EXTINGUIDO
+          </span>
+        );
       case 'cerrado':
-        return <span className="badge-status badge-status-gray">🏁 CERRADO</span>;
+        return (
+          <span className="badge-status badge-status-gray" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <CheckCircle2 size={12} color="#94a3b8" /> CERRADO
+          </span>
+        );
       default:
-        return <span className="badge-status badge-status-cyan">⏱️ PENDIENTE</span>;
+        return (
+          <span className="badge-status badge-status-cyan" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <Clock size={12} color="#38bdf8" /> PENDIENTE
+          </span>
+        );
     }
   };
 
@@ -202,8 +222,8 @@ export const IncidentesAdmin: React.FC<IncidentesAdminProps> = ({
                       Iniciado: {inc.fecha_inicio} • Reportado por: {inc.reportado_por}
                     </div>
                     {inc.brigadas_asignadas && inc.brigadas_asignadas.length > 0 && (
-                      <div style={{ fontSize: '0.73rem', color: '#38bdf8', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                        🛡️ <strong>Brigadas:</strong> {inc.brigadas_asignadas.join(', ')}
+                      <div style={{ fontSize: '0.73rem', color: '#38bdf8', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Shield size={12} color="#38bdf8" /> <strong>Brigadas:</strong> {inc.brigadas_asignadas.join(', ')}
                       </div>
                     )}
                   </td>

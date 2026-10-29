@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, XCircle, Flame, MapPin, User, Calendar, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Flame, MapPin, User, Calendar, Image as ImageIcon, Trash2, AlertTriangle, Clock } from 'lucide-react';
 import type { ReporteCiudadano } from '../types';
 import { Pagination } from './Pagination';
 
@@ -51,13 +51,29 @@ export const ReportesAdmin: React.FC<ReportesAdminProps> = ({
     switch (est) {
       case 'confirmado':
       case 'validado':
-        return <span className="badge-status badge-status-emerald">✅ CONFIRMADO</span>;
+        return (
+          <span className="badge-status badge-status-emerald" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <CheckCircle2 size={12} color="#34d399" /> CONFIRMADO
+          </span>
+        );
       case 'rechazado':
-        return <span className="badge-status badge-status-red">❌ FALSA ALARMA</span>;
+        return (
+          <span className="badge-status badge-status-red" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <XCircle size={12} color="#f87171" /> FALSA ALARMA
+          </span>
+        );
       case 'observado':
-        return <span className="badge-status badge-status-amber">⚠️ OBSERVADO</span>;
+        return (
+          <span className="badge-status badge-status-amber" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <AlertTriangle size={12} color="#fbbf24" /> OBSERVADO
+          </span>
+        );
       default:
-        return <span className="badge-status badge-status-cyan">⏱️ POR VALIDAR</span>;
+        return (
+          <span className="badge-status badge-status-cyan" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <Clock size={12} color="#38bdf8" /> POR VALIDAR
+          </span>
+        );
     }
   };
 
@@ -101,10 +117,10 @@ export const ReportesAdmin: React.FC<ReportesAdminProps> = ({
               onChange={(e) => setFilterEstado(e.target.value)}
               style={{ fontSize: '12px', padding: '6px 30px 6px 10px', width: 'auto' }}
             >
-              <option value="pendientes">🔔 Pendientes de Validación ({countPendientes})</option>
-              <option value="confirmado">✅ Confirmados / Validados ({countConfirmados})</option>
-              <option value="rechazado">❌ Descartados / Falsa Alarma ({countRechazados})</option>
-              <option value="todos">📋 Todos los reportes ({reportes.length})</option>
+              <option value="pendientes">Pendientes de Validación ({countPendientes})</option>
+              <option value="confirmado">Confirmados / Validados ({countConfirmados})</option>
+              <option value="rechazado">Descartados / Falsa Alarma ({countRechazados})</option>
+              <option value="todos">Todos los reportes ({reportes.length})</option>
             </select>
           </div>
         </div>
@@ -209,8 +225,8 @@ export const ReportesAdmin: React.FC<ReportesAdminProps> = ({
               <div className="report-card-actions">
                 {rep.estado === 'rechazado' ? (
                   <div style={{ display: 'flex', width: '100%', gap: '8px', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.78rem', color: '#f87171', fontWeight: 700 }}>
-                      ❌ Falsa Alarma Descartada
+                    <span style={{ fontSize: '0.78rem', color: '#f87171', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                      <XCircle size={13} color="#f87171" /> Falsa Alarma Descartada
                     </span>
                     {onEliminar && (
                       <button

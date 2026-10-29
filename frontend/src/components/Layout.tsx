@@ -520,8 +520,9 @@ export const Layout: React.FC<LayoutProps> = ({ context }) => {
                 fontFamily: 'var(--font-mono)'
               }}
             >
-              <span style={{ color: esLluvia ? '#38bdf8' : '#f87171', fontWeight: 700 }}>
-                {esLluvia ? '🌧️ Lluvia Activa' : '🔥 Riesgo'} {fwi.nivel_peligro.toUpperCase()}
+              <span style={{ color: esLluvia ? '#38bdf8' : '#f87171', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                {esLluvia ? <CloudRain size={13} color="#38bdf8" /> : <Flame size={13} color="#f87171" />}
+                {esLluvia ? 'Lluvia Activa' : 'Riesgo'} {fwi.nivel_peligro.toUpperCase()}
               </span>
               <span style={{ color: 'var(--text-muted)' }}>•</span>
               <span style={{ color: '#ffffff', fontWeight: 600 }}>{fwi.temperatura}°C</span>

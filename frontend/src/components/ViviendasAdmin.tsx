@@ -18,7 +18,8 @@ import {
   Check,
   ExternalLink,
   ShieldAlert,
-  Users
+  Users,
+  Clock
 } from 'lucide-react';
 import type { ViviendaRural, CrearViviendaPayload } from '../types';
 import {
@@ -151,7 +152,7 @@ export const ViviendasAdmin: React.FC = () => {
       (pos) => {
         setNewLat(parseFloat(pos.coords.latitude.toFixed(6)));
         setNewLon(parseFloat(pos.coords.longitude.toFixed(6)));
-        showNotification('📍 Coordenadas GPS del dispositivo capturadas.');
+        showNotification('Coordenadas GPS del dispositivo capturadas.');
       },
       (err) => {
         alert(`No se pudo obtener la ubicación GPS: ${err.message}`);
@@ -202,7 +203,7 @@ export const ViviendasAdmin: React.FC = () => {
       const res = await crearVivienda(payload);
       if (res.success) {
         setIsCreateModalOpen(false);
-        showNotification(`✅ Vivienda "${res.codigo || 'creada'}" registrada exitosamente en el padrón.`);
+        showNotification(`Vivienda "${res.codigo || 'creada'}" registrada exitosamente en el padrón.`);
         await cargarDatos();
         loadAllData?.();
       }
@@ -245,7 +246,7 @@ export const ViviendasAdmin: React.FC = () => {
         longitud: editLon
       });
       setIsEditModalOpen(false);
-      showNotification(`✅ Vivienda "${editingVivienda.codigo}" actualizada con éxito.`);
+      showNotification(`Vivienda "${editingVivienda.codigo}" actualizada con éxito.`);
       await cargarDatos();
       loadAllData?.();
     } catch (err: any) {
@@ -262,7 +263,7 @@ export const ViviendasAdmin: React.FC = () => {
     }
     try {
       await eliminarVivienda(v.id);
-      showNotification(`🗑️ Vivienda "${v.codigo}" eliminada.`);
+      showNotification(`Vivienda "${v.codigo}" eliminada.`);
       await cargarDatos();
       loadAllData?.();
     } catch (err: any) {
@@ -508,8 +509,8 @@ export const ViviendasAdmin: React.FC = () => {
             style={{ fontSize: '12px', padding: '7px 32px 7px 10px', width: 'auto' }}
           >
             <option value="todas">Todas</option>
-            <option value="si">✅ Verificadas en Campo</option>
-            <option value="no">⏳ Pendientes de Verificación</option>
+            <option value="si">Verificadas en Campo</option>
+            <option value="no">Pendientes de Verificación</option>
           </select>
         </div>
       </div>
@@ -603,8 +604,8 @@ export const ViviendasAdmin: React.FC = () => {
                     </td>
 
                     <td>
-                      <span style={{ fontSize: '12px', color: '#38bdf8', fontWeight: 600 }}>
-                        📍 {v.comunidad}
+                      <span style={{ fontSize: '12px', color: '#38bdf8', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <MapPin size={12} color="#38bdf8" /> {v.comunidad}
                       </span>
                     </td>
 
@@ -626,10 +627,13 @@ export const ViviendasAdmin: React.FC = () => {
                           fontSize: '11px',
                           background: 'rgba(56, 189, 248, 0.12)',
                           color: '#38bdf8',
-                          border: '1px solid rgba(56, 189, 248, 0.3)'
+                          border: '1px solid rgba(56, 189, 248, 0.3)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
                         }}
                       >
-                        👥 {v.habitantes} hab.
+                        <Users size={11} color="#38bdf8" /> {v.habitantes} hab.
                       </span>
                     </td>
 
@@ -812,15 +816,18 @@ export const ViviendasAdmin: React.FC = () => {
                           color: 'var(--text-muted)',
                           borderRadius: '4px',
                           padding: '2px 6px',
-                          fontSize: '11px'
+                          fontSize: '11px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
                         }}
                       >
-                        ⏳ Pendiente de Verificación
+                        <Clock size={11} color="var(--text-muted)" /> Pendiente de Verificación
                       </span>
                     )}
                   </div>
-                  <p style={{ fontSize: '11px', color: '#38bdf8', margin: '2px 0 0 0', fontWeight: 600 }}>
-                    📍 Sector / Comunidad: {detalleVivienda.comunidad} (Distrito Coracora)
+                  <p style={{ fontSize: '11px', color: '#38bdf8', margin: '2px 0 0 0', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <MapPin size={12} color="#38bdf8" /> Sector / Comunidad: {detalleVivienda.comunidad} (Distrito Coracora)
                   </p>
                 </div>
               </div>

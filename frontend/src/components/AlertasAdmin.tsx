@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, CheckCircle2, MapPin, Megaphone } from 'lucide-react';
+import { Send, CheckCircle2, MapPin, Megaphone, AlertOctagon, AlertTriangle, Info } from 'lucide-react';
 import type { AlertaComunitaria } from '../types';
 import { Pagination } from './Pagination';
 
@@ -23,12 +23,24 @@ export const AlertasAdmin: React.FC<AlertasAdminProps> = ({ alertas, onOpenEmiti
     switch (nivel) {
       case 'evacuacion':
       case 'muy_alta':
-        return <span className="badge-status badge-status-red">🔴 ALERTA ROJA (EVACUACIÓN)</span>;
+        return (
+          <span className="badge-status badge-status-red" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <AlertOctagon size={13} color="#f87171" /> ALERTA ROJA (EVACUACIÓN)
+          </span>
+        );
       case 'preventiva':
       case 'alta':
-        return <span className="badge-status badge-status-amber">🟠 ALERTA NARANJA (PREVENTIVA)</span>;
+        return (
+          <span className="badge-status badge-status-amber" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <AlertTriangle size={13} color="#fbbf24" /> ALERTA NARANJA (PREVENTIVA)
+          </span>
+        );
       default:
-        return <span className="badge-status badge-status-cyan">🔵 INFORMATIVA</span>;
+        return (
+          <span className="badge-status badge-status-cyan" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <Info size={13} color="#38bdf8" /> INFORMATIVA
+          </span>
+        );
     }
   };
 

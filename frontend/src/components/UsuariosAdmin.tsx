@@ -11,7 +11,9 @@ import {
   RefreshCw,
   X,
   Eye,
-  EyeOff
+  EyeOff,
+  Award,
+  Shield
 } from 'lucide-react';
 import type { UsuarioSistema, RolSistema } from '../types';
 import { fetchUsuarios, cambiarEstadoUsuario, asignarRolUsuario, crearUsuarioOperativo } from '../services/api';
@@ -363,7 +365,7 @@ export const UsuariosAdmin: React.FC = () => {
                                     fontWeight: 700
                                   }}
                                 >
-                                  🏅 {ins.nombre}
+                                  <Award size={11} color="#f59e0b" /> {ins.nombre}
                                 </span>
                               ))}
                             </div>
@@ -427,7 +429,7 @@ export const UsuariosAdmin: React.FC = () => {
                             }
                           }}
                         >
-                          <option value="">⚙️ Roles...</option>
+                          <option value="">Roles...</option>
                           {roles.map((r) => (
                             <option key={r.codigo} value={r.codigo}>
                               {u.roles_codigos.includes(r.codigo) ? 'Quitar ' : 'Asignar '} {r.nombre}
@@ -622,8 +624,10 @@ export const UsuariosAdmin: React.FC = () => {
               </div>
 
               {/* Indicador Táctico de Privilegios */}
-              <div style={{ background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: '8px', padding: '10px 14px', fontSize: '11.5px', color: '#e2e8f0' }}>
-                🛡️ <b>Privilegios del Rol:</b>{' '}
+              <div style={{ background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: '8px', padding: '10px 14px', fontSize: '11.5px', color: '#e2e8f0', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                <Shield size={14} color="#38bdf8" style={{ marginTop: '2px', flexShrink: 0 }} />
+                <div>
+                  <b>Privilegios del Rol:</b>{' '}
                 {newRole === 'operador_emergencia' || newRole === 'operador'
                   ? 'Centro de Mando, despacho y movilización de brigadas y emisión de alertas comunitarias.'
                   : newRole === 'brigadista'
@@ -633,6 +637,7 @@ export const UsuariosAdmin: React.FC = () => {
                   : newRole === 'administrador'
                   ? 'Acceso total y configuración de usuarios, donaciones y parámetros del sistema.'
                   : 'Reporte ciudadano y visualización de mapa de emergencia.'}
+                </div>
               </div>
 
               <div className="modal-actions" style={{ marginTop: '4px' }}>

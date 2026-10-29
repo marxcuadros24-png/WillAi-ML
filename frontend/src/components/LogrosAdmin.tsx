@@ -580,10 +580,13 @@ export const LogrosAdmin: React.FC = () => {
                     fontSize: '11px',
                     fontWeight: 900,
                     letterSpacing: '0.05em',
-                    boxShadow: '0 2px 8px rgba(148, 163, 184, 0.4)'
+                    boxShadow: '0 2px 8px rgba(148, 163, 184, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
                   }}
                 >
-                  🥈 2° PUESTO
+                  <Trophy size={12} color="#0f172a" /> 2° PUESTO
                 </div>
 
                 <div
@@ -679,10 +682,13 @@ export const LogrosAdmin: React.FC = () => {
                   fontSize: '12px',
                   fontWeight: 900,
                   letterSpacing: '0.06em',
-                  boxShadow: '0 4px 12px rgba(245, 158, 11, 0.5)'
+                  boxShadow: '0 4px 12px rgba(245, 158, 11, 0.5)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
                 }}
               >
-                🥇 1° PUESTO — GRAN LÍDER
+                <Crown size={13} color="#0f172a" /> 1° PUESTO — GRAN LÍDER
               </div>
 
               <div
@@ -719,10 +725,13 @@ export const LogrosAdmin: React.FC = () => {
                   borderRadius: '12px',
                   fontSize: '12px',
                   fontWeight: 800,
-                  marginBottom: '16px'
+                  marginBottom: '16px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px'
                 }}
               >
-                👑 {top1.rango_honor}
+                <Crown size={13} color="#fef08a" /> {top1.rango_honor}
               </div>
 
               <div style={{ fontSize: '32px', fontWeight: 900, color: '#f59e0b' }}>
@@ -778,10 +787,13 @@ export const LogrosAdmin: React.FC = () => {
                     fontSize: '11px',
                     fontWeight: 900,
                     letterSpacing: '0.05em',
-                    boxShadow: '0 2px 8px rgba(217, 119, 6, 0.4)'
+                    boxShadow: '0 2px 8px rgba(217, 119, 6, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
                   }}
                 >
-                  🥉 3° PUESTO
+                  <Award size={12} color="#ffffff" /> 3° PUESTO
                 </div>
 
                 <div
@@ -1053,11 +1065,17 @@ export const LogrosAdmin: React.FC = () => {
                           {/* Posición con medalla */}
                           <td style={{ textAlign: 'center' }}>
                             {colab.posicion === 1 ? (
-                              <span style={{ fontSize: '18px' }}>🥇</span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Trophy size={18} color="#f59e0b" />
+                              </span>
                             ) : colab.posicion === 2 ? (
-                              <span style={{ fontSize: '18px' }}>🥈</span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Trophy size={18} color="#94a3b8" />
+                              </span>
                             ) : colab.posicion === 3 ? (
-                              <span style={{ fontSize: '18px' }}>🥉</span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Award size={18} color="#d97706" />
+                              </span>
                             ) : (
                               <span
                                 style={{
@@ -1111,10 +1129,13 @@ export const LogrosAdmin: React.FC = () => {
                                         color: '#0f172a',
                                         padding: '1px 6px',
                                         borderRadius: '4px',
-                                        fontWeight: 900
+                                        fontWeight: 900,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '3px'
                                       }}
                                     >
-                                      ✨ ACTUALIZADO
+                                      <Sparkles size={10} color="#0f172a" /> ACTUALIZADO
                                     </span>
                                   )}
                                 </div>
@@ -1650,8 +1671,8 @@ export const LogrosAdmin: React.FC = () => {
                     return (
                       <option key={ins.codigo} value={ins.codigo}>
                         {yaPosee
-                          ? `🔄 ${ins.nombre} (+30 pts por reiteración en combate)`
-                          : `⭐ ${ins.nombre} (+${ins.puntos + 30} pts - ¡Nueva Condecoración!)`}
+                          ? `[Reiteración] ${ins.nombre} (+30 pts)`
+                          : `[Nueva] ${ins.nombre} (+${ins.puntos + 30} pts)`}
                       </option>
                     );
                   })}

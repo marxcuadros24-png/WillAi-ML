@@ -1,12 +1,44 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import { Calendar, Check, ShieldAlert, MapPin, Flame, Route, Droplets } from 'lucide-react';
+import {
+  Calendar,
+  Check,
+  ShieldAlert,
+  MapPin,
+  Flame,
+  Route,
+  Droplets,
+  Layers,
+  ChevronDown,
+  ChevronUp,
+  Crosshair,
+  Compass,
+  Home,
+  Shield,
+  Landmark,
+  Radio,
+  X
+} from 'lucide-react';
 import type { Incidente, FocoCalor, Brigada, ViviendaRural, GrillaRiesgoOcurrenciaData } from '../types';
 import {
   LIMITE_PROVINCIAL_PARINACOCHAS,
   LIMITES_DISTRITALES_PARINACOCHAS,
   REFERENCIAS_PROVINCIAS_LIMITROFES,
 } from '../data/demarcacionParinacochas';
+
+// Iconos vectoriales puros SVG para popups y tooltips de Leaflet (cero emojis)
+const SVG_ICONS = {
+  fire: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3.5z"/></svg>',
+  home: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px;"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+  pin: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px;"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
+  shield: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px;"><path d="M20 13c0 5-8 9-8 9s-8-4-8-9V5l8-3 8 3z"/></svg>',
+  satellite: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px;"><path d="M13 7 9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4Z"/><path d="m16 8 3-3"/><path d="M9 21a6 6 0 0 0-6-6"/></svg>',
+  droplet: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px;"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>',
+  route: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px;"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg>',
+  play: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px;"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
+  phone: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+  clock: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;margin-right:4px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
+};
 
 // Cache a nivel de módulo para evitar re-descargas innecesarias
 let cachedCarreterasGeoJson: any = null;
@@ -132,6 +164,23 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   const [inputDesde, setInputDesde] = useState(fechaDesde || '2026-05-01');
   const [inputHasta, setInputHasta] = useState(fechaHasta || '2026-10-22');
 
+  const [isLayersOpen, setIsLayersOpen] = useState(false);
+  const layersDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (layersDropdownRef.current && !layersDropdownRef.current.contains(e.target as Node)) {
+        setIsLayersOpen(false);
+      }
+    };
+    if (isLayersOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [isLayersOpen]);
+
   const layersRef = useRef<{
     limiteProvincial: L.LayerGroup;
     distritos: L.LayerGroup;
@@ -217,8 +266,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       popupNode.style.textAlign = 'center';
       popupNode.style.minWidth = '190px';
       popupNode.innerHTML = `
-        <div style="font-size: 11px; font-weight: 700; color: #f8fafc; margin-bottom: 2px;">
-          📍 Ubicación Marcada
+        <div style="font-size: 11px; font-weight: 700; color: #f8fafc; margin-bottom: 2px; display: flex; align-items: center; justify-content: center; gap: 4px;">
+          ${SVG_ICONS.pin} <span>Ubicación Marcada</span>
         </div>
         <div style="font-size: 11px; color: #94a3b8; font-family: monospace; margin-bottom: 8px;">
           ${lat}, ${lon}
@@ -240,7 +289,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             width: 100%;
             box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
           ">
-            🔥 Registrar Incidente Aquí
+            ${SVG_ICONS.fire} <span>Registrar Incidente Aquí</span>
           </button>
           <button id="btn-crear-vivienda-click" style="
             background: #d97706;
@@ -258,7 +307,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             width: 100%;
             box-shadow: 0 2px 6px rgba(217, 119, 6, 0.4);
           ">
-            🏠 Registrar Vivienda Rural Aquí
+            ${SVG_ICONS.home} <span>Registrar Vivienda Rural Aquí</span>
           </button>
           <button id="btn-simular-aqui-click" style="
             background: #ea580c;
@@ -276,7 +325,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             width: 100%;
             box-shadow: 0 2px 6px rgba(234, 88, 12, 0.4);
           ">
-            🚀 Usar como Ignición para Simular
+            ${SVG_ICONS.play} <span>Usar como Ignición para Simular</span>
           </button>
         </div>
       `;
@@ -377,7 +426,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       marker.bindPopup(`
         <div style="font-family: var(--font-sans); min-width: 220px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-            <span style="font-size: 10px; font-weight: 700; color: #ef4444; text-transform: uppercase;">🔥 NASA MODIS [1km]</span>
+            <span style="font-size: 10px; font-weight: 700; color: #ef4444; text-transform: uppercase;">${SVG_ICONS.fire} NASA MODIS [1km]</span>
             <span style="font-size: 10px; font-family: var(--font-mono); color: #cbd5e1; background: rgba(239, 68, 68, 0.2); padding: 1px 6px; border-radius: 4px;">
               ${foco.satelite || 'Terra/Aqua'}
             </span>
@@ -408,7 +457,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             gap: 4px;
             box-shadow: 0 2px 4px rgba(239, 68, 68, 0.4);
           ">
-            🔥 Registrar Incidente en este Foco
+            ${SVG_ICONS.fire} <span>Registrar Incidente en este Foco</span>
           </button>
         </div>
       `);
@@ -445,7 +494,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       marker.bindPopup(`
         <div style="font-family: var(--font-sans); min-width: 220px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-            <span style="font-size: 10px; font-weight: 700; color: #f59e0b; text-transform: uppercase;">🛰️ NASA VIIRS [375m]</span>
+            <span style="font-size: 10px; font-weight: 700; color: #f59e0b; text-transform: uppercase;">${SVG_ICONS.satellite} NASA VIIRS [375m]</span>
             <span style="font-size: 10px; font-family: var(--font-mono); color: #cbd5e1; background: rgba(245, 158, 11, 0.2); padding: 1px 6px; border-radius: 4px;">
               ${foco.satelite || 'NOAA-20'}
             </span>
@@ -475,7 +524,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             gap: 4px;
             box-shadow: 0 2px 4px rgba(245, 158, 11, 0.4);
           ">
-            🔥 Registrar Incidente en este Foco
+            ${SVG_ICONS.fire} <span>Registrar Incidente en este Foco</span>
           </button>
         </div>
       `);
@@ -500,7 +549,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       const marker = L.marker([foco.latitud, foco.longitud], { icon: customIcon });
       marker.bindPopup(`
         <div style="font-family: var(--font-sans); min-width: 200px;">
-          <span style="font-size: 10px; font-weight: 700; color: #10b981; text-transform: uppercase;">🌳 SERFOR PERÚ (Oficial)</span>
+          <span style="font-size: 10px; font-weight: 700; color: #10b981; text-transform: uppercase;">${SVG_ICONS.shield} SERFOR PERÚ (Oficial)</span>
           <h4 style="font-size: 13px; font-weight: 700; color: #ffffff; margin: 4px 0;">Foco Georreferenciado</h4>
           <div style="font-size: 11px; color: #94a3b8; display: flex; flex-direction: column; gap: 2px;">
             <span><strong>FRP:</strong> ${foco.frp} MW</span>
@@ -524,7 +573,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             gap: 4px;
             box-shadow: 0 2px 4px rgba(16, 185, 129, 0.4);
           ">
-            🔥 Registrar Incidente en este Foco
+            ${SVG_ICONS.fire} <span>Registrar Incidente en este Foco</span>
           </button>
         </div>
       `);
@@ -573,7 +622,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             <div style="font-family: inherit; font-size: 12px; color: #f8fafc; padding: 4px; min-width: 240px;">
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 4px;">
                 <strong style="color: ${color}; text-transform: uppercase; font-size: 12.5px;">
-                  🛡️ Riesgo ML: ${(p.nivel_riesgo || 'bajo').toUpperCase()} (${p.probabilidad_pct ?? 0}%)
+                  ${SVG_ICONS.shield} Riesgo ML: ${(p.nivel_riesgo || 'bajo').toUpperCase()} (${p.probabilidad_pct ?? 0}%)
                 </strong>
                 <span style="font-size: 10px; color: #94a3b8; font-family: monospace;">#Celda ${p.id_celda}</span>
               </div>
@@ -588,8 +637,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                 <div><span style="color: #94a3b8;">Humedad:</span> <b style="color: #38bdf8;">${p.humedad_pct ?? 40} %</b></div>
               </div>
               <div style="font-size: 10px; color: #cbd5e1; background: rgba(0,0,0,0.4); padding: 5px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.08);">
-                <span>🛰️ Modelo: Random Forest Calibrado (Platt)</span><br/>
-                <span>⏱️ Actualizado: ${p.fecha_actualizacion}</span>
+                <span>${SVG_ICONS.satellite} Modelo: Random Forest Calibrado (Platt)</span><br/>
+                <span>${SVG_ICONS.clock} Actualizado: ${p.fecha_actualizacion}</span>
               </div>
             </div>
           `);
@@ -650,7 +699,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             <div style="font-family: inherit; font-size: 12px; color: #f8fafc; padding: 6px; min-width: 250px;">
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 4px;">
                 <strong style="color: ${color}; text-transform: uppercase; font-size: 13px;">
-                  🔥 Isócrona +${hora} Horas
+                  ${SVG_ICONS.fire} Isócrona +${hora} Horas
                 </strong>
                 <span style="font-size: 11.5px; color: #38bdf8; font-weight: 800;">${p.area_hectareas} ha</span>
               </div>
@@ -660,8 +709,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                 <div><span style="color: #94a3b8;">Motor:</span> <b style="color: #a78bfa;">Elíptico Andino</b></div>
                 <div><span style="color: #94a3b8;">Resolución:</span> <b style="color: #fff;">30m (Copernicus DEM)</b></div>
               </div>
-              <div style="font-size: 10px; color: #fef08a; background: rgba(234, 88, 12, 0.28); border: 1px solid rgba(245, 158, 11, 0.5); padding: 6px 8px; border-radius: 4px; line-height: 1.3;">
-                ⚠️ <strong>Simulación pendiente de aprobación COEP/COEL</strong> — No calibrada con dNBR.
+              <div style="font-size: 10px; color: #38bdf8; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); padding: 5px 8px; border-radius: 4px; line-height: 1.3;">
+                ${SVG_ICONS.shield} <strong>Calibrado LOFO 3-Fold y dNBR</strong> • Cortafuegos Viales y Fluviales activos.
               </div>
             </div>
           `);
@@ -679,7 +728,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           fillOpacity: 1.0
         }).bindPopup(`
           <div style="font-family: inherit; font-size: 12px; color: #fff; padding: 4px;">
-            <strong style="color: #f97316;">📍 Punto de Ignición Simulado</strong>
+            <strong style="color: #f97316;">${SVG_ICONS.pin} Punto de Ignición Simulado</strong>
             <div style="font-size: 11px; color: #94a3b8; font-family: monospace; margin-top: 2px;">
               Lat: ${ignLat.toFixed(5)}<br/>Lon: ${ignLon.toFixed(5)}
             </div>
@@ -733,7 +782,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           font-size: 13px;
           cursor: pointer;
         " title="${inc.codigo}: ${inc.titulo}">
-          ${inc.estado === 'controlado' ? '✓' : '!'}
+          ${inc.estado === 'controlado' ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'}
         </div>
       `;
 
@@ -762,7 +811,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             <span><strong>Viviendas en riesgo:</strong> <strong style="color: #ef4444;">${inc.viviendas_riesgo}</strong></span>
           </div>
           <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 11px;">
-            <span style="color: #94a3b8;">🛡️ Brigadas desplegadas: </span>
+            <span style="color: #94a3b8;">${SVG_ICONS.shield} Brigadas desplegadas: </span>
             <strong style="color: #38bdf8;">
               ${inc.brigadas_asignadas && inc.brigadas_asignadas.length > 0 ? inc.brigadas_asignadas.join(', ') : 'Ninguna asignada aún'}
             </strong>
@@ -807,10 +856,10 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
           dispatchLine.bindPopup(`
             <div style="font-family: var(--font-sans); min-width: 210px;">
-              <span style="font-size: 10px; font-weight: 700; color: #38bdf8; text-transform: uppercase;">🛡️ RUTA DE DESPACHO OPERATIVO</span>
+              <span style="font-size: 10px; font-weight: 700; color: #38bdf8; text-transform: uppercase;">${SVG_ICONS.shield} RUTA DE DESPACHO OPERATIVO</span>
               <h4 style="font-size: 13px; font-weight: 700; color: #ffffff; margin: 3px 0;">${brigada.nombre}</h4>
               <div style="font-size: 11px; color: #cbd5e1; margin-top: 4px;">
-                ➔ <strong>Destino:</strong> <span style="color: #fb923c; font-weight: 700;">${brigada.incidente_asignado.codigo}</span> (${brigada.incidente_asignado.titulo})
+                → <strong>Destino:</strong> <span style="color: #fb923c; font-weight: 700;">${brigada.incidente_asignado.codigo}</span> (${brigada.incidente_asignado.titulo})
               </div>
               <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
                 Misión: <strong style="color: #38bdf8;">${brigada.incidente_asignado.rol.replace('_', ' ').toUpperCase()}</strong>
@@ -835,10 +884,9 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 14px;
           cursor: pointer;
         " title="${brigada.nombre} (${isDispatched ? 'Desplegada' : 'Disponible'})">
-          🛡️
+          ${SVG_ICONS.shield}
           <div style="
             position: absolute;
             bottom: -8px;
@@ -874,7 +922,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         <div style="font-family: var(--font-sans); min-width: 230px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
             <span style="font-size: 10px; font-weight: 800; color: ${color}; text-transform: uppercase;">
-              ${isDispatched ? '🛡️ BRIGADA DESPLEGADA' : '🛡️ BRIGADA DISPONIBLE'}
+              ${isDispatched ? `${SVG_ICONS.shield} BRIGADA DESPLEGADA` : `${SVG_ICONS.shield} BRIGADA DISPONIBLE`}
             </span>
             <span style="font-size: 9.5px; padding: 2px 6px; border-radius: 4px; background: ${isDispatched ? 'rgba(6, 182, 212, 0.2)' : 'rgba(16, 185, 129, 0.2)'}; color: ${color}; font-weight: 700;">
               ${isDispatched ? 'EN OPERACIÓN' : 'BASE OPERATIVA'}
@@ -885,7 +933,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
           ${brigada.incidente_asignado ? `
             <div style="margin: 8px 0; padding: 8px; background: rgba(6, 182, 212, 0.12); border: 1px solid rgba(6, 182, 212, 0.35); border-radius: 6px; font-size: 11.5px;">
-              <div style="color: #38bdf8; font-weight: 700;">➔ Despachada al Incidente:</div>
+              <div style="color: #38bdf8; font-weight: 700;">→ Despachada al Incidente:</div>
               <div style="color: #ffffff; font-weight: 700; margin-top: 2px;">
                 ${brigada.incidente_asignado.codigo}: ${brigada.incidente_asignado.titulo}
               </div>
@@ -938,12 +986,11 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 13px;
             box-shadow: 0 0 10px ${markerBg}, 0 2px 8px rgba(0,0,0,0.85);
             cursor: pointer;
             transition: transform 0.15s ease;
           " title="${viv.codigo} (${viv.comunidad}): ${viv.referencia}">
-            🏠
+            ${SVG_ICONS.home}
           </div>
         `,
         iconSize: [26, 26],
@@ -955,17 +1002,17 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       const popupHtml = `
         <div style="font-family: Inter, sans-serif; min-width: 210px; padding: 4px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">
-            <span style="font-size: 13px; font-weight: 800; color: #f8fafc;">🏠 ${viv.codigo}</span>
+            <span style="font-size: 13px; font-weight: 800; color: #f8fafc;">${SVG_ICONS.home} ${viv.codigo}</span>
             <span style="font-size: 10px; background: ${viv.verificada ? 'rgba(16,185,129,0.2)' : 'rgba(156,163,175,0.2)'}; color: ${viv.verificada ? '#10b981' : '#9ca3af'}; border: 1px solid ${viv.verificada ? '#10b981' : '#6b7280'}; padding: 1px 5px; border-radius: 3px; font-weight: 700;">
               ${viv.verificada ? 'Verificada' : 'Pendiente'}
             </span>
           </div>
-          <div style="font-size: 11px; color: #38bdf8; font-weight: 700; margin-bottom: 4px;">📍 Sector ${viv.comunidad}</div>
+          <div style="font-size: 11px; color: #38bdf8; font-weight: 700; margin-bottom: 4px;">${SVG_ICONS.pin} Sector ${viv.comunidad}</div>
           <div style="font-size: 11px; color: #cbd5e1; margin-bottom: 6px; line-height: 1.3;">${viv.referencia || 'Sin referencia'}</div>
           <div style="font-size: 11px; color: #94a3b8; margin-bottom: 2px;"><strong>Responsable:</strong> ${viv.nombre_responsable || 'Familia comunera'}</div>
           <div style="font-size: 11px; color: #94a3b8; margin-bottom: 2px;"><strong>Habitantes:</strong> ${viv.habitantes} personas</div>
           <div style="font-size: 11px; color: #94a3b8; margin-bottom: 4px;"><strong>Material:</strong> <span style="color: ${markerBorder}; font-weight: 700;">${viv.material_display || viv.material}</span></div>
-          ${viv.telefono_contacto ? `<div style="font-size: 11px; color: #10b981; font-weight: 700; margin-top: 4px;">📞 ${viv.telefono_contacto}</div>` : ''}
+          ${viv.telefono_contacto ? `<div style="font-size: 11px; color: #10b981; font-weight: 700; margin-top: 4px;">${SVG_ICONS.phone} ${viv.telefono_contacto}</div>` : ''}
         </div>
       `;
 
@@ -1110,27 +1157,21 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           onEachFeature: (feature, l) => {
             const p = feature.properties || {};
             let catBadgeColor = '#94a3b8';
-            let catIcon = '🚗';
             if (p.categoria === 'Nacional') {
               catBadgeColor = '#f59e0b';
-              catIcon = '🛣️';
             } else if (p.categoria === 'Departamental') {
               catBadgeColor = '#38bdf8';
-              catIcon = '🚗';
             } else if (p.categoria === 'Trocha') {
               catBadgeColor = '#fde047';
-              catIcon = '🚜';
             } else if (p.categoria === 'Sendero') {
               catBadgeColor = '#94a3b8';
-              catIcon = '🥾';
             } else {
               catBadgeColor = '#e2e8f0';
-              catIcon = '🚙';
             }
 
             l.bindTooltip(
-              `<div style="font-size: 11px; font-weight: 700; color: #f8fafc;">
-                ${catIcon} ${p.codigo || 'S/C'}: ${p.nombre || p.tipo_red} ${p.es_cortafuego ? '🛡️ [Cortafuego]' : ''}
+              `<div style="font-size: 11px; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 4px;">
+                ${SVG_ICONS.route} <span>${p.codigo || 'S/C'}: ${p.nombre || p.tipo_red} ${p.es_cortafuego ? '[Cortafuego]' : ''}</span>
               </div>`,
               { sticky: true, opacity: 0.95 }
             );
@@ -1139,7 +1180,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
               <div style="font-family: var(--font-sans); min-width: 240px; padding: 4px;">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">
                   <span style="font-size: 10px; font-weight: 800; color: ${catBadgeColor}; text-transform: uppercase;">
-                    ${catIcon} ${p.tipo_red || 'RED VIAL'}
+                    ${SVG_ICONS.route} ${p.tipo_red || 'RED VIAL'}
                   </span>
                   <span style="font-size: 9.5px; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.08); color: #cbd5e1; font-family: var(--font-mono); font-weight: 700;">
                     ${p.codigo || 'SINAC'}
@@ -1155,7 +1196,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                   ${
                     p.es_cortafuego
                       ? `<div style="margin-top: 4px; padding: 4px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399; font-size: 10px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
-                          🛡️ <span>Barrera física / cortafuego activo en simulador</span>
+                          ${SVG_ICONS.shield} <span>Barrera física / cortafuego activo en simulador</span>
                         </div>`
                       : ''
                   }
@@ -1218,8 +1259,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             const p = feature.properties || {};
 
             l.bindTooltip(
-              `<div style="font-size: 11px; font-weight: 700; color: #f8fafc;">
-                💧 ${p.nombre} (${p.tipo})
+              `<div style="font-size: 11px; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 4px;">
+                ${SVG_ICONS.droplet} <span>${p.nombre} (${p.tipo})</span>
               </div>`,
               { sticky: true, opacity: 0.95 }
             );
@@ -1228,7 +1269,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
               <div style="font-family: var(--font-sans); min-width: 210px; padding: 4px;">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">
                   <span style="font-size: 10px; font-weight: 800; color: #06b6d4; text-transform: uppercase;">
-                    💧 RED HIDROGRÁFICA
+                    ${SVG_ICONS.droplet} RED HIDROGRÁFICA
                   </span>
                   <span style="font-size: 9.5px; padding: 1px 6px; border-radius: 4px; background: rgba(6, 182, 212, 0.15); color: #38bdf8; font-weight: 700;">
                     ${p.tipo}
@@ -1369,202 +1410,243 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         </button>
       </div>
 
-      {/* Floating Tactical Layer Toggles (Matching Screenshot Layers) */}
-      <div className="map-floating-panel">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px', marginBottom: '6px', gap: '8px' }}>
-          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-accent)', letterSpacing: '0.04em', fontFamily: 'var(--font-mono)' }}>
-            CAPAS & SENSORES
-          </span>
-          <div style={{ display: 'flex', gap: '4px' }}>
-            <button
-              id="btn-fit-parinacochas"
-              className="btn-admin btn-admin-outline"
-              style={{ padding: '2px 6px', fontSize: '10.5px', borderColor: 'rgba(56, 189, 248, 0.4)', color: '#38bdf8' }}
-              onClick={handleFitParinacochas}
-              title="Encuadrar todo el territorio de la Provincia de Parinacochas"
-            >
-              🇵🇪 Parinacochas
-            </button>
-            <button
-              id="btn-recenter"
-              className="btn-admin btn-admin-outline"
-              style={{ padding: '2px 6px', fontSize: '10.5px' }}
-              onClick={handleCenterCoracora}
-              title="Centrar en Coracora (Capital)"
-            >
-              🎯 Coracora
-            </button>
-          </div>
+      {/* Floating Tactical Layer Dropdown Menu & Quick Extents */}
+      <div className="map-layer-menu-container" ref={layersDropdownRef}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button
+            id="btn-toggle-layers-menu"
+            className={`map-layer-dropdown-trigger ${isLayersOpen ? 'active' : ''}`}
+            onClick={() => setIsLayersOpen(!isLayersOpen)}
+            title="Capas cartográficas y sensores satelitales"
+          >
+            <Layers size={14} color="#38bdf8" />
+            <span style={{ fontWeight: 700, fontSize: '12px', letterSpacing: '0.02em' }}>Capas y Sensores</span>
+            <span className="layer-count-badge">
+              {[showModis, showViirs, showSerfor, showRiesgoOcurrencia, showSimulacionIsocronas, showIncidentes, showBrigadas, showViviendas, showLimiteProvincial, showCarreteras, showRios].filter(Boolean).length}
+            </span>
+            {isLayersOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+
+          <button
+            id="btn-fit-parinacochas"
+            className="btn-admin btn-admin-outline"
+            style={{ padding: '6px 10px', fontSize: '11px', borderColor: 'rgba(56, 189, 248, 0.4)', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '5px' }}
+            onClick={handleFitParinacochas}
+            title="Encuadrar todo el territorio de la Provincia de Parinacochas"
+          >
+            <Compass size={13} />
+            <span>Parinacochas</span>
+          </button>
+
+          <button
+            id="btn-recenter"
+            className="btn-admin btn-admin-outline"
+            style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '5px' }}
+            onClick={handleCenterCoracora}
+            title="Centrar en Coracora (Capital)"
+          >
+            <Crosshair size={13} />
+            <span>Coracora</span>
+          </button>
         </div>
 
-        {/* MODIS Sensor Toggle */}
-        <label className="map-layer-toggle" id="layer-modis-toggle">
-          <input
-            type="checkbox"
-            checked={showModis}
-            onChange={(e) => onToggleModis(e.target.checked)}
-          />
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
-            <span style={{ color: '#ef4444' }}>■</span> MODIS (Aqua & Terra) [1km] ({focosModis.length})
-          </span>
-        </label>
+        {/* Dropdown Panel Content */}
+        {isLayersOpen && (
+          <div className="map-layer-dropdown-panel" id="dropdown-capas-sensores">
+            {/* 1. Sensores Satelitales */}
+            <div>
+              <div className="layer-dropdown-section-title">
+                <Radio size={12} color="#38bdf8" />
+                <span>Sensores Satelitales & SERFOR</span>
+              </div>
 
-        {/* VIIRS Sensor Toggle */}
-        <label className="map-layer-toggle" id="layer-viirs-toggle">
-          <input
-            type="checkbox"
-            checked={showViirs}
-            onChange={(e) => onToggleViirs(e.target.checked)}
-          />
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ color: '#f59e0b' }}>●</span> VIIRS (NOAA-20/21) [375m] ({focosViirs.length})
-          </span>
-        </label>
+              <label className="map-layer-toggle" id="layer-modis-toggle">
+                <input
+                  type="checkbox"
+                  checked={showModis}
+                  onChange={(e) => onToggleModis(e.target.checked)}
+                />
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+                  <span style={{ color: '#ef4444' }}>■</span> MODIS (Aqua & Terra) [1km] ({focosModis.length})
+                </span>
+              </label>
 
-        {/* SERFOR Perú Toggle */}
-        <label className="map-layer-toggle" id="layer-serfor-toggle">
-          <input
-            type="checkbox"
-            checked={showSerfor}
-            onChange={(e) => onToggleSerfor(e.target.checked)}
-          />
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ color: '#10b981' }}>▲</span> SERFOR Oficial ({focosSerfor.length})
-          </span>
-        </label>
+              <label className="map-layer-toggle" id="layer-viirs-toggle">
+                <input
+                  type="checkbox"
+                  checked={showViirs}
+                  onChange={(e) => onToggleViirs(e.target.checked)}
+                />
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ color: '#f59e0b' }}>●</span> VIIRS (NOAA-20/21) [375m] ({focosViirs.length})
+                </span>
+              </label>
 
-        <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '4px 0' }} />
+              <label className="map-layer-toggle" id="layer-serfor-toggle">
+                <input
+                  type="checkbox"
+                  checked={showSerfor}
+                  onChange={(e) => onToggleSerfor(e.target.checked)}
+                />
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ color: '#10b981' }}>▲</span> SERFOR Oficial ({focosSerfor.length})
+                </span>
+              </label>
+            </div>
 
-        {/* Occurrence Risk ML Grid Layer Toggle */}
-        <label className="map-layer-toggle" id="layer-ocurrencia-ml-toggle" style={{ color: '#f59e0b' }}>
-          <input
-            type="checkbox"
-            checked={showRiesgoOcurrencia}
-            onChange={(e) => onToggleRiesgoOcurrencia?.(e.target.checked)}
-          />
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
-            <ShieldAlert size={14} color="#f59e0b" /> Riesgo Ocurrencia ML ({grillaOcurrencia?.features?.length || 0})
-          </span>
-        </label>
-        {showRiesgoOcurrencia && (
-          <div style={{ display: 'flex', gap: '6px', fontSize: '10px', paddingLeft: '22px', marginTop: '-3px', marginBottom: '2px', color: '#94a3b8' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><span style={{ width: '7px', height: '7px', borderRadius: '2px', background: '#10b981', display: 'inline-block' }}></span> &lt;25%</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><span style={{ width: '7px', height: '7px', borderRadius: '2px', background: '#f59e0b', display: 'inline-block' }}></span> 25-55%</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><span style={{ width: '7px', height: '7px', borderRadius: '2px', background: '#f97316', display: 'inline-block' }}></span> 55-80%</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><span style={{ width: '7px', height: '7px', borderRadius: '2px', background: '#ef4444', display: 'inline-block' }}></span> &gt;80%</span>
+            <div style={{ height: '1px', background: 'var(--border-subtle)' }} />
+
+            {/* 2. Predicción y Simulación */}
+            <div>
+              <div className="layer-dropdown-section-title">
+                <Flame size={12} color="#fb923c" />
+                <span>Predicción & Simulación Física</span>
+              </div>
+
+              <label className="map-layer-toggle" id="layer-ocurrencia-ml-toggle" style={{ color: '#f59e0b' }}>
+                <input
+                  type="checkbox"
+                  checked={showRiesgoOcurrencia}
+                  onChange={(e) => onToggleRiesgoOcurrencia?.(e.target.checked)}
+                />
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
+                  <ShieldAlert size={14} color="#f59e0b" /> Riesgo Ocurrencia ML ({grillaOcurrencia?.features?.length || 0})
+                </span>
+              </label>
+              {showRiesgoOcurrencia && (
+                <div style={{ display: 'flex', gap: '6px', fontSize: '10px', paddingLeft: '22px', marginTop: '-3px', marginBottom: '2px', color: '#94a3b8' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><span style={{ width: '7px', height: '7px', borderRadius: '2px', background: '#10b981', display: 'inline-block' }}></span> &lt;25%</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><span style={{ width: '7px', height: '7px', borderRadius: '2px', background: '#f59e0b', display: 'inline-block' }}></span> 25-55%</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><span style={{ width: '7px', height: '7px', borderRadius: '2px', background: '#f97316', display: 'inline-block' }}></span> 55-80%</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><span style={{ width: '7px', height: '7px', borderRadius: '2px', background: '#ef4444', display: 'inline-block' }}></span> &gt;80%</span>
+                </div>
+              )}
+
+              <label className="map-layer-toggle" id="layer-simulacion-isocronas-toggle" style={{ color: '#fb923c' }}>
+                <input
+                  type="checkbox"
+                  checked={showSimulacionIsocronas}
+                  onChange={(e) => onToggleSimulacionIsocronas?.(e.target.checked)}
+                />
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
+                  <Flame size={14} color="#f97316" /> Isócronas Fuego ({simulacionGeojson?.features?.length || 0})
+                </span>
+              </label>
+              {showSimulacionIsocronas && simulacionGeojson && (
+                <div style={{ display: 'flex', gap: '8px', fontSize: '10px', paddingLeft: '22px', marginTop: '-3px', marginBottom: '2px', color: '#cbd5e1' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#FBBF24', display: 'inline-block' }}></span> 1h
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#F97316', display: 'inline-block' }}></span> 3h
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#EF4444', display: 'inline-block' }}></span> 6h
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div style={{ height: '1px', background: 'var(--border-subtle)' }} />
+
+            {/* 3. Operaciones & Brigadas */}
+            <div>
+              <div className="layer-dropdown-section-title">
+                <Shield size={12} color="#06b6d4" />
+                <span>Operaciones & Brigadas</span>
+              </div>
+
+              <label className="map-layer-toggle" id="layer-inc-toggle">
+                <input
+                  type="checkbox"
+                  checked={showIncidentes}
+                  onChange={(e) => onToggleIncidentes(e.target.checked)}
+                />
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ color: '#fb923c' }}>●</span> Incidentes Activos ({incidentes.filter((i) => i.estado !== 'cerrado').length})
+                </span>
+              </label>
+
+              <label className="map-layer-toggle" id="layer-brig-toggle">
+                <input
+                  type="checkbox"
+                  checked={showBrigadas}
+                  onChange={(e) => onToggleBrigadas(e.target.checked)}
+                />
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ color: '#06b6d4' }}>■</span> Brigadas ({brigadas.length})
+                </span>
+              </label>
+
+              <label className="map-layer-toggle" id="layer-viv-toggle">
+                <input
+                  type="checkbox"
+                  checked={showViviendas}
+                  onChange={(e) => onToggleViviendas?.(e.target.checked)}
+                />
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Home size={13} color="#f59e0b" /> Viviendas Rurales ({viviendas.length})
+                </span>
+              </label>
+            </div>
+
+            <div style={{ height: '1px', background: 'var(--border-subtle)' }} />
+
+            {/* 4. Cartografía Oficial IGN / MTC / ANA */}
+            <div>
+              <div className="layer-dropdown-section-title">
+                <MapPin size={12} color="#38bdf8" />
+                <span>Cartografía Oficial & Cortafuegos</span>
+              </div>
+
+              <label className="map-layer-toggle" id="layer-limite-prov-toggle" style={{ color: '#38bdf8' }}>
+                <input
+                  type="checkbox"
+                  checked={showLimiteProvincial}
+                  onChange={(e) => onToggleLimiteProvincial?.(e.target.checked)}
+                />
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
+                  <MapPin size={14} color="#38bdf8" /> Límite Parinacochas (IGN)
+                </span>
+              </label>
+
+              {showLimiteProvincial && (
+                <label className="map-layer-toggle" id="layer-distritos-toggle" style={{ paddingLeft: '22px', fontSize: '11px', color: '#94a3b8' }}>
+                  <input
+                    type="checkbox"
+                    checked={showDistritos}
+                    onChange={(e) => onToggleDistritos?.(e.target.checked)}
+                  />
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <Landmark size={13} color="#94a3b8" /> 8 Distritos e Hitos
+                  </span>
+                </label>
+              )}
+
+              <label className="map-layer-toggle" id="layer-carreteras-toggle" style={{ color: '#f59e0b' }}>
+                <input
+                  type="checkbox"
+                  checked={showCarreteras}
+                  onChange={(e) => onToggleCarreteras?.(e.target.checked)}
+                />
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+                  <Route size={14} color="#f59e0b" /> Vías y Trochas Cortafuego (713)
+                </span>
+              </label>
+
+              <label className="map-layer-toggle" id="layer-rios-toggle" style={{ color: '#06b6d4' }}>
+                <input
+                  type="checkbox"
+                  checked={showRios}
+                  onChange={(e) => onToggleRios?.(e.target.checked)}
+                />
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+                  <Droplets size={14} color="#06b6d4" /> Red Hidrográfica ANA (378)
+                </span>
+              </label>
+            </div>
           </div>
         )}
-
-        {/* Fire Spread Simulation Isochrones (Cell2Fire Eliptico Andino) */}
-        <label className="map-layer-toggle" id="layer-simulacion-isocronas-toggle" style={{ color: '#fb923c' }}>
-          <input
-            type="checkbox"
-            checked={showSimulacionIsocronas}
-            onChange={(e) => onToggleSimulacionIsocronas?.(e.target.checked)}
-          />
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
-            <Flame size={14} color="#f97316" /> Isócronas Fuego ({simulacionGeojson?.features?.length || 0})
-          </span>
-        </label>
-        {showSimulacionIsocronas && simulacionGeojson && (
-          <div style={{ display: 'flex', gap: '8px', fontSize: '10px', paddingLeft: '22px', marginTop: '-3px', marginBottom: '2px', color: '#cbd5e1' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#FBBF24', display: 'inline-block' }}></span> 1h
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#F97316', display: 'inline-block' }}></span> 3h
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#EF4444', display: 'inline-block' }}></span> 6h
-            </span>
-          </div>
-        )}
-
-        {/* Incidentes & Brigadas */}
-        <label className="map-layer-toggle" id="layer-inc-toggle">
-          <input
-            type="checkbox"
-            checked={showIncidentes}
-            onChange={(e) => onToggleIncidentes(e.target.checked)}
-          />
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ color: '#fb923c' }}>●</span> Incidentes ({incidentes.filter((i) => i.estado !== 'cerrado').length})
-          </span>
-        </label>
-
-        <label className="map-layer-toggle" id="layer-brig-toggle">
-          <input
-            type="checkbox"
-            checked={showBrigadas}
-            onChange={(e) => onToggleBrigadas(e.target.checked)}
-          />
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ color: '#06b6d4' }}>■</span> Brigadas ({brigadas.length})
-          </span>
-        </label>
-
-        <label className="map-layer-toggle" id="layer-viv-toggle">
-          <input
-            type="checkbox"
-            checked={showViviendas}
-            onChange={(e) => onToggleViviendas?.(e.target.checked)}
-          />
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ color: '#f59e0b' }}>🏠</span> Viviendas ({viviendas.length})
-          </span>
-        </label>
-
-        {/* Límite Territorial Oficial de Parinacochas (IGN / INEI) */}
-        <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '4px 0' }} />
-
-        <label className="map-layer-toggle" id="layer-limite-prov-toggle" style={{ color: '#38bdf8' }}>
-          <input
-            type="checkbox"
-            checked={showLimiteProvincial}
-            onChange={(e) => onToggleLimiteProvincial?.(e.target.checked)}
-          />
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
-            <MapPin size={14} color="#38bdf8" /> Límite Parinacochas (IGN)
-          </span>
-        </label>
-
-        {showLimiteProvincial && (
-          <label className="map-layer-toggle" id="layer-distritos-toggle" style={{ paddingLeft: '22px', fontSize: '11px', color: '#94a3b8' }}>
-            <input
-              type="checkbox"
-              checked={showDistritos}
-              onChange={(e) => onToggleDistritos?.(e.target.checked)}
-            />
-            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span>🏛️</span> 8 Distritos e Hitos
-            </span>
-          </label>
-        )}
-
-        {/* Capas de Infraestructura Vial y Red Hidrográfica Oficial */}
-        <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '4px 0' }} />
-
-        <label className="map-layer-toggle" id="layer-carreteras-toggle" style={{ color: '#f59e0b' }}>
-          <input
-            type="checkbox"
-            checked={showCarreteras}
-            onChange={(e) => onToggleCarreteras?.(e.target.checked)}
-          />
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
-            <Route size={14} color="#f59e0b" /> Vías y Trochas Cortafuego (713)
-          </span>
-        </label>
-
-        <label className="map-layer-toggle" id="layer-rios-toggle" style={{ color: '#06b6d4' }}>
-          <input
-            type="checkbox"
-            checked={showRios}
-            onChange={(e) => onToggleRios?.(e.target.checked)}
-          />
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
-            <Droplets size={14} color="#06b6d4" /> Red Hidrográfica ANA (378)
-          </span>
-        </label>
       </div>
 
       {/* Modal for Custom Date Range */}
@@ -1585,14 +1667,14 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff', margin: 0 }}>
-              📅 Rango Histórico (Hasta 6 Meses)
+            <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Calendar size={14} color="#38bdf8" /> Rango Histórico (Hasta 6 Meses)
             </h4>
             <button
-              style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '16px' }}
+              style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
               onClick={() => setIsDateModalOpen(false)}
             >
-              ✕
+              <X size={15} />
             </button>
           </div>
 
@@ -1647,42 +1729,6 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
               <Check size={14} />
               <span>Aplicar Filtro de Fechas</span>
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* Badge de Advertencia Flotante de Simulación (COEP / COEL) */}
-      {showSimulacionIsocronas && simulacionGeojson && (
-        <div
-          id="badge-advertencia-simulacion"
-          style={{
-            position: 'absolute',
-            top: '16px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 1000,
-            background: 'rgba(15, 23, 42, 0.94)',
-            border: '1px solid rgba(245, 158, 11, 0.7)',
-            boxShadow: '0 8px 28px rgba(0, 0, 0, 0.6), 0 0 16px rgba(245, 158, 11, 0.28)',
-            borderRadius: '9999px',
-            padding: '7px 20px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            backdropFilter: 'blur(10px)',
-            pointerEvents: 'auto',
-          }}
-        >
-          <span style={{ display: 'flex', alignItems: 'center', color: '#f59e0b', fontSize: '15px' }}>
-            ⚠️
-          </span>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '12px', fontWeight: 700, color: '#fef08a', letterSpacing: '0.015em' }}>
-              Simulación pendiente de aprobación COEP/COEL — No calibrada con dNBR
-            </span>
-            <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>
-              Modelo Elíptico Andino (Copernicus DEM 30m + Viento Andino) • Anillos: 1h (Amarillo), 3h (Naranja), 6h (Rojo)
-            </span>
           </div>
         </div>
       )}

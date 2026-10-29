@@ -4,7 +4,7 @@
   "algoritmo": "RandomForestClassifier + CalibratedClassifierCV (Sigmoid)",
   "tipo_tarea": "Estimación de Riesgo de Ocurrencia / Susceptibilidad de Incendio",
   "zona_estudio": "Coracora, Provincia de Parinacochas, Ayacucho",
-  "entrenado_en": "2026-10-29T01:37:58.937293+00:00",
+  "entrenado_en": "2026-10-29T03:42:34.257218+00:00",
   "division_temporal": {
     "fecha_inicio": "2026-09-29",
     "fecha_corte_split": "2026-10-20",

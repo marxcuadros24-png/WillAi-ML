@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HeartHandshake, CheckCircle2, XCircle, User } from 'lucide-react';
+import { HeartHandshake, CheckCircle2, XCircle, User, Package, Clock } from 'lucide-react';
 import type { DonacionComunitaria } from '../types';
 import { Pagination } from './Pagination';
 
@@ -33,13 +33,29 @@ export const DonacionesAdmin: React.FC<DonacionesAdminProps> = ({ donaciones, on
   const getEstadoBadge = (est: string) => {
     switch (est) {
       case 'publicada':
-        return <span className="badge-status badge-status-emerald">✅ APROBADA</span>;
+        return (
+          <span className="badge-status badge-status-emerald" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <CheckCircle2 size={12} color="#34d399" /> APROBADA
+          </span>
+        );
       case 'rechazada':
-        return <span className="badge-status badge-status-red">❌ RECHAZADA</span>;
+        return (
+          <span className="badge-status badge-status-red" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <XCircle size={12} color="#f87171" /> RECHAZADA
+          </span>
+        );
       case 'entregada':
-        return <span className="badge-status badge-status-cyan">📦 ENTREGADA</span>;
+        return (
+          <span className="badge-status badge-status-cyan" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <Package size={12} color="#38bdf8" /> ENTREGADA
+          </span>
+        );
       default:
-        return <span className="badge-status badge-status-amber">⏱️ POR REVISAR</span>;
+        return (
+          <span className="badge-status badge-status-amber" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <Clock size={12} color="#fbbf24" /> POR REVISAR
+          </span>
+        );
     }
   };
 
@@ -118,9 +134,12 @@ export const DonacionesAdmin: React.FC<DonacionesAdminProps> = ({ donaciones, on
                               fontSize: '0.72rem',
                               color: '#38bdf8',
                               border: '1px solid rgba(56, 189, 248, 0.2)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
                             }}
                           >
-                            📦 {it.cantidad} {it.unidad} de {it.descripcion}
+                            <Package size={11} color="#38bdf8" /> {it.cantidad} {it.unidad} de {it.descripcion}
                           </span>
                         ))
                       ) : (

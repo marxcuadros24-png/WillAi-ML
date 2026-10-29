@@ -12,7 +12,10 @@ import {
   ArrowUpRight,
   RefreshCw,
   PlusCircle,
-  ExternalLink
+  ExternalLink,
+  Map,
+  Trophy,
+  Megaphone
 } from 'lucide-react';
 import type { MetricasKPI, MetricasFWI, Incidente, FocoCalor, ReporteCiudadano, Brigada, GrillaRiesgoOcurrenciaData } from '../types';
 
@@ -308,10 +311,10 @@ export const PanelAdmin: React.FC<PanelAdminProps> = ({
           )}
           <button
             className="btn-admin"
-            style={{ padding: '8px 14px', fontSize: '12px', background: '#d97706', color: '#ffffff', fontWeight: 700 }}
+            style={{ padding: '8px 14px', fontSize: '12px', background: '#d97706', color: '#ffffff', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             onClick={() => onOpenRiesgoML ? onOpenRiesgoML() : onNavigateTab('mapa')}
           >
-            Ver Capa en Mapa Táctico 🗺️
+            <Map size={14} /> Ver Capa en Mapa Táctico
           </button>
         </div>
       </div>
@@ -339,10 +342,13 @@ export const PanelAdmin: React.FC<PanelAdminProps> = ({
                   padding: '3px 10px',
                   borderRadius: '12px',
                   fontSize: '11px',
-                  fontWeight: 700
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px'
                 }}
               >
-                🌧️ Lluvia Activa
+                <CloudRain size={12} color="#38bdf8" /> Lluvia Activa
               </span>
             )}
           </div>
@@ -453,7 +459,7 @@ export const PanelAdmin: React.FC<PanelAdminProps> = ({
               style={{ width: '100%', justifyContent: 'space-between', padding: '10px 14px' }}
               onClick={() => onNavigateTab('mapa')}
             >
-              <span>🗺️ Centro de Mando Táctico en Vivo</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Map size={15} color="#38bdf8" /> Centro de Mando Táctico en Vivo</span>
               <ExternalLink size={14} />
             </button>
 
@@ -462,7 +468,7 @@ export const PanelAdmin: React.FC<PanelAdminProps> = ({
               style={{ width: '100%', justifyContent: 'space-between', padding: '10px 14px' }}
               onClick={() => onNavigateTab('usuarios')}
             >
-              <span>👥 Gestión de Usuarios & Brigadistas</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Users size={15} color="#38bdf8" /> Gestión de Usuarios & Brigadistas</span>
               <ExternalLink size={14} />
             </button>
 
@@ -471,7 +477,7 @@ export const PanelAdmin: React.FC<PanelAdminProps> = ({
               style={{ width: '100%', justifyContent: 'space-between', padding: '10px 14px', borderColor: 'rgba(245, 158, 11, 0.3)', color: '#fbbf24' }}
               onClick={() => onNavigateTab('logros')}
             >
-              <span>🏆 Cuadro de Honor & Condecoraciones</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Trophy size={15} color="#fbbf24" /> Cuadro de Honor & Condecoraciones</span>
               <ExternalLink size={14} />
             </button>
 
@@ -480,7 +486,7 @@ export const PanelAdmin: React.FC<PanelAdminProps> = ({
               style={{ width: '100%', justifyContent: 'space-between', padding: '10px 14px' }}
               onClick={() => onNavigateTab('reportes')}
             >
-              <span>📢 Bandeja de Reportes Ciudadanos ({reportesPendientes.length})</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Megaphone size={15} color="#38bdf8" /> Bandeja de Reportes Ciudadanos ({reportesPendientes.length})</span>
               <ExternalLink size={14} />
             </button>
           </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { CheckCircle, X, Send, MapPin, Crosshair, Plus } from 'lucide-react';
+import { CheckCircle, X, Send, MapPin, Crosshair, Plus, Flame, Shield, CheckCircle2, AlertTriangle, Megaphone, Home } from 'lucide-react';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './components/LoginPage';
@@ -321,7 +321,7 @@ export const App: React.FC = () => {
         setNewIncLon(lon);
         setNewIncSectorId(0);
         setShowManualCoords(true);
-        showToast(`📍 Ubicación GPS obtenida: ${lat}, ${lon}`);
+        showToast(`Ubicación GPS obtenida: ${lat}, ${lon}`);
       },
       () => {
         showToast('No se pudo acceder a la señal GPS del dispositivo');
@@ -401,7 +401,7 @@ export const App: React.FC = () => {
         material_predominante: newVivMaterial,
         habitantes: newVivHabitantes
       });
-      showToast(`🏠 Vivienda rural registrada: ${res.codigo || 'VIV'} (${newVivReferencia})`);
+      showToast(`Vivienda rural registrada: ${res.codigo || 'VIV'} (${newVivReferencia})`);
       setIsCreateViviendaModalOpen(false);
       setNewVivReferencia('');
       setNewVivResponsable('');
@@ -457,7 +457,7 @@ export const App: React.FC = () => {
     if (!modalIncidentTarget) return;
     try {
       const res = await asignarBrigada(modalIncidentTarget.id, dispatchBrigadeId, dispatchRol);
-      showToast(`🛡️ Brigada ${res.brigada} despachada al incidente ${modalIncidentTarget.codigo}`);
+      showToast(`Brigada ${res.brigada} despachada al incidente ${modalIncidentTarget.codigo}`);
       setIsDispatchModalOpen(false);
 
       // Optimistic update for immediate visual response on Tactical Map and sidebars
@@ -801,7 +801,7 @@ export const App: React.FC = () => {
             <div className="modal-box" style={{ maxWidth: '540px' }}>
               <div className="modal-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '20px' }}>🔥</span>
+                  <Flame size={20} color="#f97316" />
                   <div>
                     <h3 className="modal-title" style={{ fontSize: '15px', color: '#ffffff' }}>Registrar Incidente Táctico</h3>
                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
@@ -853,7 +853,7 @@ export const App: React.FC = () => {
                         {sec.nombre} — ({sec.referencia})
                       </option>
                     ))}
-                    <option value={0}>⚙️ Ingresar coordenadas manuales</option>
+                    <option value={0}>Ingresar coordenadas manuales</option>
                   </select>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', fontSize: '11.5px', color: '#94a3b8' }}>
@@ -925,10 +925,10 @@ export const App: React.FC = () => {
                       onChange={(e) => setNewIncTipo(e.target.value)}
                       style={{ background: 'rgba(3,7,18,0.8)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '8px', color: '#fff', fontSize: '12px' }}
                     >
-                      <option value="pastizal">🌾 Pastizal / Pajonal</option>
-                      <option value="arbustivo">🌿 Matorrales / Arbustos</option>
-                      <option value="forestal">🌲 Bosque Forestal (Eucalipto/Pino)</option>
-                      <option value="interfaz">🏡 Interfaz Urbano-Forestal</option>
+                      <option value="pastizal">Pastizal / Pajonal</option>
+                      <option value="arbustivo">Matorrales / Arbustos</option>
+                      <option value="forestal">Bosque Forestal (Eucalipto/Pino)</option>
+                      <option value="interfaz">Interfaz Urbano-Forestal</option>
                     </select>
                   </div>
 
@@ -939,10 +939,10 @@ export const App: React.FC = () => {
                       onChange={(e) => setNewIncPrioridad(e.target.value)}
                       style={{ background: 'rgba(3,7,18,0.8)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '8px', color: '#fff', fontSize: '12px' }}
                     >
-                      <option value="critica">🚨 Crítica (Riesgo a Población)</option>
-                      <option value="alta">⚠️ Alta</option>
-                      <option value="media">🟡 Media</option>
-                      <option value="baja">🔵 Baja</option>
+                      <option value="critica">Crítica (Riesgo a Población)</option>
+                      <option value="alta">Alta</option>
+                      <option value="media">Media</option>
+                      <option value="baja">Baja</option>
                     </select>
                   </div>
                 </div>
@@ -965,7 +965,9 @@ export const App: React.FC = () => {
           <div className="modal active">
             <div className="modal-box">
               <div className="modal-header">
-                <h3 className="modal-title">🛡️ Despachar Brigada a {modalIncidentTarget.codigo}</h3>
+                <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Shield size={18} color="#38bdf8" /> Despachar Brigada a {modalIncidentTarget.codigo}
+                </h3>
                 <button className="btn-icon" onClick={() => setIsDispatchModalOpen(false)}>
                   <X size={18} />
                 </button>
@@ -980,7 +982,7 @@ export const App: React.FC = () => {
                   >
                     {brigadas.map((b) => (
                       <option key={b.id} value={b.id}>
-                        {b.estado === 'disponible' ? '🟢 [DISPONIBLE]' : '🟡 [DESPLEGADA]'} {b.nombre} ({b.entidad})
+                        {b.estado === 'disponible' ? '[DISPONIBLE]' : '[DESPLEGADA]'} {b.nombre} ({b.entidad})
                       </option>
                     ))}
                   </select>
@@ -1031,10 +1033,10 @@ export const App: React.FC = () => {
                     onChange={(e) => setChangeStatusValue(e.target.value)}
                     style={{ background: 'rgba(3,7,18,0.8)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '8px', color: '#fff' }}
                   >
-                    <option value="en_combate">🔥 En Combate</option>
-                    <option value="controlado">🛡️ Controlado (Sin Avance)</option>
-                    <option value="extinguido">💧 Extinguido (En Enfriamiento)</option>
-                    <option value="cerrado">🔒 Cerrado / Finalizado</option>
+                    <option value="en_combate">En Combate</option>
+                    <option value="controlado">Controlado (Sin Avance)</option>
+                    <option value="extinguido">Extinguido (En Enfriamiento)</option>
+                    <option value="cerrado">Cerrado / Finalizado</option>
                   </select>
                 </div>
 
@@ -1067,14 +1069,17 @@ export const App: React.FC = () => {
           <div className="modal active">
             <div className="modal-box">
               <div className="modal-header">
-                <h3 className="modal-title">🏁 Acta de Cierre Definitivo ({modalIncidentTarget.codigo})</h3>
+                <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <CheckCircle2 size={18} color="#34d399" /> Acta de Cierre Definitivo ({modalIncidentTarget.codigo})
+                </h3>
                 <button className="btn-icon" onClick={() => setIsCloseIncidentModalOpen(false)}>
                   <X size={18} />
                 </button>
               </div>
               <form onSubmit={handleCloseIncidentSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <p style={{ fontSize: '0.82rem', color: '#f87171' }}>
-                  ⚠️ Al cerrar el incidente, se registrará el acta formal en el sistema forense y todas las brigadas asignadas quedarán liberadas automáticamente al estado <strong>DISPONIBLE</strong>.
+                <p style={{ fontSize: '0.82rem', color: '#f87171', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                  <AlertTriangle size={15} color="#f87171" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <span>Al cerrar el incidente, se registrará el acta formal en el sistema forense y todas las brigadas asignadas quedarán liberadas automáticamente al estado <strong>DISPONIBLE</strong>.</span>
                 </p>
 
                 <div className="form-group">
@@ -1106,7 +1111,9 @@ export const App: React.FC = () => {
           <div className="modal active">
             <div className="modal-box">
               <div className="modal-header">
-                <h3 className="modal-title">🚨 Emitir Alerta Temprana a la Comunidad</h3>
+                <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Megaphone size={18} color="#ef4444" /> Emitir Alerta Temprana a la Comunidad
+                </h3>
                 <button className="btn-icon" onClick={() => setIsAlertModalOpen(false)}>
                   <X size={18} />
                 </button>
@@ -1132,9 +1139,9 @@ export const App: React.FC = () => {
                       onChange={(e) => setAlertFormPrioridad(e.target.value)}
                       style={{ background: 'rgba(3,7,18,0.8)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '8px', color: '#fff' }}
                     >
-                      <option value="muy_alta">🔴 Muy Alta (Evacuación Inmediata)</option>
-                      <option value="alta">🟠 Alta (Preparación)</option>
-                      <option value="media">🔵 Media (Informativa)</option>
+                      <option value="muy_alta">Muy Alta (Evacuación Inmediata)</option>
+                      <option value="alta">Alta (Preparación)</option>
+                      <option value="media">Media (Informativa)</option>
                     </select>
                   </div>
 
@@ -1196,7 +1203,7 @@ export const App: React.FC = () => {
             <div className="modal-box" style={{ maxWidth: '520px' }}>
               <div className="modal-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '20px' }}>🏠</span>
+                  <Home size={20} color="#38bdf8" />
                   <div>
                     <h3 className="modal-title" style={{ fontSize: '15px', color: '#ffffff' }}>Registrar Vivienda Rural</h3>
                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
@@ -1241,7 +1248,7 @@ export const App: React.FC = () => {
                         {sec.nombre} ({sec.referencia})
                       </option>
                     ))}
-                    <option value={0}>📍 Coordenadas exactas en mapa (Punto GPS personalizado)</option>
+                    <option value={0}>Coordenadas exactas en mapa (Punto GPS personalizado)</option>
                   </select>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
@@ -1318,11 +1325,11 @@ export const App: React.FC = () => {
                       onChange={(e) => setNewVivMaterial(e.target.value)}
                       style={{ background: 'rgba(3,7,18,0.8)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '8px', color: '#fff' }}
                     >
-                      <option value="adobe_paja">🌾 Adobe y Techo de Paja / Ichu (Vulnerable)</option>
-                      <option value="adobe_teja">🏠 Adobe y Techo de Teja</option>
-                      <option value="madera">🪵 Madera / Quincha</option>
-                      <option value="ladrillo_concreto">🧱 Ladrillo y Concreto</option>
-                      <option value="otro">⚪ Otro material</option>
+                      <option value="adobe_paja">Adobe y Techo de Paja / Ichu (Vulnerable)</option>
+                      <option value="adobe_teja">Adobe y Techo de Teja</option>
+                      <option value="madera">Madera / Quincha</option>
+                      <option value="ladrillo_concreto">Ladrillo y Concreto</option>
+                      <option value="otro">Otro material</option>
                     </select>
                   </div>
                   <div className="form-group">

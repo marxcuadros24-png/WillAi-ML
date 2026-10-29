@@ -11,7 +11,14 @@ import {
   PlusCircle,
   AlertTriangle,
   Play,
-  Home
+  Home,
+  MapPin,
+  Mountain,
+  Wind,
+  Layers,
+  CheckCircle,
+  Info,
+  RotateCcw
 } from 'lucide-react';
 import { TacticalMap } from '../components/TacticalMap';
 import { useAppContext } from '../context/AppContext';
@@ -256,7 +263,8 @@ export const MapaPage: React.FC = () => {
                       {/* Critical warning callout for emergency commanders */}
                       {isCrit && (
                         <div style={{ fontSize: '11px', color: '#f87171', fontWeight: 700, marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          ⚠️ PRIORIDAD CRÍTICA • ALTO RIESGO A POBLACIÓN
+                          <AlertTriangle size={12} color="#f87171" />
+                          <span>PRIORIDAD CRÍTICA • ALTO RIESGO A POBLACIÓN</span>
                         </div>
                       )}
 
@@ -264,8 +272,9 @@ export const MapaPage: React.FC = () => {
                         {inc.titulo}
                       </div>
 
-                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                        📍 {inc.comunidad} • Viviendas en riesgo: <strong style={{ color: '#ef4444' }}>{inc.viviendas_riesgo}</strong>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <MapPin size={12} color="#38bdf8" />
+                        <span>{inc.comunidad} • Viviendas en riesgo: <strong style={{ color: '#ef4444' }}>{inc.viviendas_riesgo}</strong></span>
                       </div>
 
                       {/* Expandable Tactical Details */}
@@ -344,6 +353,9 @@ export const MapaPage: React.FC = () => {
                             fontSize: '11px',
                             flex: 1,
                             justifyContent: 'center',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
                             background: 'rgba(249, 115, 22, 0.16)',
                             color: '#fb923c',
                             border: '1px solid rgba(249, 115, 22, 0.4)'
@@ -356,7 +368,8 @@ export const MapaPage: React.FC = () => {
                           }}
                           title="Abrir simulador andino para este incidente"
                         >
-                          🔥 Simular
+                          <Flame size={12} color="#fb923c" />
+                          <span>Simular</span>
                         </button>
                       </div>
                     </div>
@@ -422,8 +435,8 @@ export const MapaPage: React.FC = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <span style={{ fontSize: '13px', fontWeight: 800, color: '#f59e0b', letterSpacing: '0.04em' }}>
-                    🛡️ MODELO ML: RIESGO DE OCURRENCIA
+                  <span style={{ fontSize: '13px', fontWeight: 800, color: '#f59e0b', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <ShieldAlert size={15} color="#f59e0b" /> MODELO ML: RIESGO DE OCURRENCIA
                   </span>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                     Susceptibilidad territorial en Parinacochas
@@ -693,8 +706,8 @@ export const MapaPage: React.FC = () => {
                 onClick={() => setSidebarTab('riesgo')}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <span style={{ color: '#f59e0b', fontWeight: 700, fontSize: '12.5px' }}>
-                    🛡️ MODELO ML: RIESGO DE OCURRENCIA
+                  <span style={{ color: '#f59e0b', fontWeight: 700, fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <ShieldAlert size={14} color="#f59e0b" /> MODELO ML: RIESGO DE OCURRENCIA
                   </span>
                   <span style={{ color: '#f59e0b', fontSize: '11px', fontWeight: 700 }}>
                     Abrir Pestaña →
@@ -857,12 +870,12 @@ export const MapaPage: React.FC = () => {
                         padding: '8px',
                         fontSize: '11px'
                       }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#38bdf8', fontWeight: 700 }}>
-                          <span>🏘️ Viviendas dentro de 5 km:</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#38bdf8', fontWeight: 700, alignItems: 'center' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><Home size={13} color="#38bdf8" /> Viviendas dentro de 5 km:</span>
                           <span style={{ fontSize: '13px' }}>{evalResult.viviendas_en_riesgo_count}</span>
                         </div>
-                        <div style={{ color: '#fef08a', fontSize: '10px', marginTop: '4px' }}>
-                          ⚠️ Alerta #{evalResult.alerta_id || 'Generada'} en estado <strong>PENDIENTE_APROBACION</strong> (Requiere validación humana).
+                        <div style={{ color: '#fef08a', fontSize: '10px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <AlertTriangle size={12} color="#fef08a" /> Alerta #{evalResult.alerta_id || 'Generada'} en estado <strong>PENDIENTE_APROBACION</strong> (Requiere validación humana).
                         </div>
                       </div>
                     )}
@@ -930,30 +943,30 @@ export const MapaPage: React.FC = () => {
                     <button
                       type="button"
                       className="btn-admin btn-admin-outline"
-                      style={{ fontSize: '10px', padding: '3px 6px' }}
+                      style={{ fontSize: '10px', padding: '3px 6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                       onClick={() => {
                         setSimLat(selectedIncidente.latitud.toString());
                         setSimLon(selectedIncidente.longitud.toString());
                       }}
                       title="Copiar coordenadas del incidente seleccionado"
                     >
-                      📍 Usar Incidente #{selectedIncidente.id}
+                      <MapPin size={11} /> Usar Incidente #{selectedIncidente.id}
                     </button>
                   )}
                   <button
                     type="button"
                     className="btn-admin btn-admin-outline"
-                    style={{ fontSize: '10px', padding: '3px 6px' }}
+                    style={{ fontSize: '10px', padding: '3px 6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                     onClick={() => {
                       setSimLat('-15.0189');
                       setSimLon('-73.7806');
                     }}
                     title="Restablecer centro en Coracora"
                   >
-                    🔄 Coracora Base
+                    <RotateCcw size={11} /> Coracora Base
                   </button>
-                  <span style={{ fontSize: '10px', color: '#38bdf8', alignSelf: 'center', marginLeft: 'auto' }}>
-                    💡 Clic derecho en el mapa para marcar ignición
+                  <span style={{ fontSize: '10px', color: '#38bdf8', alignSelf: 'center', marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <Info size={11} /> Clic derecho en el mapa para marcar ignición
                   </span>
                 </div>
 
@@ -980,11 +993,11 @@ export const MapaPage: React.FC = () => {
                   </select>
                 </div>
 
-                <div style={{ fontSize: '10.5px', color: '#94a3b8', marginBottom: '10px', background: 'rgba(0,0,0,0.3)', padding: '6px 8px', borderRadius: '4px' }}>
-                  <div>🏔️ Topografía: <strong>Copernicus GLO-30 DEM (30m)</strong></div>
-                  <div>💨 Viento: <strong>Vector Meteorológico Open-Meteo</strong></div>
-                  <div>🌱 Combustible: <strong>Mosaico Sierra Andina (Pajonal Mixto / Roquedales / Bofedales)</strong></div>
-                  <div>🎯 Calibración: <strong>LOFO 3-Fold (alfa_r0: 0.495, escala anti-exageración)</strong></div>
+                <div style={{ fontSize: '10.5px', color: '#94a3b8', marginBottom: '10px', background: 'rgba(0,0,0,0.3)', padding: '6px 8px', borderRadius: '4px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><Mountain size={12} color="#94a3b8" /> Topografía: <strong style={{ color: '#cbd5e1' }}>Copernicus GLO-30 DEM (30m)</strong></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><Wind size={12} color="#94a3b8" /> Viento: <strong style={{ color: '#cbd5e1' }}>Vector Meteorológico Open-Meteo</strong></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><Layers size={12} color="#94a3b8" /> Combustible: <strong style={{ color: '#cbd5e1' }}>Mosaico Sierra Andina (Pajonal / Roquedal / Bofedal)</strong></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><CheckCircle size={12} color="#94a3b8" /> Calibración: <strong style={{ color: '#cbd5e1' }}>LOFO 3-Fold (alfa_r0: 0.495, escala anti-exageración)</strong></div>
                 </div>
 
                 <button
@@ -1019,7 +1032,7 @@ export const MapaPage: React.FC = () => {
                   }}
                 >
                   <Flame size={14} />
-                  {isSimulating ? 'Corriendo Dijkstra en Grilla 300x300...' : 'Ejecutar Simulación Andina 🚀'}
+                  {isSimulating ? 'Corriendo Dijkstra en Grilla 300x300...' : 'Ejecutar Simulación Andina'}
                 </button>
               </div>
             </div>
@@ -1054,8 +1067,8 @@ export const MapaPage: React.FC = () => {
 
                     {b.incidente_asignado && (
                       <div style={{ marginTop: '8px', padding: '6px 10px', background: 'rgba(6, 182, 212, 0.12)', border: '1px solid rgba(6, 182, 212, 0.35)', borderRadius: '6px', fontSize: '11.5px', color: '#38bdf8' }}>
-                        <div>
-                          🛡️ <strong>Desplegada en:</strong> <span style={{ color: '#fff', fontWeight: 700 }}>{b.incidente_asignado.codigo}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <Shield size={12} color="#06b6d4" /> <strong>Desplegada en:</strong> <span style={{ color: '#fff', fontWeight: 700 }}>{b.incidente_asignado.codigo}</span>
                         </div>
                         <div style={{ fontSize: '10.5px', color: '#94a3b8', marginTop: '2px' }}>
                           Misión: <strong style={{ color: '#fb923c' }}>{b.incidente_asignado.rol.replace('_', ' ').toUpperCase()}</strong>
