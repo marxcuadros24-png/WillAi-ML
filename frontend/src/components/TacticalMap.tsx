@@ -1,12 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import { Calendar, Wind, Check, ShieldAlert, MapPin, Flame } from 'lucide-react';
+import { Calendar, Wind, Check, ShieldAlert, MapPin, Flame, Route, Droplets } from 'lucide-react';
 import type { Incidente, FocoCalor, Brigada, PrediccionViento12hData, ViviendaRural, GrillaRiesgoOcurrenciaData } from '../types';
 import {
   LIMITE_PROVINCIAL_PARINACOCHAS,
   LIMITES_DISTRITALES_PARINACOCHAS,
   REFERENCIAS_PROVINCIAS_LIMITROFES,
 } from '../data/demarcacionParinacochas';
+
+// Cache a nivel de módulo para evitar re-descargas innecesarias
+let cachedCarreterasGeoJson: any = null;
+let cachedRiosGeoJson: any = null;
 
 interface TacticalMapProps {
   incidentes: Incidente[];
@@ -26,6 +30,8 @@ interface TacticalMapProps {
   showViviendas?: boolean;
   showLimiteProvincial?: boolean;
   showDistritos?: boolean;
+  showCarreteras?: boolean;
+  showRios?: boolean;
   onToggleModis: (val: boolean) => void;
   onToggleViirs: (val: boolean) => void;
   onToggleSerfor: (val: boolean) => void;
@@ -36,6 +42,8 @@ interface TacticalMapProps {
   onToggleViviendas?: (val: boolean) => void;
   onToggleLimiteProvincial?: (val: boolean) => void;
   onToggleDistritos?: (val: boolean) => void;
+  onToggleCarreteras?: (val: boolean) => void;
+  onToggleRios?: (val: boolean) => void;
   grillaOcurrencia?: GrillaRiesgoOcurrenciaData | null;
   // Simulación de Propagación de Incendios (Cell2Fire Eliptico Andino)
   simulacionGeojson?: any | null;
@@ -53,6 +61,7 @@ interface TacticalMapProps {
   focusCoords?: [number, number] | null;
   onMapCreateIncident?: (lat: number, lon: number) => void;
   onMapCreateVivienda?: (lat: number, lon: number) => void;
+  onMapSetSimCoords?: (lat: number, lon: number) => void;
 }
 
 export const TacticalMap: React.FC<TacticalMapProps> = ({
@@ -72,6 +81,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   showViviendas = true,
   showLimiteProvincial = true,
   showDistritos = false,
+  showCarreteras = true,
+  showRios = true,
   simulacionGeojson = null,
   showSimulacionIsocronas = true,
   onToggleSimulacionIsocronas,
@@ -85,6 +96,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   onToggleViviendas,
   onToggleLimiteProvincial,
   onToggleDistritos,
+  onToggleCarreteras,
+  onToggleRios,
   grillaOcurrencia = null,
   timeRange,
   onChangeTimeRange,
@@ -95,27 +108,34 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   selectedIncidente = null,
   focusCoords = null,
   onMapCreateIncident,
-  onMapCreateVivienda
+  onMapCreateVivienda,
+  onMapSetSimCoords
 }) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const onMapCreateIncidentRef = useRef(onMapCreateIncident);
   const onMapCreateViviendaRef = useRef(onMapCreateVivienda);
+  const onMapSetSimCoordsRef = useRef(onMapSetSimCoords);
 
   useEffect(() => {
     onMapCreateIncidentRef.current = onMapCreateIncident;
     onMapCreateViviendaRef.current = onMapCreateVivienda;
+    onMapSetSimCoordsRef.current = onMapSetSimCoords;
     (window as any).__willai_create_incident = (lat: number, lon: number) => {
       onMapCreateIncidentRef.current?.(lat, lon);
     };
     (window as any).__willai_create_vivienda = (lat: number, lon: number) => {
       onMapCreateViviendaRef.current?.(lat, lon);
     };
+    (window as any).__willai_set_sim_coords = (lat: number, lon: number) => {
+      onMapSetSimCoordsRef.current?.(lat, lon);
+    };
     return () => {
       delete (window as any).__willai_create_incident;
       delete (window as any).__willai_create_vivienda;
+      delete (window as any).__willai_set_sim_coords;
     };
-  }, [onMapCreateIncident, onMapCreateVivienda]);
+  }, [onMapCreateIncident, onMapCreateVivienda, onMapSetSimCoords]);
 
   const [isDateModalOpen, setIsDateModalOpen] = useState(false);
   const [inputDesde, setInputDesde] = useState(fechaDesde || '2026-05-01');
@@ -124,6 +144,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   const layersRef = useRef<{
     limiteProvincial: L.LayerGroup;
     distritos: L.LayerGroup;
+    rios: L.LayerGroup;
+    carreteras: L.LayerGroup;
     modis: L.LayerGroup;
     viirs: L.LayerGroup;
     serfor: L.LayerGroup;
@@ -136,6 +158,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   }>({
     limiteProvincial: L.layerGroup(),
     distritos: L.layerGroup(),
+    rios: L.layerGroup(),
+    carreteras: L.layerGroup(),
     modis: L.layerGroup(),
     viirs: L.layerGroup(),
     serfor: L.layerGroup(),
@@ -180,9 +204,11 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       }
     ).addTo(map);
 
-    // Attach layers (boundaries underneath overlays and markers)
+    // Attach layers (boundaries & base geography underneath overlays and markers)
     layersRef.current.limiteProvincial.addTo(map);
     layersRef.current.distritos.addTo(map);
+    layersRef.current.rios.addTo(map);
+    layersRef.current.carreteras.addTo(map);
     layersRef.current.modis.addTo(map);
     layersRef.current.viirs.addTo(map);
     layersRef.current.serfor.addTo(map);
@@ -246,6 +272,24 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           ">
             🏠 Registrar Vivienda Rural Aquí
           </button>
+          <button id="btn-simular-aqui-click" style="
+            background: #ea580c;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            box-shadow: 0 2px 6px rgba(234, 88, 12, 0.4);
+          ">
+            🚀 Usar como Ignición para Simular
+          </button>
         </div>
       `;
 
@@ -272,6 +316,16 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           map.closePopup(popup);
           if (onMapCreateViviendaRef.current) {
             onMapCreateViviendaRef.current(lat, lon);
+          }
+        });
+      }
+
+      const btnSim = popupNode.querySelector('#btn-simular-aqui-click');
+      if (btnSim) {
+        btnSim.addEventListener('click', () => {
+          map.closePopup(popup);
+          if (onMapSetSimCoordsRef.current) {
+            onMapSetSimCoordsRef.current(lat, lon);
           }
         });
       }
@@ -719,9 +773,35 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         }
       });
 
+      // Renderizar punto de ignición central simulado
+      if (simulacionGeojson.punto_ignicion && simulacionGeojson.punto_ignicion.coordinates) {
+        const [ignLon, ignLat] = simulacionGeojson.punto_ignicion.coordinates;
+        const ignMarker = L.circleMarker([ignLat, ignLon], {
+          radius: 7,
+          color: '#ffffff',
+          weight: 2.5,
+          fillColor: '#ea580c',
+          fillOpacity: 1.0
+        }).bindPopup(`
+          <div style="font-family: inherit; font-size: 12px; color: #fff; padding: 4px;">
+            <strong style="color: #f97316;">📍 Punto de Ignición Simulado</strong>
+            <div style="font-size: 11px; color: #94a3b8; font-family: monospace; margin-top: 2px;">
+              Lat: ${ignLat.toFixed(5)}<br/>Lon: ${ignLon.toFixed(5)}
+            </div>
+            <div style="font-size: 10px; color: #a78bfa; margin-top: 4px;">Simulación #${simulacionGeojson.simulacion_id}</div>
+          </div>
+        `);
+        layer.addLayer(ignMarker);
+      }
+
       layer.addLayer(isocronasLayer);
       if (mapInstanceRef.current && !mapInstanceRef.current.hasLayer(layer)) {
         layer.addTo(mapInstanceRef.current);
+      }
+
+      // Auto-centrar suavemente en la zona de la simulación
+      if (mapInstanceRef.current && isocronasLayer.getBounds().isValid()) {
+        mapInstanceRef.current.fitBounds(isocronasLayer.getBounds(), { padding: [40, 40], maxZoom: 14 });
       }
     } catch (e) {
       console.warn('Error al renderizar capa de isócronas de propagación:', e);
@@ -1085,6 +1165,215 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     }
   }, [showLimiteProvincial, showDistritos]);
 
+  // Render Red Vial Oficial MTC / IGN (Nacional, Departamental, Vecinal)
+  useEffect(() => {
+    const layer = layersRef.current.carreteras;
+    layer.clearLayers();
+    if (!showCarreteras) return;
+
+    const renderCarreteras = (data: any) => {
+      try {
+        const geoLayer = L.geoJSON(data, {
+          style: (feat) => {
+            const cat = feat?.properties?.categoria;
+            if (cat === 'Nacional') {
+              return {
+                color: '#f59e0b', // Ámbar dorado para Red Vial Nacional (PE-32, PE-30A, etc.)
+                weight: 3.5,
+                opacity: 0.95,
+              };
+            } else if (cat === 'Departamental') {
+              return {
+                color: '#38bdf8', // Azul cielo táctico para Red Departamental (AY-117, AY-118, etc.)
+                weight: 2.4,
+                opacity: 0.90,
+              };
+            } else if (cat === 'Trocha') {
+              return {
+                color: '#fde047', // Amarillo arena brillante para trochas carrozables cortafuego
+                weight: 2.0,
+                opacity: 0.90,
+                dashArray: '6, 4',
+              };
+            } else if (cat === 'Sendero') {
+              return {
+                color: '#94a3b8', // Gris pizarra para senderos peatonales / herradura
+                weight: 1.2,
+                opacity: 0.70,
+                dashArray: '2, 4',
+              };
+            } else {
+              // Vecinal / Rural
+              return {
+                color: '#e2e8f0', // Blanco hueso / plata para caminos vecinales
+                weight: 1.6,
+                opacity: 0.85,
+                dashArray: '4, 4',
+              };
+            }
+          },
+          onEachFeature: (feature, l) => {
+            const p = feature.properties || {};
+            let catBadgeColor = '#94a3b8';
+            let catIcon = '🚗';
+            if (p.categoria === 'Nacional') {
+              catBadgeColor = '#f59e0b';
+              catIcon = '🛣️';
+            } else if (p.categoria === 'Departamental') {
+              catBadgeColor = '#38bdf8';
+              catIcon = '🚗';
+            } else if (p.categoria === 'Trocha') {
+              catBadgeColor = '#fde047';
+              catIcon = '🚜';
+            } else if (p.categoria === 'Sendero') {
+              catBadgeColor = '#94a3b8';
+              catIcon = '🥾';
+            } else {
+              catBadgeColor = '#e2e8f0';
+              catIcon = '🚙';
+            }
+
+            l.bindTooltip(
+              `<div style="font-size: 11px; font-weight: 700; color: #f8fafc;">
+                ${catIcon} ${p.codigo || 'S/C'}: ${p.nombre || p.tipo_red} ${p.es_cortafuego ? '🛡️ [Cortafuego]' : ''}
+              </div>`,
+              { sticky: true, opacity: 0.95 }
+            );
+
+            l.bindPopup(`
+              <div style="font-family: var(--font-sans); min-width: 240px; padding: 4px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">
+                  <span style="font-size: 10px; font-weight: 800; color: ${catBadgeColor}; text-transform: uppercase;">
+                    ${catIcon} ${p.tipo_red || 'RED VIAL'}
+                  </span>
+                  <span style="font-size: 9.5px; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.08); color: #cbd5e1; font-family: var(--font-mono); font-weight: 700;">
+                    ${p.codigo || 'SINAC'}
+                  </span>
+                </div>
+                <h4 style="font-size: 13px; font-weight: 700; color: #ffffff; margin: 0 0 6px 0;">
+                  ${p.nombre || 'Carretera / Trocha'}
+                </h4>
+                <div style="font-size: 11px; color: #94a3b8; display: flex; flex-direction: column; gap: 4px;">
+                  <span><strong>Categoría:</strong> <strong style="color: ${catBadgeColor};">${p.categoria}</strong></span>
+                  <span><strong>Superficie:</strong> <strong style="color: #cbd5e1;">${p.superficie || 'Afirmado'}</strong></span>
+                  <span><strong>Fuente:</strong> ${p.fuente || 'MTC / IGN / OSM'}</span>
+                  ${
+                    p.es_cortafuego
+                      ? `<div style="margin-top: 4px; padding: 4px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399; font-size: 10px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                          🛡️ <span>Barrera física / cortafuego activo en simulador</span>
+                        </div>`
+                      : ''
+                  }
+                </div>
+              </div>
+            `);
+          },
+        });
+
+        layer.addLayer(geoLayer);
+      } catch (err) {
+        console.warn('Error al renderizar capa de carreteras:', err);
+      }
+    };
+
+    if (cachedCarreterasGeoJson) {
+      renderCarreteras(cachedCarreterasGeoJson);
+    } else {
+      fetch('/data/carreteras_parinacochas.geojson')
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
+        .then((data) => {
+          cachedCarreterasGeoJson = data;
+          renderCarreteras(data);
+        })
+        .catch((err) => console.warn('Error al cargar carreteras_parinacochas.geojson:', err));
+    }
+  }, [showCarreteras]);
+
+  // Render Red Hidrográfica Oficial ANA (Ríos y Quebradas)
+  useEffect(() => {
+    const layer = layersRef.current.rios;
+    layer.clearLayers();
+    if (!showRios) return;
+
+    const renderRios = (data: any) => {
+      try {
+        const geoLayer = L.geoJSON(data, {
+          style: (feat) => {
+            const tipo = feat?.properties?.tipo;
+            if (tipo === 'Río') {
+              return {
+                color: '#06b6d4', // Cyan / Aqua para ríos principales y secundarios
+                weight: 2.3,
+                opacity: 0.88,
+              };
+            } else {
+              // Quebrada
+              return {
+                color: '#38bdf8', // Azul hielo para quebradas
+                weight: 1.2,
+                opacity: 0.65,
+                dashArray: '3, 4',
+              };
+            }
+          },
+          onEachFeature: (feature, l) => {
+            const p = feature.properties || {};
+
+            l.bindTooltip(
+              `<div style="font-size: 11px; font-weight: 700; color: #f8fafc;">
+                💧 ${p.nombre} (${p.tipo})
+              </div>`,
+              { sticky: true, opacity: 0.95 }
+            );
+
+            l.bindPopup(`
+              <div style="font-family: var(--font-sans); min-width: 210px; padding: 4px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">
+                  <span style="font-size: 10px; font-weight: 800; color: #06b6d4; text-transform: uppercase;">
+                    💧 RED HIDROGRÁFICA
+                  </span>
+                  <span style="font-size: 9.5px; padding: 1px 6px; border-radius: 4px; background: rgba(6, 182, 212, 0.15); color: #38bdf8; font-weight: 700;">
+                    ${p.tipo}
+                  </span>
+                </div>
+                <h4 style="font-size: 13px; font-weight: 700; color: #ffffff; margin: 0 0 6px 0;">
+                  ${p.nombre}
+                </h4>
+                <div style="font-size: 11px; color: #94a3b8; display: flex; flex-direction: column; gap: 3px;">
+                  <span><strong>Jerarquía:</strong> <strong style="color: #cbd5e1;">${p.jerarquia || 'Corriente natural'}</strong></span>
+                  <span><strong>Cuenca:</strong> <strong style="color: #38bdf8;">${p.cuenca || 'Cuenca Parinacochas'}</strong></span>
+                  <span><strong>Fuente:</strong> ${p.fuente || 'ANA / IGN Carta Nacional'}</span>
+                </div>
+              </div>
+            `);
+          },
+        });
+
+        layer.addLayer(geoLayer);
+      } catch (err) {
+        console.warn('Error al renderizar red hidrográfica:', err);
+      }
+    };
+
+    if (cachedRiosGeoJson) {
+      renderRios(cachedRiosGeoJson);
+    } else {
+      fetch('/data/rios_parinacochas.geojson')
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
+        .then((data) => {
+          cachedRiosGeoJson = data;
+          renderRios(data);
+        })
+        .catch((err) => console.warn('Error al cargar rios_parinacochas.geojson:', err));
+    }
+  }, [showRios]);
+
   const handleCenterCoracora = () => {
     if (mapInstanceRef.current) {
       mapInstanceRef.current.flyTo(CORACORA_COORDS, 13, { duration: 1.2 });
@@ -1368,6 +1657,31 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             </span>
           </label>
         )}
+
+        {/* Capas de Infraestructura Vial y Red Hidrográfica Oficial */}
+        <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '4px 0' }} />
+
+        <label className="map-layer-toggle" id="layer-carreteras-toggle" style={{ color: '#f59e0b' }}>
+          <input
+            type="checkbox"
+            checked={showCarreteras}
+            onChange={(e) => onToggleCarreteras?.(e.target.checked)}
+          />
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+            <Route size={14} color="#f59e0b" /> Vías y Trochas Cortafuego (713)
+          </span>
+        </label>
+
+        <label className="map-layer-toggle" id="layer-rios-toggle" style={{ color: '#06b6d4' }}>
+          <input
+            type="checkbox"
+            checked={showRios}
+            onChange={(e) => onToggleRios?.(e.target.checked)}
+          />
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+            <Droplets size={14} color="#06b6d4" /> Red Hidrográfica ANA (378)
+          </span>
+        </label>
       </div>
 
       {/* Modal for Custom Date Range */}

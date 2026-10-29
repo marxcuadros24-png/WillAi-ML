@@ -4,11 +4,11 @@
   "algoritmo": "RandomForestClassifier + CalibratedClassifierCV (Sigmoid)",
   "tipo_tarea": "Estimación de Riesgo de Ocurrencia / Susceptibilidad de Incendio",
   "zona_estudio": "Coracora, Provincia de Parinacochas, Ayacucho",
-  "entrenado_en": "2026-10-27T05:20:34.206115+00:00",
+  "entrenado_en": "2026-10-29T00:30:36.331848+00:00",
   "division_temporal": {
-    "fecha_inicio": "2026-09-27",
-    "fecha_corte_split": "2026-10-18",
-    "fecha_fin": "2026-10-27",
+    "fecha_inicio": "2026-09-29",
+    "fecha_corte_split": "2026-10-20",
+    "fecha_fin": "2026-10-29",
     "test_ratio": 0.3,
     "muestras_train": 53,
     "muestras_test": 24
@@ -30,7 +30,7 @@
       "f1_score": 1.0,
       "roc_auc": 1.0,
       "pr_auc": 1.0,
-      "brier_score": 0.0056
+      "brier_score": 0.0062
     },
     "linea_base_logistic_regression": {
       "precision": 1.0,
@@ -38,21 +38,21 @@
       "f1_score": 1.0,
       "roc_auc": 1.0,
       "pr_auc": 1.0,
-      "brier_score": 0.0059
+      "brier_score": 0.0062
     }
   },
   "importancia_variables": {
-    "temp_max": 0.0072,
-    "humidity_mean": 0.0391,
-    "wind_max": 0.0284,
-    "rain_sum": 0.0071,
-    "rain_prev_3d": 0.0013,
-    "fwi": 0.0079,
-    "isi": 0.0117,
-    "elevacion_m": 0.1262,
-    "pendiente_deg": 0.3746,
-    "distancia_comunidad_km": 0.3956,
-    "mes": 0.001
+    "temp_max": 0.0078,
+    "humidity_mean": 0.0419,
+    "wind_max": 0.0276,
+    "rain_sum": 0.0069,
+    "rain_prev_3d": 0.0029,
+    "fwi": 0.0091,
+    "isi": 0.0097,
+    "elevacion_m": 0.1306,
+    "pendiente_deg": 0.3637,
+    "distancia_comunidad_km": 0.3995,
+    "mes": 0.0003
   },
   "variables_entrada": [
     "temp_max",

@@ -76,6 +76,8 @@ export const MapaPage: React.FC = () => {
   const [focusCoords, setFocusCoords] = useState<[number, number] | null>(null);
   const [showLimiteProvincial, setShowLimiteProvincial] = useState<boolean>(true);
   const [showDistritos, setShowDistritos] = useState<boolean>(false);
+  const [showCarreteras, setShowCarreteras] = useState<boolean>(true);
+  const [showRios, setShowRios] = useState<boolean>(true);
 
   // Form state for new simulation
   const [simLat, setSimLat] = useState<string>('-15.0189');
@@ -125,6 +127,8 @@ export const MapaPage: React.FC = () => {
         showViviendas={showViviendas}
         showLimiteProvincial={showLimiteProvincial}
         showDistritos={showDistritos}
+        showCarreteras={showCarreteras}
+        showRios={showRios}
         onToggleModis={setShowModis}
         onToggleViirs={setShowViirs}
         onToggleSerfor={setShowSerfor}
@@ -135,6 +139,8 @@ export const MapaPage: React.FC = () => {
         onToggleViviendas={setShowViviendas}
         onToggleLimiteProvincial={setShowLimiteProvincial}
         onToggleDistritos={setShowDistritos}
+        onToggleCarreteras={setShowCarreteras}
+        onToggleRios={setShowRios}
         grillaOcurrencia={grillaOcurrencia}
         timeRange={timeRange}
         onChangeTimeRange={handleTimeRangeChange}
@@ -144,6 +150,11 @@ export const MapaPage: React.FC = () => {
         selectedHourIdx={selectedWindHourIdx}
         onMapCreateIncident={onOpenCreateIncidentWithCoords}
         onMapCreateVivienda={onOpenCreateViviendaWithCoords}
+        onMapSetSimCoords={(lat, lon) => {
+          setSimLat(lat.toString());
+          setSimLon(lon.toString());
+          setSidebarTab('simulacion');
+        }}
         simulacionGeojson={simulacionGeojson}
         showSimulacionIsocronas={showSimulacionIsocronas}
         onToggleSimulacionIsocronas={setShowSimulacionIsocronas}
@@ -943,6 +954,7 @@ export const MapaPage: React.FC = () => {
                       type="text"
                       value={simLat}
                       onChange={(e) => setSimLat(e.target.value)}
+                      placeholder="-15.0189"
                       style={{
                         width: '100%',
                         background: '#0b1324',
@@ -963,6 +975,7 @@ export const MapaPage: React.FC = () => {
                       type="text"
                       value={simLon}
                       onChange={(e) => setSimLon(e.target.value)}
+                      placeholder="-73.7806"
                       style={{
                         width: '100%',
                         background: '#0b1324',
@@ -975,6 +988,39 @@ export const MapaPage: React.FC = () => {
                       }}
                     />
                   </div>
+                </div>
+
+                {/* Accesos rápidos de selección de coordenadas */}
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                  {selectedIncidente && (
+                    <button
+                      type="button"
+                      className="btn-admin btn-admin-outline"
+                      style={{ fontSize: '10px', padding: '3px 6px' }}
+                      onClick={() => {
+                        setSimLat(selectedIncidente.latitud.toString());
+                        setSimLon(selectedIncidente.longitud.toString());
+                      }}
+                      title="Copiar coordenadas del incidente seleccionado"
+                    >
+                      📍 Usar Incidente #{selectedIncidente.id}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="btn-admin btn-admin-outline"
+                    style={{ fontSize: '10px', padding: '3px 6px' }}
+                    onClick={() => {
+                      setSimLat('-15.0189');
+                      setSimLon('-73.7806');
+                    }}
+                    title="Restablecer centro en Coracora"
+                  >
+                    🔄 Coracora Base
+                  </button>
+                  <span style={{ fontSize: '10px', color: '#38bdf8', alignSelf: 'center', marginLeft: 'auto' }}>
+                    💡 Clic derecho en el mapa para marcar ignición
+                  </span>
                 </div>
 
                 <div style={{ marginBottom: '10px' }}>
@@ -1001,9 +1047,10 @@ export const MapaPage: React.FC = () => {
                 </div>
 
                 <div style={{ fontSize: '10.5px', color: '#94a3b8', marginBottom: '10px', background: 'rgba(0,0,0,0.3)', padding: '6px 8px', borderRadius: '4px' }}>
-                  <div>🏔️ DEM: <strong>Copernicus GLO-30 UTM 18S (30m)</strong></div>
+                  <div>🏔️ Topografía: <strong>Copernicus GLO-30 DEM (30m)</strong></div>
                   <div>💨 Viento: <strong>WindProphet ML (Open-Meteo)</strong></div>
-                  <div>🌾 Combustible: <strong>Pajonal de Ichu Andino (GR2 / O-1b)</strong></div>
+                  <div>🌱 Combustible: <strong>Mosaico Sierra Andina (Pajonal Mixto / Roquedales / Bofedales)</strong></div>
+                  <div>🎯 Calibración: <strong>LOFO 3-Fold (alfa_r0: 0.495, escala anti-exageración)</strong></div>
                 </div>
 
                 <button

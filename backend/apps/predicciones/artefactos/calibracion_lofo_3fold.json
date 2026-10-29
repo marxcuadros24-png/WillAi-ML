@@ -5,19 +5,19 @@
   "optimizador": "scipy.optimize.minimize (Powell, maxiter=1)",
   "total_folds": 3,
   "resumen_macro_3fold": {
-    "iou_test_base_medio_porcentaje": 22.52,
-    "iou_test_calibrado_medio_porcentaje": 30.66,
-    "mejora_iou_media_puntos": 8.14,
-    "dice_f1_test_calibrado_medio_porcentaje": 46.72,
-    "distancia_hausdorff_test_base_media_m": 2726.1,
-    "distancia_hausdorff_test_calibrado_media_m": 2258.3,
-    "reduccion_distancia_hausdorff_media_m": 467.8,
-    "error_omision_test_medio_porcentaje": 41.39
+    "iou_test_base_medio_porcentaje": 25.29,
+    "iou_test_calibrado_medio_porcentaje": 29.97,
+    "mejora_iou_media_puntos": 4.68,
+    "dice_f1_test_calibrado_medio_porcentaje": 45.61,
+    "distancia_hausdorff_test_base_media_m": 2352.3,
+    "distancia_hausdorff_test_calibrado_media_m": 2027.5,
+    "reduccion_distancia_hausdorff_media_m": 324.8,
+    "error_omision_test_medio_porcentaje": 54.9
   },
   "multiplicadores_optimos_recomendados": {
-    "alfa_r0": 0.495,
-    "alfa_viento": 0.762,
-    "alfa_pendiente": 1.941
+    "alfa_r0": 0.742,
+    "alfa_viento": 0.117,
+    "alfa_pendiente": 1.986
   },
   "folds": [
     {
@@ -38,38 +38,38 @@
         }
       ],
       "multiplicadores_optimos": {
-        "alfa_r0": 0.611,
-        "alfa_viento": 0.834,
-        "alfa_pendiente": 0.492
+        "alfa_r0": 0.786,
+        "alfa_viento": 0.146,
+        "alfa_pendiente": 4.0
       },
       "entrenamiento": {
-        "iou_base": 25.44,
-        "iou_calibrado": 33.28,
-        "mejora_iou": 7.84,
-        "hausdorff_base_m": 2570.2,
-        "hausdorff_calibrado_m": 2519.4
+        "iou_base": 23.33,
+        "iou_calibrado": 26.67,
+        "mejora_iou": 3.34,
+        "hausdorff_base_m": 2466.7,
+        "hausdorff_calibrado_m": 2530.0
       },
       "prueba_no_vista": {
-        "iou_base": 16.69,
-        "iou_calibrado": 33.93,
-        "mejora_iou": 17.24,
-        "dice_calibrado": 50.67,
-        "hausdorff_base_m": 3037.8,
-        "hausdorff_calibrado_m": 1610.1,
-        "reduccion_hausdorff_m": 1427.7,
-        "omision_calibrada": 9.73,
-        "comision_calibrada": 64.78,
+        "iou_base": 29.21,
+        "iou_calibrado": 39.89,
+        "mejora_iou": 10.68,
+        "dice_calibrado": 57.03,
+        "hausdorff_base_m": 2123.6,
+        "hausdorff_calibrado_m": 940.2,
+        "reduccion_hausdorff_m": 1183.4,
+        "omision_calibrada": 30.53,
+        "comision_calibrada": 51.63,
         "detalles": [
           {
             "id_evento": "FIRMS-2026-0820-HUACCANA",
             "nombre": "Incendio Huac-Cana / Coracora Sur",
             "area_real_ha": 511.29,
-            "area_simulada_ha": 1310.49,
-            "iou_porcentaje": 33.93,
-            "dice_f1_porcentaje": 50.67,
-            "distancia_hausdorff_m": 1610.1,
-            "omision_porcentaje": 9.73,
-            "comision_porcentaje": 64.78
+            "area_simulada_ha": 734.4,
+            "iou_porcentaje": 39.89,
+            "dice_f1_porcentaje": 57.03,
+            "distancia_hausdorff_m": 940.2,
+            "omision_porcentaje": 30.53,
+            "comision_porcentaje": 51.63
           }
         ]
       }
@@ -92,38 +92,38 @@
         }
       ],
       "multiplicadores_optimos": {
-        "alfa_r0": 0.388,
-        "alfa_viento": 0.779,
-        "alfa_pendiente": 3.7
+        "alfa_r0": 0.688,
+        "alfa_viento": 0.103,
+        "alfa_pendiente": 0.958
       },
       "entrenamiento": {
-        "iou_base": 15.07,
-        "iou_calibrado": 32.21,
-        "mejora_iou": 17.14,
-        "hausdorff_base_m": 2831.3,
-        "hausdorff_calibrado_m": 1707.8
+        "iou_base": 24.59,
+        "iou_calibrado": 34.64,
+        "mejora_iou": 10.05,
+        "hausdorff_base_m": 2046.8,
+        "hausdorff_calibrado_m": 1550.8
       },
       "prueba_no_vista": {
-        "iou_base": 37.43,
-        "iou_calibrado": 34.2,
-        "mejora_iou": -3.23,
-        "dice_calibrado": 50.97,
-        "hausdorff_base_m": 2515.6,
-        "hausdorff_calibrado_m": 2870.9,
-        "reduccion_hausdorff_m": -355.3,
-        "omision_calibrada": 61.21,
-        "comision_calibrada": 25.67,
+        "iou_base": 26.68,
+        "iou_calibrado": 21.54,
+        "mejora_iou": -5.14,
+        "dice_calibrado": 35.45,
+        "hausdorff_base_m": 2963.3,
+        "hausdorff_calibrado_m": 2963.3,
+        "reduccion_hausdorff_m": 0.0,
+        "omision_calibrada": 77.73,
+        "comision_calibrada": 13.14,
         "detalles": [
           {
             "id_evento": "FIRMS-2026-1003-CHUMPI",
             "nombre": "Incendio Chumpi / Incuyo",
             "area_real_ha": 1045.35,
-            "area_simulada_ha": 545.49,
-            "iou_porcentaje": 34.2,
-            "dice_f1_porcentaje": 50.97,
-            "distancia_hausdorff_m": 2870.9,
-            "omision_porcentaje": 61.21,
-            "comision_porcentaje": 25.67
+            "area_simulada_ha": 268.02,
+            "iou_porcentaje": 21.54,
+            "dice_f1_porcentaje": 35.45,
+            "distancia_hausdorff_m": 2963.3,
+            "omision_porcentaje": 77.73,
+            "comision_porcentaje": 13.14
           }
         ]
       }
@@ -146,38 +146,38 @@
         }
       ],
       "multiplicadores_optimos": {
-        "alfa_r0": 0.486,
-        "alfa_viento": 0.673,
-        "alfa_pendiente": 1.631
+        "alfa_r0": 0.752,
+        "alfa_viento": 0.103,
+        "alfa_pendiente": 1.0
       },
       "entrenamiento": {
-        "iou_base": 27.06,
-        "iou_calibrado": 38.92,
-        "mejora_iou": 11.86,
-        "hausdorff_base_m": 2776.7,
-        "hausdorff_calibrado_m": 2041.5
+        "iou_base": 27.95,
+        "iou_calibrado": 32.66,
+        "mejora_iou": 4.71,
+        "hausdorff_base_m": 2543.4,
+        "hausdorff_calibrado_m": 1888.9
       },
       "prueba_no_vista": {
-        "iou_base": 13.45,
-        "iou_calibrado": 23.86,
-        "mejora_iou": 10.41,
-        "dice_calibrado": 38.53,
-        "hausdorff_base_m": 2624.8,
-        "hausdorff_calibrado_m": 2294.0,
-        "reduccion_hausdorff_m": 330.8,
-        "omision_calibrada": 53.23,
-        "comision_calibrada": 67.24,
+        "iou_base": 19.98,
+        "iou_calibrado": 28.49,
+        "mejora_iou": 8.51,
+        "dice_calibrado": 44.35,
+        "hausdorff_base_m": 1970.1,
+        "hausdorff_calibrado_m": 2178.9,
+        "reduccion_hausdorff_m": -208.8,
+        "omision_calibrada": 56.43,
+        "comision_calibrada": 54.84,
         "detalles": [
           {
             "id_evento": "FIRMS-2026-1011-UPAHUACHO",
             "nombre": "Incendio Upahuacho / Parinacochas Norte",
             "area_real_ha": 219.42,
-            "area_simulada_ha": 313.29,
-            "iou_porcentaje": 23.86,
-            "dice_f1_porcentaje": 38.53,
-            "distancia_hausdorff_m": 2294.0,
-            "omision_porcentaje": 53.23,
-            "comision_porcentaje": 67.24
+            "area_simulada_ha": 211.68,
+            "iou_porcentaje": 28.49,
+            "dice_f1_porcentaje": 44.35,
+            "distancia_hausdorff_m": 2178.9,
+            "omision_porcentaje": 56.43,
+            "comision_porcentaje": 54.84
           }
         ]
       }

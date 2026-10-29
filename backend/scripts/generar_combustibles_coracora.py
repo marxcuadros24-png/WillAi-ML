@@ -66,31 +66,36 @@ def clasificar_r0_andino(
 ) -> np.ndarray:
     """
     Asigna la tasa de propagación base (R0 en m/min) por píxel para ecosistemas andinos
-    combinando NDVI (vigor/biomasa), NDMI (estrés hídrico y sequedad de combustibles)
-    y DEM (elevación topográfica en msnm).
+    calibrada a la realidad fisiográfica de la sierra de Parinacochas.
+    Reconoce que en la sierra no todo es ichu denso: existe una gran proporción de
+    roquedales, pedregales, canchales, suelos agrícolas en descanso y puna rala.
     """
     shape = ndvi.shape
-    r0 = np.full(shape, 1.30, dtype=np.float32)
+    # Cobertura base por defecto: puna mixta discontinua (0.65 m/min)
+    r0 = np.full(shape, 0.65, dtype=np.float32)
 
     # 1. Cobertura base por biomasa andina (NDVI)
-    # Suelo seco / puna árida / interfaz periurbana
-    r0[(ndvi >= -0.05) & (ndvi < 0.14)] = 0.85
-    # Pajonal ralo / pastizal andino disperso
-    r0[(ndvi >= 0.14) & (ndvi < 0.25)] = 1.30
-    # Pajonal denso de Ichu andino (GR2 / O-1b)
-    r0[(ndvi >= 0.25) & (ndvi < 0.42)] = 1.80
-    # Matorral andino / Tolares / Relictos de Queñua
-    r0[ndvi >= 0.42] = 2.60
+    # Suelo pedregoso desnudo / roquedales / cauces / canchales / eriales
+    r0[(ndvi >= -0.05) & (ndvi < 0.12)] = 0.15
+    # Puna árida / tolares dispersos / pastizal muy ralo
+    r0[(ndvi >= 0.12) & (ndvi < 0.22)] = 0.45
+    # Pajonal andino mixto (pastos de altura con suelo descubierto intercalado)
+    r0[(ndvi >= 0.22) & (ndvi < 0.35)] = 0.75
+    # Pajonal denso de Ichu andino (Stipa ichu / Festuca dolichophylla)
+    r0[(ndvi >= 0.35) & (ndvi < 0.48)] = 1.25
+    # Matorral andino / Queñuales / relictos arbustivos densos
+    r0[ndvi >= 0.48] = 1.55
 
     # 2. Modulación por contenido de humedad y sequedad (NDMI = (NIR - SWIR1)/(NIR + SWIR1))
     if ndmi is not None:
-        # Pastos curados y combustibles finos deshidratados (estrés hídrico severo NDMI < -0.05)
-        # aumentan la velocidad de avance del fuego entre 15% y 25%
+        # Estrés hídrico severo (pastos curados y deshidratados NDMI < -0.05)
+        # Incremento moderado realista (+15% a +25%)
         seco_mask = (ndmi < -0.05) & (ndvi >= -0.05)
-        r0[seco_mask & (ndvi < 0.14)] = 1.05
-        r0[seco_mask & (ndvi >= 0.14) & (ndvi < 0.25)] = 1.55
-        r0[seco_mask & (ndvi >= 0.25) & (ndvi < 0.42)] = 2.15
-        r0[seco_mask & (ndvi >= 0.42)] = 2.95
+        r0[seco_mask & (ndvi < 0.12)] = 0.20
+        r0[seco_mask & (ndvi >= 0.12) & (ndvi < 0.22)] = 0.55
+        r0[seco_mask & (ndvi >= 0.22) & (ndvi < 0.35)] = 0.90
+        r0[seco_mask & (ndvi >= 0.35) & (ndvi < 0.48)] = 1.45
+        r0[seco_mask & (ndvi >= 0.48)] = 1.75
 
         # Bofedales altoandinos y turberas saturadas de humedad permanente (NDMI > 0.20): freno real 0.08x
         bofedal_mask = (ndmi > 0.20)

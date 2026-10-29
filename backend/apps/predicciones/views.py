@@ -189,8 +189,13 @@ class SimulacionPropagacionViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         data = request.data
-        lat = float(data.get('latitud', -15.0189))
-        lon = float(data.get('longitud', -73.7806))
+
+        # Soporte flexible y robusto de coordenadas: acepta 'lat', 'latitud', 'lon', 'longitud', 'lng'
+        lat_val = data.get('lat') if data.get('lat') is not None else data.get('latitud')
+        lon_val = data.get('lon') if data.get('lon') is not None else (data.get('longitud') if data.get('longitud') is not None else data.get('lng'))
+
+        lat = float(lat_val) if lat_val is not None else -15.0189
+        lon = float(lon_val) if lon_val is not None else -73.7806
         horizonte_horas = int(data.get('horizonte_horas', 6))
 
         # Modelo de propagación (CA_ELIPTICO_ANDINO_V1)
@@ -217,9 +222,13 @@ class SimulacionPropagacionViewSet(viewsets.ModelViewSet):
 
         incidente_id = data.get('incidente')
         parametros = data.get('parametros_entrada', {})
-        for param_key in ['viento_kmh', 'dir_viento_grados', 'ffmc', 'dem_path', 'ruta_dem', 'combustible_path', 'ruta_combustible', 'grid_size']:
+        for param_key in ['viento_kmh', 'dir_viento_grados', 'ffmc', 'dem_path', 'ruta_dem', 'combustible_path', 'ruta_combustible', 'grid_size', 'alfa_r0', 'alfa_viento', 'alfa_pendiente', 'ensamble_viento']:
             if param_key in data and param_key not in parametros:
                 parametros[param_key] = data[param_key]
+
+        # Guardar latitud y longitud explícitas en los metadatos de entrada
+        parametros['latitud_ignicion'] = lat
+        parametros['longitud_ignicion'] = lon
 
         punto = Point(lon, lat, srid=4326)
 
@@ -231,7 +240,7 @@ class SimulacionPropagacionViewSet(viewsets.ModelViewSet):
             estado=SimulacionPropagacion.EstadoSimulacion.PENDIENTE,
             parametros_entrada=parametros,
             requiere_revision_humana=True,
-            nivel_incertidumbre="ALTA_SIN_CALIBRAR_DNBR",
+            nivel_incertidumbre="CALIBRADO_LOFO_ALTOANDINO",
         )
 
         # Disparar tarea asíncrona de Celery

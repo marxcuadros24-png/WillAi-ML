@@ -25,64 +25,64 @@
     "alfa_pendiente": 1.0
   },
   "multiplicadores_optimos": {
-    "alfa_r0": 0.486,
-    "alfa_viento": 0.66,
-    "alfa_pendiente": 1.54
+    "alfa_r0": 1.145,
+    "alfa_viento": 0.1,
+    "alfa_pendiente": 3.898
   },
   "rendimiento_entrenamiento": {
-    "iou_base": 27.06,
-    "iou_calibrado": 38.95,
-    "mejora_iou_puntos": 11.89,
-    "dice_calibrado": 56.02,
-    "hausdorff_base_m": 2776.7,
-    "hausdorff_calibrado_m": 2033.0,
-    "reduccion_hausdorff_m": 743.7,
+    "iou_base": 27.95,
+    "iou_calibrado": 35.59,
+    "mejora_iou_puntos": 7.64,
+    "dice_calibrado": 52.32,
+    "hausdorff_base_m": 2543.4,
+    "hausdorff_calibrado_m": 2157.1,
+    "reduccion_hausdorff_m": 386.3,
     "detalles": [
       {
         "id_evento": "FIRMS-2026-0820-HUACCANA",
         "nombre": "Incendio Huac-Cana / Coracora Sur",
         "area_real_ha": 511.29,
-        "area_simulada_ha": 895.41,
-        "iou_porcentaje": 41.36,
-        "dice_f1_porcentaje": 58.52,
-        "distancia_hausdorff_m": 1167.6,
-        "omision_porcentaje": 19.5,
-        "comision_porcentaje": 54.03
+        "area_simulada_ha": 1126.89,
+        "iou_porcentaje": 40.28,
+        "dice_f1_porcentaje": 57.42,
+        "distancia_hausdorff_m": 1350.9,
+        "omision_porcentaje": 8.01,
+        "comision_porcentaje": 58.26
       },
       {
         "id_evento": "FIRMS-2026-1003-CHUMPI",
         "nombre": "Incendio Chumpi / Incuyo",
         "area_real_ha": 1045.35,
-        "area_simulada_ha": 600.66,
-        "iou_porcentaje": 36.54,
-        "dice_f1_porcentaje": 53.52,
-        "distancia_hausdorff_m": 2898.4,
-        "omision_porcentaje": 57.86,
-        "comision_porcentaje": 26.67
+        "area_simulada_ha": 459.0,
+        "iou_porcentaje": 30.91,
+        "dice_f1_porcentaje": 47.22,
+        "distancia_hausdorff_m": 2963.3,
+        "omision_porcentaje": 66.02,
+        "comision_porcentaje": 22.62
       }
     ]
   },
   "rendimiento_prueba_no_visto": {
-    "iou_base": 13.45,
-    "iou_calibrado": 24.01,
-    "mejora_iou_puntos": 10.56,
-    "dice_calibrado": 38.73,
-    "hausdorff_base_m": 2624.8,
-    "hausdorff_calibrado_m": 2294.0,
-    "reduccion_hausdorff_m": 330.8,
+    "iou_base": 19.98,
+    "iou_calibrado": 28.71,
+    "mejora_iou_puntos": 8.73,
+    "dice_calibrado": 44.61,
+    "hausdorff_base_m": 1970.1,
+    "hausdorff_calibrado_m": 1826.6,
+    "reduccion_hausdorff_m": 143.5,
     "detalles": [
       {
         "id_evento": "FIRMS-2026-1011-UPAHUACHO",
         "nombre": "Incendio Upahuacho / Parinacochas Norte",
         "area_real_ha": 219.42,
-        "area_simulada_ha": 306.54,
-        "iou_porcentaje": 24.01,
-        "dice_f1_porcentaje": 38.73,
-        "distancia_hausdorff_m": 2294.0,
-        "omision_porcentaje": 53.58,
-        "comision_porcentaje": 66.77
+        "area_simulada_ha": 572.4,
+        "iou_porcentaje": 28.71,
+        "dice_f1_porcentaje": 44.61,
+        "distancia_hausdorff_m": 1826.6,
+        "omision_porcentaje": 19.51,
+        "comision_porcentaje": 69.14
       }
     ]
   },
-  "total_iteraciones_evaluadas": 100
+  "total_iteraciones_evaluadas": 128
 }

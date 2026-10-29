@@ -12,9 +12,9 @@ import heapq
 import numpy as np
 import rasterio.features
 from affine import Affine
-from rasterio.warp import transform
+from rasterio.warp import transform, transform_geom
 import shapely
-from shapely.geometry import shape, Polygon as SPolygon, MultiPolygon as SMultiPolygon
+from shapely.geometry import shape, box, Polygon as SPolygon, MultiPolygon as SMultiPolygon
 from shapely.ops import unary_union
 from django.contrib.gis.geos import MultiPolygon as DjangoMultiPolygon, GEOSGeometry
 
@@ -41,8 +41,8 @@ class SimuladorElipticoAndino:
         combustible_path: str = None,
         ruta_combustible: str = None,
         puntos_ignicion: list = None,
-        alfa_r0: float = 1.0,
-        alfa_viento: float = 1.0,
+        alfa_r0: float = 0.495,
+        alfa_viento: float = 0.762,
         alfa_pendiente: float = 1.0,
         ensamble_viento: bool = False,
         delta_viento_grados: float = 15.0,
@@ -96,6 +96,9 @@ class SimuladorElipticoAndino:
         path_combustible_efectivo = combustible_path or ruta_combustible
         self.combustible = self._obtener_grilla_combustible(combustible_array, path_combustible_efectivo)
 
+        # Aplicar cortafuegos físicos y naturales (carreteras, trochas carrozables y ríos)
+        self._aplicar_cortafuegos_en_combustible()
+
         # Mapear todos los focos de ignición a coordenadas de celda (fila, columna)
         lons_pts = [p[1] for p in self.puntos_ignicion]
         lats_pts = [p[0] for p in self.puntos_ignicion]
@@ -113,8 +116,8 @@ class SimuladorElipticoAndino:
 
         # Garantizar que todos los puntos de ignición posean material combustible para iniciar el frente
         for rf, cf in self.focos:
-            if self.combustible[rf, cf] < 0.5:
-                self.combustible[rf, cf] = 1.20
+            if self.combustible[rf, cf] < 0.2:
+                self.combustible[rf, cf] = 0.65
 
     def _obtener_grilla_dem(self, dem_array, dem_path):
         """
@@ -177,13 +180,116 @@ class SimuladorElipticoAndino:
                     window = rasterio.windows.Window(
                         px - half, py - half, self.grid_size, self.grid_size
                     )
-                    data = src.read(1, window=window, boundless=True, fill_value=1.8)
+                    data = src.read(1, window=window, boundless=True, fill_value=0.65)
                     if data.shape == (self.grid_size, self.grid_size):
                         return data.astype(np.float32)
             except Exception:
                 pass
 
-        return np.full((self.grid_size, self.grid_size), 1.8, dtype=np.float32)
+        # Fallback andino realista: mosaico de pastizal mixto, tolares y suelo pedregoso (0.65 m/min)
+        return np.full((self.grid_size, self.grid_size), 0.65, dtype=np.float32)
+
+    def _aplicar_cortafuegos_en_combustible(self):
+        """
+        Aplica cortafuegos físicos y naturales (carreteras, trochas carrozables y ríos)
+        sobre la grilla de combustible andino (self.combustible).
+        
+        Efecto físico:
+        - Vías Nacionales y Departamentales (asfaltado/afirmado ancho): R0 = 0.01 m/min (freno 99%).
+        - Trochas carrozables y caminos vecinales (suelo mineral compactado): R0 = 0.04 m/min (cortafuego).
+        - Ríos principales y secundarios (agua/lecho rocoso): R0 = 0.005 m/min (barrera total).
+        - Quebradas andinas: R0 = 0.04 m/min.
+        """
+        try:
+            import json
+            from rasterio.features import rasterize
+
+            x_min = self.x_min
+            y_max = self.y_max
+            x_max = x_min + self.grid_size * self.resolucion_m
+            y_min = y_max - self.grid_size * self.resolucion_m
+            bbox_utm = box(x_min, y_min, x_max, y_max)
+
+            lons_c, lats_c = transform('EPSG:32718', 'EPSG:4326', [x_min, x_max], [y_min, y_max])
+            bbox_wgs = box(min(lons_c), min(lats_c), max(lons_c), max(lats_c))
+
+            shapes_to_burn = []
+
+            # 1. Carreteras y Trochas Carrozables
+            posibles_vias = [
+                "data/carreteras_parinacochas.geojson",
+                "../data/carreteras_parinacochas.geojson",
+                "../../data/carreteras_parinacochas.geojson",
+                "../frontend/public/data/carreteras_parinacochas.geojson",
+                "../../frontend/public/data/carreteras_parinacochas.geojson",
+            ]
+            for p in posibles_vias:
+                if os.path.exists(p):
+                    with open(p, "r", encoding="utf-8") as f:
+                        vias_data = json.load(f)
+                    for feat in vias_data.get("features", []):
+                        g_wgs = shape(feat["geometry"])
+                        if not bbox_wgs.intersects(g_wgs):
+                            continue
+                        try:
+                            geom_utm_dict = transform_geom('EPSG:4326', 'EPSG:32718', feat["geometry"])
+                            g_utm = shape(geom_utm_dict)
+                            if not bbox_utm.intersects(g_utm):
+                                continue
+                            cat = feat.get("properties", {}).get("categoria", "")
+                            # Nacional / Departamental: vía ancha
+                            if cat in ["Nacional", "Departamental"]:
+                                r0_val = 0.01
+                            # Trochas carrozables o caminos vecinales: cortafuego en suelo mineral
+                            else:
+                                r0_val = 0.04
+                            shapes_to_burn.append((g_utm, r0_val))
+                        except Exception:
+                            continue
+                    break
+
+            # 2. Red Hidrográfica (Ríos y Quebradas)
+            posibles_rios = [
+                "data/rios_parinacochas.geojson",
+                "../data/rios_parinacochas.geojson",
+                "../../data/rios_parinacochas.geojson",
+                "../frontend/public/data/rios_parinacochas.geojson",
+                "../../frontend/public/data/rios_parinacochas.geojson",
+            ]
+            for p in posibles_rios:
+                if os.path.exists(p):
+                    with open(p, "r", encoding="utf-8") as f:
+                        rios_data = json.load(f)
+                    for feat in rios_data.get("features", []):
+                        g_wgs = shape(feat["geometry"])
+                        if not bbox_wgs.intersects(g_wgs):
+                            continue
+                        try:
+                            geom_utm_dict = transform_geom('EPSG:4326', 'EPSG:32718', feat["geometry"])
+                            g_utm = shape(geom_utm_dict)
+                            if not bbox_utm.intersects(g_utm):
+                                continue
+                            tipo = feat.get("properties", {}).get("tipo", "")
+                            r0_val = 0.005 if tipo == "Río" else 0.04
+                            shapes_to_burn.append((g_utm, r0_val))
+                        except Exception:
+                            continue
+                    break
+
+            if shapes_to_burn:
+                burned = rasterize(
+                    shapes_to_burn,
+                    out_shape=(self.grid_size, self.grid_size),
+                    transform=self.affine_transform,
+                    all_touched=True,
+                    fill=0.0,
+                    dtype=np.float32
+                )
+                mask = (burned > 0.0)
+                self.combustible[mask] = np.minimum(self.combustible[mask], burned[mask])
+
+        except Exception:
+            pass
 
     def _calcular_tiempo_arribo_dijkstra(self, dir_viento_grados: float, max_horizonte_min: float):
         """
@@ -196,14 +302,14 @@ class SimuladorElipticoAndino:
             tiempo_arribo[rf, cf] = 0.0
             heapq.heappush(pq, (0.0, rf, cf))
 
-        # Factor de humedad fina FFMC canadienses
-        f_ffmc = math.exp(0.05039 * (self.ffmc - 80.0))
+        # Factor de humedad fina FFMC canadienses modulado para altitud andina
+        f_ffmc = math.exp(0.040 * (self.ffmc - 82.0))
 
         # Dirección de avance del fuego (rumbo hacia donde el viento empuja las llamas)
         theta_prop = (dir_viento_grados + 180.0) % 360.0
 
-        # Relación largo/ancho de la elipse y excentricidad
-        lb = 1.0 + 0.125 * self.viento_kmh
+        # Relación largo/ancho de la elipse y excentricidad amortiguada por menor densidad de aire andino (>3000 msnm)
+        lb = 1.0 + 0.085 * self.viento_kmh
         ecc = math.sqrt(max(0.0, 1.0 - (1.0 / (lb * lb))))
 
         # Vecindad de 8 celdas (Moore)
@@ -235,17 +341,17 @@ class SimuladorElipticoAndino:
                     psi = math.radians(ang_diff)
 
                     # Factor elíptico de viento
-                    phi_viento = (self.viento_kmh / 12.0) * ((math.cos(psi) + ecc) / (1.0 + ecc))
+                    phi_viento = (self.viento_kmh / 15.0) * ((math.cos(psi) + ecc) / (1.0 + ecc))
 
                     # Factor de pendiente andina
                     dz = float(self.dem[nr, nc] - self.dem[r, c])
                     tan_theta = dz / dist
-                    phi_pendiente = 5.275 * (max(0.0, tan_theta) ** 2)
+                    phi_pendiente = 3.5 * (max(0.0, tan_theta) ** 1.8)
 
                     # Tasa de propagación del frente (ROS en m/min)
                     r0_comb = float(self.combustible[nr, nc])
-                    if r0_comb <= 0.01:
-                        continue  # Incombustible
+                    if r0_comb <= 0.05:
+                        continue  # Incombustible (roquedales, canchales pedregosos, cauces secos o agua)
                     ros = max(0.05, (r0_comb * self.alfa_r0) * f_ffmc * (1.0 + (phi_viento * self.alfa_viento) + (phi_pendiente * self.alfa_pendiente)))
 
                     if ros > velocidad_maxima_observada:

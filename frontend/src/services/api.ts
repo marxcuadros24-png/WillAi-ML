@@ -896,18 +896,30 @@ export async function fetchSimulacionGeoJSON(simulacionId: number): Promise<Simu
 export async function crearSimulacionPropagacion(payload: {
   lat: number;
   lon: number;
+  latitud?: number;
+  longitud?: number;
   horizonte_horas?: number;
   incidente?: number;
   viento_kmh?: number;
   dir_viento_grados?: number;
   ffmc?: number;
   ruta_dem?: string;
+  ruta_combustible?: string;
   grid_size?: number;
+  alfa_r0?: number;
+  alfa_viento?: number;
+  alfa_pendiente?: number;
+  ensamble_viento?: boolean;
 }): Promise<SimulacionPropagacionItem> {
+  const fullPayload = {
+    ...payload,
+    latitud: payload.lat,
+    longitud: payload.lon
+  };
   const res = await fetch(`${API_BASE}/predicciones/simulaciones/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(fullPayload)
   });
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));

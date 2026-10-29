@@ -118,6 +118,37 @@ class EstrategiaElipticoAndino(EstrategiaPropagacion):
         ensamble_viento = bool(params.get('ensamble_viento', False))
         delta_viento = float(params.get('delta_viento_grados', 15.0))
 
+        # Multiplicadores biofísicos calibrados LOFO (Leave-One-Fire-Out)
+        # Previenen la propagación exagerada ajustando la física al mosaico andino real
+        alfa_r0 = params.get('alfa_r0')
+        alfa_viento = params.get('alfa_viento')
+        alfa_pendiente = params.get('alfa_pendiente')
+
+        if alfa_r0 is None or alfa_viento is None or alfa_pendiente is None:
+            artefacto_3fold = settings.BASE_DIR / 'apps' / 'predicciones' / 'artefactos' / 'calibracion_lofo_3fold.json'
+            if artefacto_3fold.exists():
+                try:
+                    import json
+                    with open(artefacto_3fold, 'r', encoding='utf-8') as f_art:
+                        meta_art = json.load(f_art)
+                        opt_rec = meta_art.get('multiplicadores_optimos_recomendados', {})
+                        if alfa_r0 is None:
+                            alfa_r0 = opt_rec.get('alfa_r0', 0.495)
+                        if alfa_viento is None:
+                            alfa_viento = opt_rec.get('alfa_viento', 0.762)
+                        if alfa_pendiente is None:
+                            alfa_pendiente = opt_rec.get('alfa_pendiente', 1.0)
+                except Exception:
+                    pass
+
+            alfa_r0 = float(alfa_r0 if alfa_r0 is not None else 0.495)
+            alfa_viento = float(alfa_viento if alfa_viento is not None else 0.762)
+            alfa_pendiente = float(alfa_pendiente if alfa_pendiente is not None else 1.0)
+        else:
+            alfa_r0 = float(alfa_r0)
+            alfa_viento = float(alfa_viento)
+            alfa_pendiente = float(alfa_pendiente)
+
         simulador = SimuladorElipticoAndino(
             lat=lat,
             lon=lon,
@@ -128,6 +159,9 @@ class EstrategiaElipticoAndino(EstrategiaPropagacion):
             grid_size=grid_size,
             dem_path=dem_path,
             combustible_path=combustible_path,
+            alfa_r0=alfa_r0,
+            alfa_viento=alfa_viento,
+            alfa_pendiente=alfa_pendiente,
             ensamble_viento=ensamble_viento,
             delta_viento_grados=delta_viento,
         )
