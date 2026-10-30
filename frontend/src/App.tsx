@@ -17,6 +17,7 @@ import { SatelitesPage } from './pages/SatelitesPage';
 import { BrigadasPage } from './pages/BrigadasPage';
 import { ViviendasPage } from './pages/ViviendasPage';
 import { LogrosPage } from './pages/LogrosPage';
+import { PortalPublicoPage } from './pages/PortalPublicoPage';
 
 import type { AppContextType } from './context/AppContext';
 import {
@@ -766,6 +767,7 @@ export const App: React.FC = () => {
         )}
 
         <Routes>
+          <Route path="/publico" element={<PortalPublicoPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route
             path="/"

@@ -7,6 +7,10 @@
     "dev": "npm run dev --prefix frontend",
     "build": "npm run build --prefix frontend",
     "lint": "npm run lint --prefix frontend",
-    "preview": "npm run preview --prefix frontend"
+    "preview": "npm run preview --prefix frontend",
+    "mobile": "npm start --prefix mobile",
+    "mobile:android": "npm run android --prefix mobile",
+    "mobile:ios": "npm run ios --prefix mobile",
+    "mobile:web": "npm run web --prefix mobile"
   }
 }

@@ -87,6 +87,12 @@ class Usuario(AbstractUser):
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     nombre_visible = models.CharField(max_length=160, null=True, blank=True, verbose_name='Nombre visible')
     telefono = models.CharField(max_length=30, unique=True, null=True, blank=True, verbose_name='Teléfono')
+    idioma_preferido = models.CharField(
+        max_length=5,
+        default='es',
+        choices=[('es', 'Español'), ('qu', 'Quechua Chanka')],
+        verbose_name='Idioma preferido'
+    )
     estado = models.CharField(
         max_length=20,
         choices=Estado.choices,

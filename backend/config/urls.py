@@ -29,6 +29,7 @@ urlpatterns = [
     path('api/v1/respuesta/', include('apps.respuesta.urls')),
     path('api/v1/reportes/', include('apps.reportes.urls')),
     path('api/v1/incidentes/', include('apps.incidentes.urls')),
+    path('api/v1/publico/', include('apps.incidentes.public_urls')),
     path('api/v1/firms/', include('apps.firms.urls')),
     path('api/v1/meteorologia/', include('apps.meteorologia.urls')),
     path('api/v1/predicciones/', include('apps.predicciones.urls')),

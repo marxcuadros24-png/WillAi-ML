@@ -72,6 +72,7 @@ class ReporteSerializer(serializers.ModelSerializer):
             'estado',
             'estado_display',
             'origen',
+            'autoriza_publicacion',
             'evidencias',
             'validaciones',
             'creado_en',
@@ -104,6 +105,7 @@ class CrearReporteSerializer(serializers.ModelSerializer):
             'precision_metros',
             'direccion_viento',
             'origen',
+            'autoriza_publicacion',
             'comunidad',
             'evidencias_archivos',
         ]

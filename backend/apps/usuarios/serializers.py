@@ -40,6 +40,7 @@ class UsuarioDetalleSerializer(serializers.ModelSerializer):
             'nombre_visible',
             'email',
             'telefono',
+            'idioma_preferido',
             'estado',
             'verificado_en',
             'ultimo_acceso_en',
@@ -65,6 +66,7 @@ class RegistroCiudadanoSerializer(serializers.ModelSerializer):
             'nombre_visible',
             'email',
             'telefono',
+            'idioma_preferido',
         ]
 
     def validate(self, attrs):

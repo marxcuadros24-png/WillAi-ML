@@ -1,3 +1,5 @@
+from rest_framework.authtoken.models import Token
+from django.contrib.auth import authenticate
 from rest_framework import viewsets, permissions, status, generics
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -55,10 +57,12 @@ class RegistroCiudadanoView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        token, _ = Token.objects.get_or_create(user=user)
         detalle = UsuarioDetalleSerializer(user)
         return Response(
             {
                 "mensaje": "Usuario registrado exitosamente con rol de poblador.",
+                "token": token.key,
                 "usuario": detalle.data
             },
             status=status.HTTP_201_CREATED
@@ -81,3 +85,41 @@ class PermisoViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Permiso.objects.all()
     serializer_class = PermisoSerializer
     permission_classes = [permissions.IsAdminUser]
+
+
+class LoginTokenView(generics.GenericAPIView):
+    """
+    Inicio de sesión para App Móvil retornando Token de autenticación DRF.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        username = request.data.get('username', '').strip()
+        password = request.data.get('password', '')
+
+        if not username or not password:
+            return Response(
+                {"error": "Debe proporcionar usuario y contraseña."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = authenticate(request, username=username, password=password)
+        if not user:
+            return Response(
+                {"error": "Credenciales inválidas."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        if user.estado != 'activo':
+            return Response(
+                {"error": "La cuenta se encuentra inactiva o suspendida."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        token, _ = Token.objects.get_or_create(user=user)
+        detalle = UsuarioDetalleSerializer(user)
+
+        return Response({
+            "token": token.key,
+            "usuario": detalle.data
+        }, status=status.HTTP_200_OK)

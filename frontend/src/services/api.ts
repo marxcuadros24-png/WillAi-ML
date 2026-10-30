@@ -13,7 +13,11 @@ import type {
   GrillaRiesgoOcurrenciaData,
   CuadroHonorData,
   SimulacionPropagacionItem,
-  SimulacionGeoJSON
+  SimulacionGeoJSON,
+  IncidentePublico,
+  EstadisticasPublicas,
+  DistritoPublico,
+  FiltrosPublicos
 } from '../types';
 
 const API_BASE = 'http://127.0.0.1:8000/api/v1';
@@ -910,3 +914,55 @@ export async function evaluarViviendasSimulacion(
 
 
 
+
+
+/**
+ * Consulta incidentes públicos para el portal ciudadano (sin login).
+ */
+export async function fetchIncidentesPublicos(filtros?: FiltrosPublicos): Promise<IncidentePublico[]> {
+  try {
+    const params = new URLSearchParams();
+    if (filtros?.fecha) params.append('fecha', filtros.fecha);
+    if (filtros?.distrito) params.append('distrito', filtros.distrito);
+    if (filtros?.estado) params.append('estado', filtros.estado);
+    if (filtros?.q) params.append('q', filtros.q);
+
+    const qs = params.toString() ? '?' + params.toString() : '';
+    const res = await fetch(API_BASE + '/publico/incidentes/' + qs, { cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.incidentes || [];
+  } catch (err) {
+    console.warn('Error al consultar incidentes públicos:', err);
+    return [];
+  }
+}
+
+/**
+ * Consulta estadísticas públicas del día y peligro FWI actual.
+ */
+export async function fetchEstadisticasPublicas(): Promise<EstadisticasPublicas | null> {
+  try {
+    const res = await fetch(API_BASE + '/publico/estadisticas/', { cache: 'no-store' });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.warn('Error al consultar estadísticas públicas:', err);
+    return null;
+  }
+}
+
+/**
+ * Consulta el catálogo de distritos de Parinacochas para filtros.
+ */
+export async function fetchDistritosPublicos(): Promise<DistritoPublico[]> {
+  try {
+    const res = await fetch(API_BASE + '/publico/distritos/', { cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.distritos || [];
+  } catch (err) {
+    console.warn('Error al consultar distritos públicos:', err);
+    return [];
+  }
+}

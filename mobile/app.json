@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "WillAI Coracora",
+    "slug": "willai-coracora",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#080c14"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "pe.willai.coracora",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "WillAI necesita tu ubicación GPS para georreferenciar reportes de incendios forestales en Parinacochas."
+      }
+    },
+    "android": {
+      "package": "pe.willai.coracora",
+      "adaptiveIcon": {
+        "backgroundColor": "#080c14"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ]
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "WillAI requiere acceso al GPS para capturar coordenadas exactas del fuego."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#ef4444",
+          "sounds": []
+        }
+      ]
+    ]
+  }
+}

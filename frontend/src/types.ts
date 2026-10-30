@@ -454,3 +454,65 @@ export interface SimulacionGeoJSON {
     };
   }>;
 }
+
+// Modelos del Portal Público Ciudadano
+export interface IncidentePublico {
+  id: number;
+  codigo: string;
+  titulo: string;
+  resumen: string;
+  tipo_incendio: string;
+  tipo_incendio_display: string;
+  estado: string;
+  estado_display: string;
+  prioridad: string;
+  prioridad_display: string;
+  latitud: number;
+  longitud: number;
+  distrito_id: number | null;
+  distrito_nombre: string;
+  comunidad_nombre: string;
+  fecha_iso: string;
+  fecha_display: string;
+  fotografias: string[];
+  reportado_por: string;
+  identidad_autorizada: boolean;
+}
+
+export interface EstadisticasPublicas {
+  hoy: {
+    fecha: string;
+    total: number;
+    activos: number;
+    controlados: number;
+  };
+  sistema: {
+    total_activos: number;
+    total_controlados: number;
+    total_cerrados: number;
+    total_historico: number;
+    distritos_con_focos_activos: number;
+  };
+  meteorologia: {
+    fwi_nivel: string;
+    fwi_score: number | null;
+    zona: string;
+  };
+}
+
+export interface DistritoPublico {
+  id: number;
+  nombre: string;
+  provincia: string;
+  departamento: string;
+  latitud: number | null;
+  longitud: number | null;
+}
+
+export interface FiltrosPublicos {
+  fecha?: string;
+  distrito?: string;
+  estado?: string;
+  q?: string;
+}
+

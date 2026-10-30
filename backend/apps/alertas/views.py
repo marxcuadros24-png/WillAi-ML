@@ -70,7 +70,6 @@ class AlertaEmergenciaViewSet(viewsets.ModelViewSet):
         return Response(res, status=status.HTTP_200_OK)
 
 
-
 class PreferenciaNotificacionViewSet(viewsets.ModelViewSet):
     """
     Configuración de canales de notificación (Push, SMS, Correo) del usuario.
@@ -83,3 +82,27 @@ class PreferenciaNotificacionViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(usuario=self.request.user)
+
+    @action(detail=False, methods=['post'], url_path='registrar-token')
+    def registrar_token(self, request):
+        """
+        Registra o actualiza de forma idempotente el token Expo Push del dispositivo.
+        """
+        token = request.data.get('token', '').strip()
+        if not token:
+            return Response({'error': 'Token requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        pref, _ = PreferenciaNotificacion.objects.update_or_create(
+            usuario=request.user,
+            canal=PreferenciaNotificacion.Canal.PUSH,
+            defaults={
+                'destino': token,
+                'habilitado': True,
+                'destino_verificado': True,
+            }
+        )
+        return Response({
+            'mensaje': 'Token push registrado exitosamente',
+            'canal': pref.canal,
+            'destino': pref.destino
+        }, status=status.HTTP_200_OK)

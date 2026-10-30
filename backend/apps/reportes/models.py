@@ -94,6 +94,10 @@ class Reporte(models.Model):
         default=OrigenReporte.MOVIL,
         verbose_name='Canal de Origen'
     )
+    autoriza_publicacion = models.BooleanField(
+        default=False,
+        verbose_name='Autoriza publicación de identidad'
+    )
     creado_en = models.DateTimeField(auto_now_add=True, verbose_name='Registrado el')
     sincronizado_en = models.DateTimeField(null=True, blank=True, verbose_name='Sincronizado el')
 
