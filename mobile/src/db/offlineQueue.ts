@@ -180,29 +180,32 @@ export async function sincronizarColaOffline(token?: string | null): Promise<{
       sincronizados++;
     } catch (err: any) {
       console.warn(`[offlineQueue] Fallo al sincronizar reporte ${item.client_uuid}:`, err?.message || err);
-      // Intento de rescate inmediato enviando como JSON puro sin fotografía
-      try {
-        await enviarReporteApi(
-          {
-            client_uuid: item.client_uuid,
-            latitud: latitudRedondeada,
-            longitud: longitudRedondeada,
-            precision_m: item.precision_m,
-            azimut: item.azimut,
-            tipo_fuego: item.tipo_fuego,
-            combustible: item.combustible,
-            foto_uri: null,
-            fecha_captura: item.fecha_captura
-          },
-          token
-        );
-        marcarComoSincronizado(item.client_uuid);
-        sincronizados++;
-      } catch (rescueErr: any) {
-        console.warn(`[offlineQueue] Falló rescate para ${item.client_uuid}:`, rescueErr?.message || rescueErr);
-        marcarErrorSync(item.client_uuid, rescueErr?.message || err?.message || 'Error de red');
-        fallidos++;
+      // Solo en el último intento (intentos >= 2) degradar enviando sin fotografía para asegurar las coordenadas
+      if ((item.intentos || 0) >= 2 && fotoLimpia) {
+        try {
+          await enviarReporteApi(
+            {
+              client_uuid: item.client_uuid,
+              latitud: latitudRedondeada,
+              longitud: longitudRedondeada,
+              precision_m: item.precision_m,
+              azimut: item.azimut,
+              tipo_fuego: item.tipo_fuego,
+              combustible: item.combustible,
+              foto_uri: null,
+              fecha_captura: item.fecha_captura
+            },
+            token
+          );
+          marcarComoSincronizado(item.client_uuid);
+          sincronizados++;
+          continue;
+        } catch (rescueErr: any) {
+          console.warn(`[offlineQueue] Falló rescate sin foto para ${item.client_uuid}:`, rescueErr?.message || rescueErr);
+        }
       }
+      marcarErrorSync(item.client_uuid, err?.message || 'Error de red');
+      fallidos++;
     }
   }
 

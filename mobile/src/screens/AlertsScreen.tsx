@@ -79,7 +79,7 @@ export const AlertsScreen: React.FC = () => {
   const alertaDestacada =
     alertas.find(
       (a) =>
-        (a.prioridad === 'critica' || a.prioridad === 'alta') &&
+        ['critica', 'muy_alta', 'alta'].includes(a.prioridad) &&
         ['emitida', 'enviada', 'pendiente_aprobacion'].includes(a.estado)
     ) || alertas[0] || null;
 
@@ -163,7 +163,7 @@ export const AlertsScreen: React.FC = () => {
       ) : (
         alertas.map((alerta) => {
           const badgeColor =
-            alerta.prioridad === 'critica'
+            alerta.prioridad === 'critica' || alerta.prioridad === 'muy_alta'
               ? '#dc2626'
               : alerta.prioridad === 'alta'
               ? '#ea580c'
@@ -175,7 +175,7 @@ export const AlertsScreen: React.FC = () => {
                 <View style={styles.alertHeaderLeft}>
                   <View style={[styles.priorityBadge, { backgroundColor: badgeColor }]}>
                     <Text style={styles.priorityBadgeText}>
-                      {alerta.prioridad === 'critica'
+                      {alerta.prioridad === 'critica' || alerta.prioridad === 'muy_alta'
                         ? 'URGENTE'
                         : alerta.prioridad === 'alta'
                         ? 'PELIGRO'

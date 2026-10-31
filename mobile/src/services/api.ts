@@ -345,7 +345,7 @@ export interface AlertaPublicaItem {
   incidente_codigo?: string | null;
   tipo: string;
   tipo_display?: string;
-  prioridad: 'critica' | 'alta' | 'media' | 'baja';
+  prioridad: 'critica' | 'muy_alta' | 'alta' | 'media' | 'baja' | 'informativa';
   prioridad_display?: string;
   titulo: string;
   mensaje: string;
@@ -474,24 +474,32 @@ export async function enviarReporteApi(
     jsonBody.fotografia = base64Img;
   }
 
-  const res = await fetch(`${API_BASE}/reportes/reportes/`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(jsonBody)
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    let msg = `HTTP ${res.status}`;
-    if (typeof err === 'object') {
-      const firstVal = Object.values(err)[0];
-      if (Array.isArray(firstVal)) msg = String(firstVal[0]);
-      else if (typeof firstVal === 'string') msg = String(firstVal);
+  try {
+    const res = await fetch(`${API_BASE}/reportes/reportes/`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(jsonBody),
+      signal: controller.signal
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      let msg = `HTTP ${res.status}`;
+      if (typeof err === 'object') {
+        const firstVal = Object.values(err)[0];
+        if (Array.isArray(firstVal)) msg = String(firstVal[0]);
+        else if (typeof firstVal === 'string') msg = String(firstVal);
+      }
+      throw new Error(msg);
     }
-    throw new Error(msg);
-  }
 
-  return await res.json();
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**

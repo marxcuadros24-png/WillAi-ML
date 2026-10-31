@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import {
   Flame,
   ArrowLeft,
@@ -89,16 +90,32 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
     }
   };
 
+  const procesarYComprimirImagen = async (uri: string) => {
+    try {
+      // Redimensionar a max 1024px de ancho con compresión 0.5 JPEG -> Base64 ultraligero (~150KB)
+      const manipResult = await manipulateAsync(
+        uri,
+        [{ resize: { width: 1024 } }],
+        { compress: 0.5, format: SaveFormat.JPEG, base64: true }
+      );
+      setFotoUri(manipResult.uri);
+      setFotoBase64(manipResult.base64 || null);
+      setFotoTomada(true);
+    } catch (e) {
+      console.warn('Error comprimiendo imagen con ImageManipulator:', e);
+      setFotoUri(uri);
+      setFotoTomada(true);
+    }
+  };
+
   useEffect(() => {
     capturarGps();
 
     // Recuperar fotografía pendiente si Android cerró la actividad al abrir la cámara
     ImagePicker.getPendingResultAsync()
-      .then((res: any) => {
+      .then(async (res: any) => {
         if (res && !res.canceled && 'assets' in res && res.assets && res.assets.length > 0) {
-          setFotoUri(res.assets[0].uri);
-          setFotoBase64(res.assets[0].base64 || null);
-          setFotoTomada(true);
+          await procesarYComprimirImagen(res.assets[0].uri);
         }
       })
       .catch(() => {});
@@ -121,14 +138,11 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
         allowsEditing: false,
-        quality: 0.6,
-        base64: true
+        quality: 0.7
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setFotoUri(result.assets[0].uri);
-        setFotoBase64(result.assets[0].base64 || null);
-        setFotoTomada(true);
+        await procesarYComprimirImagen(result.assets[0].uri);
       }
     } catch (err) {
       console.warn('Error al abrir la cámara:', err);
@@ -158,14 +172,11 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: false,
-        quality: 0.6,
-        base64: true
+        quality: 0.7
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setFotoUri(result.assets[0].uri);
-        setFotoBase64(result.assets[0].base64 || null);
-        setFotoTomada(true);
+        await procesarYComprimirImagen(result.assets[0].uri);
       }
     } catch (err) {
       console.warn('Error al abrir galería:', err);
@@ -255,8 +266,16 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
           </Text>
           <Text style={styles.successDesc}>
             {resultadoEnvio === 'online'
-              ? 'la central de emergencia ya recibieron tu foto y coordenadas.'
-              : 'En este cerro no hay señal de internet. Tu aviso quedó guardado de forma segura y se enviará automáticamente apenas recuperes cobertura.'}
+              ? (idioma === 'qu'
+                  ? 'Centralpiqa chaskirunkuñam ninapa fotonta hinaspa maypi kasqantapas.'
+                  : 'Los operadores de emergencia ya recibieron tu aviso, fotografía y coordenadas GPS.')
+              : (isOnline
+                  ? (idioma === 'qu'
+                      ? 'Celularnikipi allinta waqaychasqa kachkan. Kikinllam centralman rinqa.'
+                      : 'No se pudo contactar a la central en este instante. Tu aviso y fotografía están guardados seguros y se enviarán automáticamente en segundo plano.')
+                  : (idioma === 'qu'
+                      ? 'Kay urqupi mana internet kanchu. Cobertura kaptinqa kikinllam centralman chayanqa.'
+                      : 'En este cerro no hay señal de internet. Tu aviso y fotografía quedaron guardados de forma segura y se enviarán automáticamente apenas recuperes cobertura.'))}
           </Text>
 
           <TouchableOpacity style={styles.btnSuccessClose} onPress={onBack} activeOpacity={0.85}>

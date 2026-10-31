@@ -112,7 +112,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       if (incList) setIncidentes(incList);
       if (firmsList) setFocosSatelite(firmsList);
       if (alertasList && alertasList.length > 0) {
-        const activa = alertasList.find(a => ['critica', 'alta'].includes(a.prioridad) && ['emitida', 'enviada'].includes(a.estado)) || alertasList[0];
+        const activa = alertasList.find(a => ['critica', 'muy_alta', 'alta'].includes(a.prioridad) && ['emitida', 'enviada'].includes(a.estado)) || alertasList[0];
         setUltimaAlerta(activa);
       }
 
