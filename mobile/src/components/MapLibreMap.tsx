@@ -137,6 +137,7 @@ export const MapLibreMap: React.FC<MapLibreMapProps> = ({
   const [zoomLevel, setZoomLevel] = useState<number>(13);
   const [userCoords, setUserCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [localizando, setLocalizando] = useState(false);
+  const [forceVectorFallback, setForceVectorFallback] = useState(false);
 
   // Centrar en Coracora
   const handleCentrarCoracora = () => {
@@ -585,7 +586,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     position: 'relative',
-    backgroundColor: '#0f172a'
+    backgroundColor: '#f8fafc'
   },
   map: {
     flex: 1

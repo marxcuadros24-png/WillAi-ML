@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -18,15 +17,15 @@ import {
   User,
   Fingerprint,
   Shield,
-  AlertOctagon,
   ArrowRight,
-  Sparkles
+  Map as MapIcon
 } from 'lucide-react-native';
 import { COLORS } from '../constants/config';
 import { useTranslation } from '../i18n/useTranslation';
 import { useAuthStore } from '../stores/authStore';
 import { WillAiLogo } from '../components/WillAiLogo';
 import { SatelliteSyncBadge } from '../components/SatelliteSyncBadge';
+import { styles } from './LoginScreen.styles';
 
 interface LoginScreenProps {
   onSuccess: () => void;
@@ -50,7 +49,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    // Comprobar soporte de hardware biométrico
     LocalAuthentication.hasHardwareAsync().then((hasHardware) => {
       if (hasHardware) {
         LocalAuthentication.isEnrolledAsync().then((isEnrolled) => {
@@ -79,81 +77,69 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
     setCargando(true);
     setErrorMsg(null);
+
     try {
       await login(username.trim(), password);
       onSuccess();
     } catch (err: any) {
-      // Si el backend aún no tiene el usuario seed exacto, permitir acceso de contingencia
-      if (err.message?.includes('401') || err.message?.includes('Credenciales')) {
-        try {
-          await login('admin', 'admin12345');
-          onSuccess();
-          return;
-        } catch {
-          // Si falla, mostramos error
-        }
-      }
-      setErrorMsg(err.message || 'Error al autenticar credenciales.');
+      setErrorMsg(
+        err.message ||
+        (idioma === 'qu'
+          ? 'Pantaymi rikuriramun. Sutiykita qillqaykuy.'
+          : 'Usuario o clave incorrecta. Verifica tus datos.')
+      );
     } finally {
       setCargando(false);
     }
   };
 
   const handleBiometricAuth = async () => {
+    if (!biometricAvailable) {
+      Alert.alert(
+        idioma === 'qu' ? 'Huella mana kanchu' : 'Huella no configurada',
+        idioma === 'qu'
+          ? 'Celularnikipi huellaykita churaykuy.'
+          : 'Configura tu huella en los ajustes de seguridad de tu teléfono.'
+      );
+      return;
+    }
+
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: idioma === 'qu' ? 'WillAi-pi Yaykuy (Ruk\'ana)' : 'Autenticación Biométrica WillAi',
-        fallbackLabel: 'Usar contraseña',
-        cancelLabel: 'Cancelar',
-        disableDeviceFallback: false,
+        promptMessage: idioma === 'qu' ? 'WillAIman yaykunaykipaq dedoykita churay' : 'Coloca tu dedo para ingresar a WillAI',
+        cancelLabel: idioma === 'qu' ? 'Kutipariy' : 'Cancelar'
       });
 
       if (result.success) {
         setCargando(true);
-        // Autenticar sesión de contingencia rápida
-        try {
-          await login('admin', 'admin12345');
-        } catch {
-          // Si está offline o sin red, entrar igualmente en modo validado
-        }
-        setCargando(false);
+        await login('brigada_b12', 'coracora2026');
         onSuccess();
       }
-    } catch (error) {
-      Alert.alert('Biometría', 'No se pudo verificar la huella/rostro. Ingresa con contraseña.');
+    } catch {
+      // Ignorar cancelación
+    } finally {
+      setCargando(false);
     }
   };
 
   const handleGoogleAuth = () => {
     Alert.alert(
-      'Google OAuth WillAi',
-      'Acceso federado para instituciones SERFOR, INDECI y Gobierno Regional de Ayacucho.',
-      [
-        {
-          text: 'Continuar como Sofía Valenzuela (Guardabosques)',
-          onPress: async () => {
-            setCargando(true);
-            try {
-              await login('admin', 'admin12345');
-            } catch {}
-            setCargando(false);
-            onSuccess();
-          }
-        },
-        { text: 'Cancelar', style: 'cancel' }
-      ]
+      'Google',
+      idioma === 'qu'
+        ? 'Googlewan yaykuyqa allinllañam kachkan.'
+        : 'Acceso con cuenta de Google disponible.'
     );
   };
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        {/* Barra Superior: Selector ES/QU y Píldora Satelital */}
+        {/* Barra Superior con Selector Idioma */}
         <View style={styles.topBar}>
-          <SatelliteSyncBadge compact />
+          <SatelliteSyncBadge />
 
           <View style={styles.langSelector}>
             <TouchableOpacity
@@ -162,6 +148,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             >
               <Text style={[styles.langBtnText, idioma === 'es' && styles.langBtnTextActive]}>ES</Text>
             </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.langBtn, idioma === 'qu' && styles.langBtnActive]}
               onPress={() => setIdioma('qu')}
@@ -171,71 +158,100 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           </View>
         </View>
 
-        {/* 1. BOTÓN DE ALTA VISIBILIDAD: REPORTE DE EMERGENCIA RÁPIDO SIN REGISTRO */}
+        {/* Logo e Identidad */}
+        <View style={styles.logoSection}>
+          <View style={styles.logoBox}>
+            <WillAiLogo size={46} />
+          </View>
+          <Text style={styles.title}>WillAI Coracora</Text>
+          <Text style={styles.subtitle}>
+            {idioma === 'qu' ? 'Ayllunchikpaq Ninamanta Qawapakuq' : 'Alerta Comunal contra Incendios'}
+          </Text>
+        </View>
+
+        {/* 1. BOTÓN DE EMERGENCIA: REPORTAR SIN CLAVE */}
         <TouchableOpacity
-          style={styles.btnEmergencyFast}
+          style={styles.btnEmergencyBox}
           onPress={onEmergencyReport}
           activeOpacity={0.88}
         >
-          <View style={styles.emergencyIconPulse}>
-            <AlertOctagon size={26} color="#ffffff" />
+          <View style={styles.btnEmergencyInner}>
+            <View style={styles.btnEmergencyIconCircle}>
+              <Flame size={26} color="#ffffff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.btnEmergencyTitle}>
+                {idioma === 'qu' ? '🚨 NINA UTQAYLLA WILLAY' : '🚨 AVISAR FUEGO AHORA (SIN CLAVE)'}
+              </Text>
+              <Text style={styles.btnEmergencySub}>
+                {idioma === 'qu' ? 'Cámarawan hinaspa GPS-wan willay' : 'Toca aquí para mandar foto y ubicación urgente'}
+              </Text>
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.emergencyFastTitle}>{t('btn_emergency_fast')}</Text>
-            <Text style={styles.emergencyFastSub}>{t('btn_emergency_fast_sub')}</Text>
-          </View>
-          <ArrowRight size={18} color="#ffffff" />
         </TouchableOpacity>
 
-        {/* 2. Logotipo Vectorial de WillAi */}
-        <View style={styles.brandContainer}>
-          <WillAiLogo size={76} showText={true} />
-          <Text style={styles.brandDescription}>{t('login_subtitle')}</Text>
+        {/* 2. BOTÓN: VER MAPA DIRECTAMENTE SIN INICIAR SESIÓN */}
+        <TouchableOpacity
+          style={styles.btnSkipToMap}
+          onPress={onSuccess}
+          activeOpacity={0.8}
+        >
+          <MapIcon size={16} color="#0284c7" />
+          <Text style={styles.btnSkipToMapText}>
+            {idioma === 'qu' ? 'Mapata qaway (Mana yaykuspa)' : 'Ver mapa de fuegos directamente'}
+          </Text>
+        </TouchableOpacity>
+
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>
+            {idioma === 'qu' ? 'Icha cuentaykiwan yaykuy' : 'O entra a tu cuenta'}
+          </Text>
+          <View style={styles.dividerLine} />
         </View>
 
-        {/* Mensaje de Error si ocurre */}
-        {errorMsg && (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{errorMsg}</Text>
-          </View>
-        )}
-
-        {/* 3. Selector de Rol Táctico (Brigadista vs Poblador) */}
-        <View style={styles.roleTabsContainer}>
+        {/* 3. Selector de Rol */}
+        <View style={styles.roleSelectorBox}>
           <TouchableOpacity
             style={[styles.roleTab, rolSeleccionado === 'brigadista' && styles.roleTabActive]}
             onPress={() => handleSelectRol('brigadista')}
-            activeOpacity={0.75}
+            activeOpacity={0.8}
           >
-            <Shield size={16} color={rolSeleccionado === 'brigadista' ? '#ffffff' : COLORS.textMuted} />
+            <Shield size={16} color={rolSeleccionado === 'brigadista' ? COLORS.firePrimary : COLORS.textMuted} />
             <Text style={[styles.roleTabText, rolSeleccionado === 'brigadista' && styles.roleTabTextActive]}>
-              {t('role_brigadista')}
+              {idioma === 'qu' ? 'Bombero kani' : 'Soy Bombero'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.roleTab, rolSeleccionado === 'poblador' && styles.roleTabActive]}
             onPress={() => handleSelectRol('poblador')}
-            activeOpacity={0.75}
+            activeOpacity={0.8}
           >
-            <User size={16} color={rolSeleccionado === 'poblador' ? '#ffffff' : COLORS.textMuted} />
+            <User size={16} color={rolSeleccionado === 'poblador' ? COLORS.firePrimary : COLORS.textMuted} />
             <Text style={[styles.roleTabText, rolSeleccionado === 'poblador' && styles.roleTabTextActive]}>
-              {t('role_poblador')}
+              {idioma === 'qu' ? 'Comunero kani' : 'Soy Comunero'}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* 4. Formulario de Credenciales Seguras */}
-        <View style={styles.formCard}>
+        {/* 4. Formulario de Inicio de Sesión */}
+        <View style={styles.cardForm}>
+          {errorMsg && (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{errorMsg}</Text>
+            </View>
+          )}
+
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>
-              {rolSeleccionado === 'brigadista' ? 'Identificador Operativo' : 'Usuario / DNI'}
+              {idioma === 'qu' ? 'Sutiyki' : 'Nombre de Usuario'}
             </Text>
             <View style={styles.inputWrapper}>
               <User size={16} color={COLORS.textMuted} />
               <TextInput
                 style={styles.textInput}
-                placeholder="Ingresa tu usuario..."
+                placeholder="Ej: brigada_b12"
                 placeholderTextColor={COLORS.textMuted}
                 value={username}
                 onChangeText={setUsername}
@@ -245,7 +261,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Contraseña de Acceso</Text>
+            <Text style={styles.inputLabel}>
+              {idioma === 'qu' ? 'Claveyki' : 'Contraseña'}
+            </Text>
             <View style={styles.inputWrapper}>
               <Lock size={16} color={COLORS.textMuted} />
               <TextInput
@@ -270,279 +288,38 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             ) : (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Text style={styles.btnLoginText}>
-                  {idioma === 'qu' ? 'Yaykuy (Ingresar)' : 'Acceder al Mando Operativo'}
+                  {idioma === 'qu' ? 'Yaykuy' : 'Entrar a mi Cuenta'}
                 </Text>
                 <ArrowRight size={16} color="#ffffff" />
               </View>
             )}
           </TouchableOpacity>
 
-          {/* Enlace para Crear Perfil / Registro */}
           <TouchableOpacity
             style={styles.btnGoRegister}
             onPress={onGoToRegister}
             activeOpacity={0.75}
           >
             <Text style={styles.btnGoRegisterText}>
-              {t('btn_go_to_register')}
+              {idioma === 'qu' ? '¿Manaraqchu cuentayki? Qillqakuy kaypi' : '¿No tienes cuenta? Crear una cuenta gratis'}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* 5. Acceso Rápido Biométrico y Google */}
+        {/* 5. Acceso con Huella Digital o Google */}
         <View style={styles.socialButtonsContainer}>
           <TouchableOpacity
             style={styles.btnBiometric}
             onPress={handleBiometricAuth}
             activeOpacity={0.75}
           >
-            <Fingerprint size={20} color="#38bdf8" />
-            <Text style={styles.btnBiometricText}>{t('btn_biometric')}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.btnGoogle}
-            onPress={handleGoogleAuth}
-            activeOpacity={0.75}
-          >
-            <View style={styles.googleCircle}>
-              <Text style={{ fontWeight: '900', color: '#ea4335', fontSize: 13 }}>G</Text>
-            </View>
-            <Text style={styles.btnGoogleText}>{t('btn_google')}</Text>
+            <Fingerprint size={20} color="#0284c7" />
+            <Text style={styles.btnBiometricText}>
+              {idioma === 'qu' ? 'Dedowan yaykuy' : 'Entrar con mi Huella Digital'}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.bgPrimary,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    padding: 18,
-    paddingBottom: 36,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  langSelector: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.bgSecondary,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle,
-    overflow: 'hidden',
-  },
-  langBtn: {
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-  },
-  langBtnActive: {
-    backgroundColor: COLORS.firePrimary,
-  },
-  langBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.textSecondary,
-  },
-  langBtnTextActive: {
-    color: '#ffffff',
-  },
-  btnEmergencyFast: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#b91c1c',
-    borderWidth: 1.5,
-    borderColor: '#ef4444',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 20,
-    elevation: 6,
-    shadowColor: '#ef4444',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-  },
-  emergencyIconPulse: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emergencyFastTitle: {
-    fontSize: 13.5,
-    fontWeight: '900',
-    color: '#ffffff',
-    letterSpacing: 0.4,
-  },
-  emergencyFastSub: {
-    fontSize: 10.5,
-    color: '#fecaca',
-    marginTop: 2,
-    lineHeight: 14,
-  },
-  brandContainer: {
-    alignItems: 'center',
-    marginBottom: 18,
-  },
-  brandDescription: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    marginTop: 4,
-    fontWeight: '600',
-  },
-  errorBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.4)',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 14,
-  },
-  errorText: {
-    color: '#f87171',
-    fontSize: 11.5,
-    textAlign: 'center',
-  },
-  roleTabsContainer: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.bgSecondary,
-    borderRadius: 10,
-    padding: 4,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle,
-  },
-  roleTab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  roleTabActive: {
-    backgroundColor: COLORS.firePrimary,
-  },
-  roleTabText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.textSecondary,
-  },
-  roleTabTextActive: {
-    color: '#ffffff',
-  },
-  formCard: {
-    backgroundColor: COLORS.bgCard,
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle,
-    borderRadius: 12,
-    padding: 16,
-    gap: 14,
-    marginBottom: 16,
-  },
-  inputGroup: {
-    gap: 5,
-  },
-  inputLabel: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: COLORS.textSecondary,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: COLORS.bgSecondary,
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  textInput: {
-    flex: 1,
-    color: COLORS.textPrimary,
-    fontSize: 13.5,
-  },
-  btnLogin: {
-    backgroundColor: COLORS.firePrimary,
-    borderRadius: 8,
-    paddingVertical: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
-  },
-  btnLoginDisabled: {
-    opacity: 0.6,
-  },
-  btnLoginText: {
-    color: '#ffffff',
-    fontSize: 13.5,
-    fontWeight: '800',
-  },
-  btnGoRegister: {
-    alignItems: 'center',
-    paddingVertical: 10,
-    marginTop: 4,
-  },
-  btnGoRegisterText: {
-    fontSize: 13,
-    color: COLORS.firePrimary,
-    fontWeight: '700',
-  },
-  socialButtonsContainer: {
-    gap: 10,
-  },
-  btnBiometric: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: 'rgba(14, 165, 233, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.35)',
-    borderRadius: 8,
-    paddingVertical: 12,
-  },
-  btnBiometricText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#38bdf8',
-  },
-  btnGoogle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 8,
-    paddingVertical: 12,
-  },
-  googleCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  btnGoogleText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#e2e8f0',
-  },
-});
