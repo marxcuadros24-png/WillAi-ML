@@ -338,6 +338,38 @@ export async function fetchFwiActual(): Promise<FwiActualResponse | null> {
 /**
  * Consulta el buzón de alertas del usuario.
  */
+export interface AlertaPublicaItem {
+  id_alerta: number;
+  uuid: string;
+  incidente?: number | null;
+  incidente_codigo?: string | null;
+  tipo: string;
+  tipo_display?: string;
+  prioridad: 'critica' | 'alta' | 'media' | 'baja';
+  prioridad_display?: string;
+  titulo: string;
+  mensaje: string;
+  instrucciones?: string;
+  estado: string;
+  estado_display?: string;
+  emitida_en?: string;
+  creada_en: string;
+}
+
+/**
+ * Consulta todas las alertas comunitarias oficiales emitidas desde el Centro de Mando Web.
+ */
+export async function fetchAlertasComunitariasApi(): Promise<AlertaPublicaItem[]> {
+  try {
+    const res = await fetch(`${API_BASE}/alertas/alertas/`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.results || data || [];
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchAlertasUsuario(token?: string | null): Promise<AlertaItem[]> {
   try {
     const headers: Record<string, string> = {};
@@ -398,11 +430,14 @@ export async function enviarReporteApi(
     tipo_fuego: string;
     combustible: string;
     foto_uri?: string | null;
+    foto_base64?: string | null;
     fecha_captura: string;
   },
   token?: string | null
 ): Promise<any> {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
   if (token) headers['Authorization'] = `Token ${token}`;
 
   // Mapeo al modelo Reporte de Django
@@ -413,74 +448,37 @@ export async function enviarReporteApi(
       ? 'pastizal'
       : 'forestal';
 
-  // Verificar si hay una foto real capturada por el teléfono (evitando URIs simuladas o vacías)
-  const hasRealPhoto = Boolean(
-    payload.foto_uri &&
-    typeof payload.foto_uri === 'string' &&
-    (payload.foto_uri.startsWith('file://') || payload.foto_uri.startsWith('content://')) &&
-    !payload.foto_uri.includes('evidencia_incendio.jpg')
-  );
-
-  let res: Response;
-
-  if (hasRealPhoto) {
-    try {
-      const formData = new FormData();
-      formData.append('tipo_incendio', tipoIncendioDjango);
-      formData.append('fecha_evento', payload.fecha_captura);
-      formData.append('latitud', String(Number(Number(payload.latitud).toFixed(6))));
-      formData.append('longitud', String(Number(Number(payload.longitud).toFixed(6))));
-      formData.append('precision_metros', String(payload.precision_m || 10.0));
-      formData.append('origen', 'movil');
-      formData.append(
-        'descripcion',
-        `[WillAI Móvil] Tipo: ${payload.tipo_fuego} | Combustible: ${payload.combustible} | Azimut: ${payload.azimut ?? 'N/A'}° | UUID: ${payload.client_uuid}`
-      );
-      formData.append('autoriza_publicacion', 'false');
-
-      const cleanUri = payload.foto_uri!;
-      const filename = cleanUri.split('/').pop() || 'evidencia.jpg';
-      const match = /\.(\w+)$/.exec(filename);
-      const ext = match ? match[1].toLowerCase() : 'jpg';
-      const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
-
-      formData.append('fotografia', {
-        uri: cleanUri,
-        name: filename,
-        type: mime
-      } as any);
-
-      res = await fetch(`${API_BASE}/reportes/reportes/`, {
-        method: 'POST',
-        headers,
-        body: formData
-      });
-    } catch (photoErr: any) {
-      console.warn('[api] Fallo al adjuntar archivo local de foto (archivo purgado de caché o inaccesible), enviando como JSON de rescate:', photoErr?.message);
-      return await enviarReporteApi({ ...payload, foto_uri: null }, token);
-    }
-  } else {
-    // Si no hay foto real, enviar payload JSON limpio (100% confiable y sin fallos de parsing multipart)
-    const jsonBody = {
-      tipo_incendio: tipoIncendioDjango,
-      fecha_evento: payload.fecha_captura,
-      latitud: payload.latitud,
-      longitud: payload.longitud,
-      precision_metros: payload.precision_m || 10.0,
-      origen: 'movil',
-      descripcion: `[WillAI Móvil] Tipo: ${payload.tipo_fuego} | Combustible: ${payload.combustible} | Azimut: ${payload.azimut ?? 'N/A'}° | UUID: ${payload.client_uuid}`,
-      autoriza_publicacion: false
-    };
-
-    res = await fetch(`${API_BASE}/reportes/reportes/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers
-      },
-      body: JSON.stringify(jsonBody)
-    });
+  // Obtener cadena base64 si fue capturada por la cámara o cargada desde SQLite
+  let base64Img: string | null = null;
+  if (payload.foto_base64) {
+    base64Img = payload.foto_base64.startsWith('data:')
+      ? payload.foto_base64
+      : `data:image/jpeg;base64,${payload.foto_base64}`;
+  } else if (payload.foto_uri && payload.foto_uri.startsWith('data:image')) {
+    base64Img = payload.foto_uri;
   }
+
+  // Payload JSON estándar (100% inmune a errores de FormDataPart de React Native)
+  const jsonBody: Record<string, any> = {
+    tipo_incendio: tipoIncendioDjango,
+    fecha_evento: payload.fecha_captura,
+    latitud: Number(Number(payload.latitud).toFixed(6)),
+    longitud: Number(Number(payload.longitud).toFixed(6)),
+    precision_metros: payload.precision_m || 10.0,
+    origen: 'movil',
+    descripcion: `[WillAI Móvil] Tipo: ${payload.tipo_fuego} | Combustible: ${payload.combustible} | Azimut: ${payload.azimut ?? 'N/A'}° | UUID: ${payload.client_uuid}`,
+    autoriza_publicacion: false
+  };
+
+  if (base64Img) {
+    jsonBody.fotografia = base64Img;
+  }
+
+  const res = await fetch(`${API_BASE}/reportes/reportes/`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(jsonBody)
+  });
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

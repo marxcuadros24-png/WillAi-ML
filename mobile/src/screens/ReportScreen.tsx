@@ -50,6 +50,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
   const [descripcion, setDescripcion] = useState<string>('');
   const [fotoTomada, setFotoTomada] = useState<boolean>(false);
   const [fotoUri, setFotoUri] = useState<string | null>(null);
+  const [fotoBase64, setFotoBase64] = useState<string | null>(null);
 
   // Telemetría GPS real
   const [latitud, setLatitud] = useState<number>(-15.0189);
@@ -96,6 +97,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
       .then((res: any) => {
         if (res && !res.canceled && 'assets' in res && res.assets && res.assets.length > 0) {
           setFotoUri(res.assets[0].uri);
+          setFotoBase64(res.assets[0].base64 || null);
           setFotoTomada(true);
         }
       })
@@ -119,11 +121,13 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
         allowsEditing: false,
-        quality: 0.7
+        quality: 0.6,
+        base64: true
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setFotoUri(result.assets[0].uri);
+        setFotoBase64(result.assets[0].base64 || null);
         setFotoTomada(true);
       }
     } catch (err) {
@@ -154,11 +158,13 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: false,
-        quality: 0.7
+        quality: 0.6,
+        base64: true
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setFotoUri(result.assets[0].uri);
+        setFotoBase64(result.assets[0].base64 || null);
         setFotoTomada(true);
       }
     } catch (err) {
@@ -168,6 +174,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
 
   const handleEliminarFoto = () => {
     setFotoUri(null);
+    setFotoBase64(null);
     setFotoTomada(false);
   };
 
@@ -175,6 +182,8 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
     setEnviando(true);
     const clientUuid = `rep-movil-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const fechaCaptura = new Date().toISOString();
+
+    const dataUri = fotoBase64 ? `data:image/jpeg;base64,${fotoBase64}` : (fotoUri || null);
 
     const payload = {
       client_uuid: clientUuid,
@@ -184,7 +193,8 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
       azimut: 210,
       tipo_fuego: tipoFuego,
       combustible,
-      foto_uri: fotoUri || null,
+      foto_uri: dataUri,
+      foto_base64: fotoBase64 || null,
       fecha_captura: fechaCaptura
     };
 

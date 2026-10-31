@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
+  RefreshControl,
+  ActivityIndicator,
   Alert
 } from 'react-native';
 import {
@@ -12,65 +14,56 @@ import {
   CheckCircle2,
   Clock,
   MapPin,
-  ShieldAlert
+  ShieldAlert,
+  Bell
 } from 'lucide-react-native';
 import { COLORS } from '../constants/config';
 import { useTranslation } from '../i18n/useTranslation';
+import { fetchAlertasComunitariasApi, AlertaPublicaItem } from '../services/api';
 import { styles } from './AlertsScreen.styles';
 
-interface AlertaLocal {
-  id: string;
-  categoria: 'evacuacion' | 'satelite' | 'validacion';
-  titulo: string;
-  mensaje: string;
-  tiempo: string;
-  sector: string;
-  prioridad: 'critica' | 'alta' | 'media';
-  distanciaKm: number;
+function formatoTiempo(fechaIso?: string): string {
+  if (!fechaIso) return 'Reciente';
+  const fecha = new Date(fechaIso);
+  const ahora = new Date();
+  const diffMin = Math.round((ahora.getTime() - fecha.getTime()) / 60000);
+  if (diffMin < 2) return 'Justo ahora';
+  if (diffMin < 60) return `Hace ${diffMin} min`;
+  const diffHoras = Math.round(diffMin / 60);
+  if (diffHoras < 24) return `Hace ${diffHoras} h`;
+  return `Hace ${Math.round(diffHoras / 24)} d`;
 }
 
 export const AlertsScreen: React.FC = () => {
   const { t, idioma } = useTranslation();
   const [aSalvoConfirmado, setASalvoConfirmado] = useState<boolean>(false);
+  const [alertas, setAlertas] = useState<AlertaPublicaItem[]>([]);
+  const [cargando, setCargando] = useState<boolean>(true);
+  const [refrescando, setRefrescando] = useState<boolean>(false);
 
-  const ALERTAS_DEFAULT: AlertaLocal[] = [
-    {
-      id: 'ALT-01',
-      categoria: 'evacuacion',
-      titulo: idioma === 'qu' ? '¡LADERA BAJAPANTA RUNAKUNA QISPIYCHIK!' : '¡AVISO DE EVACUACIÓN EN HUACCANA!',
-      mensaje: idioma === 'qu'
-        ? 'Nina Huaccana laderaman asuykamuchkan. Wasiyuqkuna Plazaman qispiykuychik. ¡Amapuni urquta wichaychikchu!'
-        : 'Fuego acercándose hacia Huaccana. Familias evacuar con calma hacia la Plaza Comunal. ¡No suban el cerro hacia el humo!',
-      tiempo: 'Hace 8 min',
-      sector: 'Comunidad Huaccana, Coracora',
-      prioridad: 'critica',
-      distanciaKm: 3.2
-    },
-    {
-      id: 'ALT-02',
-      categoria: 'satelite',
-      titulo: idioma === 'qu' ? 'Satelite ninata rikumun' : 'Satélite detectó fuego activo',
-      mensaje: idioma === 'qu'
-        ? 'Satelite hanaqmanta Huaccana Alta pajonalpi nina rawrachkaqta rikun.'
-        : 'Satélite en el cielo vio fuego activo en el pajonal alto de Huaccana.',
-      tiempo: 'Hace 24 min',
-      sector: 'Sector Huaccana Alta',
-      prioridad: 'alta',
-      distanciaKm: 4.8
-    },
-    {
-      id: 'ALT-03',
-      categoria: 'validacion',
-      titulo: idioma === 'qu' ? 'Bomberokuna llamkachkanku' : 'Bomberos B-12 trabajando en la zona',
-      mensaje: idioma === 'qu'
-        ? 'Bombero cuadrilla chayamunña ninata wañuchinankupaq.'
-        : 'Cuadrilla de bomberos y brigadistas comunales llegaron al sector para apagar las llamas.',
-      tiempo: 'Hace 45 min',
-      sector: 'Paucaray',
-      prioridad: 'media',
-      distanciaKm: 6.1
+  const cargarAlertas = useCallback(async () => {
+    try {
+      const data = await fetchAlertasComunitariasApi();
+      if (Array.isArray(data)) {
+        setAlertas(data);
+      }
+    } finally {
+      setCargando(false);
+      setRefrescando(false);
     }
-  ];
+  }, []);
+
+  useEffect(() => {
+    cargarAlertas();
+    // Consulta periódica cada 8 segundos para reflejar novedades de la central de mando
+    const timer = setInterval(cargarAlertas, 8000);
+    return () => clearInterval(timer);
+  }, [cargarAlertas]);
+
+  const onRefresh = useCallback(() => {
+    setRefrescando(true);
+    cargarAlertas();
+  }, [cargarAlertas]);
 
   const handleConfirmarASalvo = () => {
     setASalvoConfirmado(true);
@@ -82,28 +75,53 @@ export const AlertsScreen: React.FC = () => {
     );
   };
 
+  // Alerta destacada (la más reciente de alta prioridad o emitida por el centro de mando)
+  const alertaDestacada =
+    alertas.find(
+      (a) =>
+        (a.prioridad === 'critica' || a.prioridad === 'alta') &&
+        ['emitida', 'enviada', 'pendiente_aprobacion'].includes(a.estado)
+    ) || alertas[0] || null;
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+      refreshControl={
+        <RefreshControl
+          refreshing={refrescando}
+          onRefresh={onRefresh}
+          colors={[COLORS.firePrimary]}
+          tintColor={COLORS.firePrimary}
+        />
+      }
+    >
       {/* Cabecera */}
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>{t('alerts_title')}</Text>
           <Text style={styles.headerSubtitle}>
-            {idioma === 'qu' ? 'Aylluykipi ninamanta willaykuna' : 'Avisos importantes para tu comunidad'}
+            {idioma === 'qu' ? 'Aylluykipi ninamanta willaykuna' : 'Avisos oficiales emitidos desde la Central Web'}
           </Text>
         </View>
       </View>
 
-      {/* Tarjeta de Alerta Roja Regional */}
+      {/* Tarjeta de Alerta Roja Regional o Alerta Activa Emitida */}
       <View style={styles.redAlertCard}>
         <View style={styles.redAlertHeader}>
           <ShieldAlert size={22} color="#ffffff" />
           <Text style={styles.redAlertTitle}>
-            {t('alert_red_banner')}
+            {alertaDestacada
+              ? alertaDestacada.titulo
+              : t('alert_red_banner')}
           </Text>
         </View>
         <Text style={styles.redAlertDesc}>
-          {t('alert_red_banner_desc')}
+          {alertaDestacada
+            ? (alertaDestacada.instrucciones
+                ? `${alertaDestacada.mensaje}\n\n⚠️ INSTRUCCIÓN: ${alertaDestacada.instrucciones}`
+                : alertaDestacada.mensaje)
+            : t('alert_red_banner_desc')}
         </Text>
 
         {aSalvoConfirmado ? (
@@ -124,56 +142,87 @@ export const AlertsScreen: React.FC = () => {
         )}
       </View>
 
-      {/* Lista de Avisos Recientes */}
-      <Text style={styles.sectionTitle}>
-        {idioma === 'qu' ? 'Kunan punchaw willaykuna' : 'Avisos de hoy'}
-      </Text>
+      {/* Lista de Avisos Recientes desde Django */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+          {idioma === 'qu' ? 'Kunan punchaw willaykuna' : 'Avisos de hoy'}
+        </Text>
+        {cargando && <ActivityIndicator size="small" color={COLORS.firePrimary} />}
+      </View>
 
-      {ALERTAS_DEFAULT.map((alerta) => {
-        const badgeColor =
-          alerta.prioridad === 'critica'
-            ? '#dc2626'
-            : alerta.prioridad === 'alta'
-            ? '#ea580c'
-            : '#0284c7';
+      {alertas.length === 0 && !cargando ? (
+        <View style={[styles.alertCard, { alignItems: 'center', paddingVertical: 24 }]}>
+          <Bell size={32} color={COLORS.textMuted} />
+          <Text style={[styles.alertTitle, { marginTop: 8, textAlign: 'center' }]}>
+            No hay alertas activas en este momento
+          </Text>
+          <Text style={[styles.alertMessage, { textAlign: 'center', marginTop: 4 }]}>
+            La central de mando no ha emitido alertas en Parinacochas hoy.
+          </Text>
+        </View>
+      ) : (
+        alertas.map((alerta) => {
+          const badgeColor =
+            alerta.prioridad === 'critica'
+              ? '#dc2626'
+              : alerta.prioridad === 'alta'
+              ? '#ea580c'
+              : '#0284c7';
 
-        return (
-          <View key={alerta.id} style={styles.alertCard}>
-            <View style={styles.alertCardHeader}>
-              <View style={styles.alertHeaderLeft}>
-                <View style={[styles.priorityBadge, { backgroundColor: badgeColor }]}>
-                  <Text style={styles.priorityBadgeText}>
-                    {alerta.prioridad === 'critica'
-                      ? 'URGENTE'
-                      : alerta.prioridad === 'alta'
-                      ? 'PELIGRO'
-                      : 'AVISO'}
+          return (
+            <View key={alerta.id_alerta} style={styles.alertCard}>
+              <View style={styles.alertCardHeader}>
+                <View style={styles.alertHeaderLeft}>
+                  <View style={[styles.priorityBadge, { backgroundColor: badgeColor }]}>
+                    <Text style={styles.priorityBadgeText}>
+                      {alerta.prioridad === 'critica'
+                        ? 'URGENTE'
+                        : alerta.prioridad === 'alta'
+                        ? 'PELIGRO'
+                        : 'AVISO'}
+                    </Text>
+                  </View>
+                  <Text style={styles.alertTitle} numberOfLines={1}>
+                    {alerta.titulo}
                   </Text>
                 </View>
-                <Text style={styles.alertTitle} numberOfLines={1}>
-                  {alerta.titulo}
+
+                <View style={styles.alertTimeRow}>
+                  <Clock size={11} color={COLORS.textMuted} />
+                  <Text style={styles.alertTime}>
+                    {formatoTiempo(alerta.emitida_en || alerta.creada_en)}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.alertMessage}>{alerta.mensaje}</Text>
+
+              {alerta.instrucciones ? (
+                <Text style={[styles.alertMessage, { color: '#b91c1c', fontWeight: '700', marginTop: -4 }]}>
+                  🛡️ {alerta.instrucciones}
+                </Text>
+              ) : null}
+
+              <View style={styles.alertFooter}>
+                <View style={styles.alertSectorRow}>
+                  <MapPin size={12} color={COLORS.textMuted} />
+                  <Text style={styles.alertSectorText}>
+                    {alerta.incidente_codigo
+                      ? `Incidente ${alerta.incidente_codigo} · Coracora`
+                      : 'Distrito Coracora · Parinacochas'}
+                  </Text>
+                </View>
+
+                <Text style={styles.alertDistText}>
+                  {alerta.estado === 'emitida' || alerta.estado === 'enviada'
+                    ? '🟢 Activa'
+                    : alerta.estado_display || alerta.estado}
                 </Text>
               </View>
-
-              <View style={styles.alertTimeRow}>
-                <Clock size={11} color={COLORS.textMuted} />
-                <Text style={styles.alertTime}>{alerta.tiempo}</Text>
-              </View>
             </View>
-
-            <Text style={styles.alertMessage}>{alerta.mensaje}</Text>
-
-            <View style={styles.alertFooter}>
-              <View style={styles.alertSectorRow}>
-                <MapPin size={12} color={COLORS.textMuted} />
-                <Text style={styles.alertSectorText}>{alerta.sector}</Text>
-              </View>
-
-              <Text style={styles.alertDistText}>A {alerta.distanciaKm} km de ti</Text>
-            </View>
-          </View>
-        );
-      })}
+          );
+        })
+      )}
     </ScrollView>
   );
 };

@@ -35,9 +35,11 @@ import {
   fetchFwiActual,
   fetchIncidentesApi,
   fetchFocosFirmsApi,
+  fetchAlertasComunitariasApi,
   FwiActualResponse,
   IncidenteItem,
-  DeteccionFirmsItem
+  DeteccionFirmsItem,
+  AlertaPublicaItem
 } from '../services/api';
 import { WillAiLogo } from '../components/WillAiLogo';
 import { SatelliteSyncBadge } from '../components/SatelliteSyncBadge';
@@ -77,6 +79,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [fwiData, setFwiData] = useState<FwiActualResponse | null>(null);
   const [incidentes, setIncidentes] = useState<IncidenteItem[]>([]);
   const [focosSatelite, setFocosSatelite] = useState<DeteccionFirmsItem[]>([]);
+  const [ultimaAlerta, setUltimaAlerta] = useState<AlertaPublicaItem | null>(null);
   const [puntosMapa, setPuntosMapa] = useState<PuntoIncidenteMap[]>([
     {
       id: 'def-1',
@@ -98,15 +101,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   // Cargar datos desde el backend Django
   const cargarDatos = async () => {
     try {
-      const [fwi, incList, firmsList] = await Promise.all([
+      const [fwi, incList, firmsList, alertasList] = await Promise.all([
         fetchFwiActual(),
         fetchIncidentesApi(token),
-        fetchFocosFirmsApi(10)
+        fetchFocosFirmsApi(10),
+        fetchAlertasComunitariasApi()
       ]);
 
       if (fwi) setFwiData(fwi);
       if (incList) setIncidentes(incList);
       if (firmsList) setFocosSatelite(firmsList);
+      if (alertasList && alertasList.length > 0) {
+        const activa = alertasList.find(a => ['critica', 'alta'].includes(a.prioridad) && ['emitida', 'enviada'].includes(a.estado)) || alertasList[0];
+        setUltimaAlerta(activa);
+      }
 
       // Calcular puntos para el mapa interactivo de Parinacochas
       const minLat = -15.20, maxLat = -14.90;
@@ -274,6 +282,38 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <Text style={styles.pendingBannerText}>
             {syncing ? t('syncing_now') : t('pending_reports_counter', { count: pendingCount })} (Toca para enviar)
           </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* BANNER DE ALERTA COMUNITARIA ACTIVA DESDE LA CENTRAL */}
+      {ultimaAlerta && (
+        <TouchableOpacity
+          style={{
+            backgroundColor: '#fee2e2',
+            borderColor: '#ef4444',
+            borderWidth: 1.5,
+            borderRadius: 12,
+            padding: 12,
+            marginBottom: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10
+          }}
+          onPress={onNavigateToAlerts}
+          activeOpacity={0.8}
+        >
+          <View style={{ backgroundColor: '#ef4444', padding: 6, borderRadius: 8 }}>
+            <AlertTriangle size={18} color="#ffffff" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#991b1b' }}>
+              🚨 ALERTA: {ultimaAlerta.titulo}
+            </Text>
+            <Text style={{ fontSize: 11.5, color: '#b91c1c', marginTop: 2 }} numberOfLines={1}>
+              {ultimaAlerta.mensaje}
+            </Text>
+          </View>
+          <ChevronRight size={16} color="#ef4444" />
         </TouchableOpacity>
       )}
 

@@ -154,12 +154,9 @@ export async function sincronizarColaOffline(token?: string | null): Promise<{
     const latitudRedondeada = Number(Number(item.latitud).toFixed(6));
     const longitudRedondeada = Number(Number(item.longitud).toFixed(6));
 
-    // Si ya falló previamente (intentos >= 1), la foto suele estar purgada de la caché de Android: enviar sin foto
+    // Preservar la imagen Base64 (data:image) o enviar null si no hay imagen válida
     const fotoLimpia =
-      (item.intentos || 0) < 1 &&
-      item.foto_uri &&
-      !item.foto_uri.includes('evidencia_incendio.jpg') &&
-      (item.foto_uri.startsWith('file://') || item.foto_uri.startsWith('content://'))
+      item.foto_uri && item.foto_uri.startsWith('data:image')
         ? item.foto_uri
         : null;
 

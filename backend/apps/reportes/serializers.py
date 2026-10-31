@@ -1,3 +1,5 @@
+import base64
+from django.core.files.base import ContentFile
 from django.db import transaction
 from rest_framework import serializers
 from django.utils import timezone
@@ -82,13 +84,41 @@ class ReporteSerializer(serializers.ModelSerializer):
         read_only_fields = ['id_reporte', 'uuid', 'usuario', 'creado_en', 'sincronizado_en']
 
 
+class Base64OrFileImageField(serializers.ImageField):
+    """
+    Campo que admite archivos multipart estándar y cadenas codificadas en Base64
+    ('data:image/jpeg;base64,...' o base64 puro).
+    """
+    def to_internal_value(self, data):
+        if isinstance(data, str) and (data.startswith('data:image') or ';base64,' in data):
+            try:
+                header, base64_data = data.split(';base64,')
+                ext = header.split('/')[-1].split(';')[0]
+                if ext == 'jpeg':
+                    ext = 'jpg'
+                file_name = f"evidencia_{timezone.now().strftime('%Y%m%d_%H%M%S')}.{ext}"
+                decoded_file = base64.b64decode(base64_data)
+                return ContentFile(decoded_file, name=file_name)
+            except Exception as e:
+                raise serializers.ValidationError(f"Error decodificando imagen base64: {e}")
+        elif isinstance(data, str) and len(data) > 100 and not data.startswith('http'):
+            try:
+                decoded_file = base64.b64decode(data)
+                file_name = f"evidencia_{timezone.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+                return ContentFile(decoded_file, name=file_name)
+            except Exception:
+                pass
+        return super().to_internal_value(data)
+
+
 class CrearReporteSerializer(serializers.ModelSerializer):
     """
     Serializer para creación rápida desde la App Móvil con foto opcional.
     Garantiza transacción atómica (Reporte -> Evidencia -> Incidente -> Vínculo).
     """
     fecha_evento = serializers.DateTimeField(required=False, default=timezone.now)
-    fotografia = serializers.ImageField(required=False, write_only=True)
+    fotografia = Base64OrFileImageField(required=False, write_only=True)
+    fotografia_base64 = Base64OrFileImageField(required=False, write_only=True, source='fotografia')
     evidencias_archivos = serializers.ListField(
         child=serializers.FileField(max_length=100000, allow_empty_file=False),
         write_only=True,
@@ -111,6 +141,7 @@ class CrearReporteSerializer(serializers.ModelSerializer):
             'autoriza_publicacion',
             'comunidad',
             'fotografia',
+            'fotografia_base64',
             'evidencias_archivos',
         ]
         read_only_fields = ['id_reporte', 'uuid']
