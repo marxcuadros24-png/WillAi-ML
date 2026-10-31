@@ -1,31 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import {
   AlertTriangle,
   Flame,
-  Satellite,
-  Wind,
-  ShieldCheck,
-  Radar,
   CheckCircle2,
   Clock,
-  Radio,
   MapPin,
-  ChevronRight
+  RefreshCw,
+  ShieldAlert
 } from 'lucide-react-native';
 import { COLORS } from '../constants/config';
 import { useTranslation } from '../i18n/useTranslation';
+import { useAuthStore } from '../stores/authStore';
+import { fetchAlertasUsuario, AlertaItem } from '../services/api';
 
-interface AlertaFeedItem {
+interface AlertaLocal {
   id: string;
-  categoria: 'evacuacion' | 'satelite' | 'validacion' | 'calidad_aire';
+  categoria: 'evacuacion' | 'satelite' | 'validacion';
   titulo: string;
   mensaje: string;
   tiempo: string;
@@ -36,10 +35,11 @@ interface AlertaFeedItem {
 
 export const AlertsScreen: React.FC = () => {
   const { t, idioma } = useTranslation();
-  const [radioGeoradar, setRadioGeoradar] = useState<number>(10); // 5, 10, 25, 50
+  const token = useAuthStore((s) => s.token);
   const [aSalvoConfirmado, setASalvoConfirmado] = useState<boolean>(false);
+  const [cargando, setCargando] = useState<boolean>(false);
 
-  const FEED_ALERTAS: AlertaFeedItem[] = [
+  const ALERTAS_DEFAULT: AlertaLocal[] = [
     {
       id: 'ALT-01',
       categoria: 'evacuacion',
@@ -48,7 +48,7 @@ export const AlertsScreen: React.FC = () => {
       tiempo: 'Hace 8 min',
       sector: 'Comunidad Huaccana, Coracora',
       prioridad: 'critica',
-      distanciaKm: 3.2,
+      distanciaKm: 3.2
     },
     {
       id: 'ALT-02',
@@ -58,29 +58,51 @@ export const AlertsScreen: React.FC = () => {
       tiempo: 'Hace 24 min',
       sector: 'Pajonal Huaccana Alta',
       prioridad: 'alta',
-      distanciaKm: 4.8,
+      distanciaKm: 4.8
     },
     {
       id: 'ALT-03',
-      categoria: 'calidad_aire',
-      titulo: 'Alerta de Calidad del Aire (PM 2.5)',
-      mensaje: 'Nivel nocivo de micropartículas: 84 µg/m³. Se recomienda uso de mascarilla o pañuelo húmedo por dispersión de ceniza.',
-      tiempo: 'Hace 45 min',
-      sector: 'Radio 15km Coracora Centro',
-      prioridad: 'media',
-      distanciaKm: 1.5,
-    },
-    {
-      id: 'ALT-04',
       categoria: 'validacion',
-      titulo: 'Validación de Reporte Ciudadano',
-      mensaje: 'Brigada Forestal B-12 validó reporte de conato en Paucaray. Cortafuegos activo y bajo control.',
+      titulo: 'Validación de Reporte de Brigada',
+      mensaje: 'Brigada Forestal B-12 validó reporte de conato en Paucaray. Cortafuegos activo y fuego confinado.',
       tiempo: 'Hace 1h 10m',
       sector: 'Sector Paucaray',
       prioridad: 'media',
-      distanciaKm: 6.8,
-    },
+      distanciaKm: 6.8
+    }
   ];
+
+  const [alertas, setAlertas] = useState<AlertaLocal[]>(ALERTAS_DEFAULT);
+
+  const cargarAlertas = async () => {
+    setCargando(true);
+    try {
+      const res = await fetchAlertasUsuario(token);
+      if (res && res.length > 0) {
+        const mapeadas: AlertaLocal[] = res.map((item, idx) => ({
+          id: `ALT-API-${item.alerta?.id_alerta || idx}`,
+          categoria: item.alerta?.tipo === 'evacuacion' ? 'evacuacion' : 'satelite',
+          titulo: item.alerta?.titulo || 'Alerta Oficial COEP',
+          mensaje: item.alerta?.mensaje || 'Se reporta actividad de fuego en la zona.',
+          tiempo: 'Reciente',
+          sector: item.alerta?.incidente_codigo ? `Incidente ${item.alerta.incidente_codigo}` : 'Parinacochas',
+          prioridad: item.alerta?.prioridad === 'roja' ? 'critica' : 'alta',
+          distanciaKm: 3.5
+        }));
+        setAlertas(mapeadas);
+      } else {
+        setAlertas(ALERTAS_DEFAULT);
+      }
+    } catch {
+      setAlertas(ALERTAS_DEFAULT);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  useEffect(() => {
+    cargarAlertas();
+  }, [token]);
 
   const handleConfirmarASalvo = () => {
     setASalvoConfirmado(true);
@@ -92,54 +114,37 @@ export const AlertsScreen: React.FC = () => {
     );
   };
 
-  const alertasFiltradas = FEED_ALERTAS.filter((a) => a.distanciaKm <= radioGeoradar);
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      {/* 1. BANNER SUPERIOR DE ALERTA ROJA REGIONAL EN PARINACOCHAS */}
+      {/* 1. BANNER DE ALERTA ROJA REGIONAL EN PARINACOCHAS */}
       <View style={styles.redAlertBanner}>
         <View style={styles.redAlertHeader}>
-          <View style={styles.pulseDot} />
-          <AlertTriangle size={18} color="#ffffff" />
+          <AlertTriangle size={20} color="#ffffff" />
           <Text style={styles.redAlertTitle}>{t('alert_red_banner')}</Text>
         </View>
         <Text style={styles.redAlertDesc}>{t('alert_red_banner_desc')}</Text>
       </View>
 
-      {/* 2. SELECTOR CONFIGURABLE DE RADIO DE COBERTURA PUSH (GEORADAR) */}
-      <View style={styles.georadarCard}>
-        <View style={styles.georadarHeaderRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Radar size={16} color="#38bdf8" />
-            <Text style={styles.georadarTitle}>{t('georadar_title')}</Text>
-          </View>
-          <Text style={styles.georadarActiveText}>{radioGeoradar} km de cobertura</Text>
-        </View>
-
-        <View style={styles.radiusPillsRow}>
-          {[5, 10, 25, 50].map((radius) => {
-            const isSelected = radioGeoradar === radius;
-            return (
-              <TouchableOpacity
-                key={radius}
-                style={[styles.radiusPill, isSelected && styles.radiusPillActive]}
-                onPress={() => setRadioGeoradar(radius)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.radiusPillText, isSelected && styles.radiusPillTextActive]}>
-                  {radius === 50 ? 'Toda Prov.' : `${radius} km`}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+      {/* Cabecera del Feed con botón refrescar */}
+      <View style={styles.feedHeaderRow}>
+        <Text style={styles.feedTitle}>
+          {t('alerts_title')} ({alertas.length})
+        </Text>
+        <TouchableOpacity style={styles.btnRefresh} onPress={cargarAlertas} disabled={cargando}>
+          {cargando ? (
+            <ActivityIndicator size="small" color={COLORS.firePrimary} />
+          ) : (
+            <>
+              <RefreshCw size={13} color={COLORS.firePrimary} />
+              <Text style={styles.btnRefreshText}>Refrescar</Text>
+            </>
+          )}
+        </TouchableOpacity>
       </View>
 
-      {/* 3. FEED JERÁRQUICO DE ALERTAS */}
-      <View style={styles.feedSection}>
-        <Text style={styles.sectionHeaderTitle}>{t('alerts_title')} ({alertasFiltradas.length})</Text>
-
-        {alertasFiltradas.map((item) => {
+      {/* 2. LISTA DE ALERTAS DIURNAS */}
+      <View style={styles.feedList}>
+        {alertas.map((item) => {
           const isCritica = item.prioridad === 'critica';
           const isEvacuacion = item.categoria === 'evacuacion';
 
@@ -148,27 +153,30 @@ export const AlertsScreen: React.FC = () => {
               key={item.id}
               style={[
                 styles.alertCard,
-                isCritica && styles.alertCardCritica,
-                item.categoria === 'calidad_aire' && styles.alertCardAir
+                isCritica && styles.alertCardCritica
               ]}
             >
-              {/* Encabezado del Card */}
+              {/* Encabezado de la tarjeta */}
               <View style={styles.alertCardHeader}>
                 <View style={styles.tagCategoryRow}>
                   {isEvacuacion ? (
-                    <View style={styles.tagEvacuacion}><Text style={styles.tagText}>🚨 EVACUACIÓN</Text></View>
+                    <View style={styles.tagEvacuacion}>
+                      <Text style={styles.tagTextWhite}>🚨 EVACUACIÓN</Text>
+                    </View>
                   ) : item.categoria === 'satelite' ? (
-                    <View style={styles.tagSatelite}><Text style={styles.tagText}>🛰️ SATÉLITE NASA</Text></View>
-                  ) : item.categoria === 'calidad_aire' ? (
-                    <View style={styles.tagAir}><Text style={styles.tagText}>💨 PM 2.5</Text></View>
+                    <View style={styles.tagSatelite}>
+                      <Text style={styles.tagTextDark}>🛰️ SATÉLITE NASA</Text>
+                    </View>
                   ) : (
-                    <View style={styles.tagValidacion}><Text style={styles.tagText}>🛡️ BRIGADA B-12</Text></View>
+                    <View style={styles.tagValidacion}>
+                      <Text style={styles.tagTextDark}>🛡️ BRIGADA B-12</Text>
+                    </View>
                   )}
                   <Text style={styles.distanciaText}>a {item.distanciaKm} km</Text>
                 </View>
 
                 <View style={styles.timeRow}>
-                  <Clock size={11} color="#94a3b8" />
+                  <Clock size={12} color={COLORS.textMuted} />
                   <Text style={styles.timeText}>{item.tiempo}</Text>
                 </View>
               </View>
@@ -177,23 +185,23 @@ export const AlertsScreen: React.FC = () => {
               <Text style={styles.alertCardMessage}>{item.mensaje}</Text>
 
               <View style={styles.sectorRow}>
-                <MapPin size={12} color="#94a3b8" />
+                <MapPin size={13} color={COLORS.textSecondary} />
                 <Text style={styles.sectorText}>{item.sector}</Text>
               </View>
 
-              {/* Botón interactivo "Me encuentro a salvo" en alerta de evacuación */}
+              {/* Botón "Me encuentro a salvo" en alertas de evacuación */}
               {isEvacuacion && (
                 <View style={styles.safeActionBox}>
                   {aSalvoConfirmado ? (
                     <View style={styles.safeConfirmedBox}>
-                      <CheckCircle2 size={16} color="#10b981" />
+                      <CheckCircle2 size={16} color="#059669" />
                       <Text style={styles.safeConfirmedText}>{t('i_am_safe_confirmed')}</Text>
                     </View>
                   ) : (
                     <TouchableOpacity
                       style={styles.btnSafe}
                       onPress={handleConfirmarASalvo}
-                      activeOpacity={0.8}
+                      activeOpacity={0.85}
                     >
                       <CheckCircle2 size={18} color="#ffffff" />
                       <Text style={styles.btnSafeText}>{t('btn_i_am_safe')}</Text>
@@ -212,230 +220,193 @@ export const AlertsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.bgPrimary,
+    backgroundColor: COLORS.bgPrimary
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 40
   },
   redAlertBanner: {
-    backgroundColor: '#b91c1c',
-    borderWidth: 1.5,
-    borderColor: '#ef4444',
-    borderRadius: 12,
-    padding: 14,
+    backgroundColor: '#dc2626',
+    borderRadius: 14,
+    padding: 16,
     marginBottom: 16,
-    elevation: 6,
-    shadowColor: '#ef4444',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
+    shadowColor: '#dc2626',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3
   },
   redAlertHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 6,
-  },
-  pulseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ffffff',
+    marginBottom: 6
   },
   redAlertTitle: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '900',
     color: '#ffffff',
-    letterSpacing: 0.5,
-    flex: 1,
+    letterSpacing: 0.3
   },
   redAlertDesc: {
-    fontSize: 11.5,
-    color: '#fecaca',
-    lineHeight: 16,
+    fontSize: 12,
+    color: '#fee2e2',
+    lineHeight: 16
   },
-  georadarCard: {
-    backgroundColor: COLORS.bgCard,
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
-    gap: 10,
-  },
-  georadarHeaderRow: {
+  feedHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12
   },
-  georadarTitle: {
-    fontSize: 13,
+  feedTitle: {
+    fontSize: 15,
     fontWeight: '800',
-    color: '#ffffff',
+    color: COLORS.textPrimary
   },
-  georadarActiveText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#38bdf8',
-  },
-  radiusPillsRow: {
+  btnRefresh: {
     flexDirection: 'row',
-    gap: 8,
-  },
-  radiusPill: {
-    flex: 1,
-    paddingVertical: 7,
-    borderRadius: 8,
-    backgroundColor: COLORS.bgSecondary,
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle,
     alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#fee2e2'
   },
-  radiusPillActive: {
-    backgroundColor: 'rgba(56, 189, 248, 0.2)',
-    borderColor: '#38bdf8',
-  },
-  radiusPillText: {
+  btnRefreshText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#94a3b8',
+    color: COLORS.firePrimary
   },
-  radiusPillTextActive: {
-    color: '#38bdf8',
-  },
-  feedSection: {
-    gap: 12,
-  },
-  sectionHeaderTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#ffffff',
-    marginBottom: 2,
+  feedList: {
+    gap: 12
   },
   alertCard: {
-    backgroundColor: COLORS.bgCard,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 16,
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
-    borderRadius: 12,
-    padding: 14,
-    gap: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1
   },
   alertCardCritica: {
-    borderColor: 'rgba(239, 68, 68, 0.5)',
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-  },
-  alertCardAir: {
-    borderColor: 'rgba(168, 85, 247, 0.4)',
-    backgroundColor: 'rgba(168, 85, 247, 0.06)',
+    borderColor: '#fca5a5',
+    borderLeftWidth: 4,
+    borderLeftColor: '#dc2626'
   },
   alertCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8
   },
   tagCategoryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 8
   },
   tagEvacuacion: {
-    backgroundColor: '#b91c1c',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 4,
+    backgroundColor: '#dc2626',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6
   },
   tagSatelite: {
-    backgroundColor: '#0284c7',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  tagAir: {
-    backgroundColor: '#7c3aed',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 4,
+    backgroundColor: '#e0f2fe',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6
   },
   tagValidacion: {
-    backgroundColor: '#059669',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 4,
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6
   },
-  tagText: {
-    fontSize: 9.5,
-    fontWeight: '900',
-    color: '#ffffff',
+  tagTextWhite: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#ffffff'
+  },
+  tagTextDark: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: COLORS.textPrimary
   },
   distanciaText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#38bdf8',
+    color: COLORS.textSecondary,
+    fontWeight: '600'
   },
   timeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 4
   },
   timeText: {
-    fontSize: 10.5,
-    color: '#94a3b8',
+    fontSize: 11,
+    color: COLORS.textMuted
   },
   alertCardTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#ffffff',
+    color: COLORS.textPrimary,
+    marginBottom: 4
   },
   alertCardMessage: {
-    fontSize: 12,
-    color: '#cbd5e1',
-    lineHeight: 16.5,
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
+    lineHeight: 17,
+    marginBottom: 10
   },
   sectorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5
   },
   sectorText: {
-    fontSize: 11,
-    color: '#94a3b8',
-    fontWeight: '600',
+    fontSize: 11.5,
+    color: COLORS.textSecondary,
+    fontWeight: '600'
   },
   safeActionBox: {
-    marginTop: 6,
+    marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    borderTopColor: COLORS.borderSubtle
   },
   btnSafe: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: '#059669',
     borderRadius: 8,
-    paddingVertical: 10,
+    paddingVertical: 10
   },
   btnSafeText: {
-    fontSize: 13,
-    fontWeight: '800',
     color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800'
   },
   safeConfirmedBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 6,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    paddingVertical: 8,
-    borderRadius: 6,
+    backgroundColor: '#f0fdf4',
+    padding: 8,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderColor: '#bbf7d0'
   },
   safeConfirmedText: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: '#34d399',
-  },
+    color: '#059669'
+  }
 });

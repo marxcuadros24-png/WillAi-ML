@@ -125,17 +125,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#ffffff',
+    color: '#0f172a',
     letterSpacing: 1,
   },
   aiTitle: {
-    color: '#ff6b00',
+    color: '#dc2626',
   },
   subtitle: {
     fontSize: 9,
-    fontWeight: '700',
-    color: '#94a3b8',
+    fontWeight: '800',
+    color: '#475569',
     letterSpacing: 1.5,
     marginTop: 2,
   },
 });
+

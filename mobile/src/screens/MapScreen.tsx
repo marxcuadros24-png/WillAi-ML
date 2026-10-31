@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
-  Modal
+  Modal,
+  ActivityIndicator
 } from 'react-native';
 import Svg, {
   Path,
@@ -25,50 +26,53 @@ import {
   Droplets,
   Thermometer,
   ShieldAlert,
-  Compass,
   Navigation,
-  Layers,
-  Users,
-  CheckCircle,
+  Compass,
   AlertTriangle,
   X,
-  Crosshair
+  MapPin,
+  CheckCircle2,
+  RefreshCw
 } from 'lucide-react-native';
 import { COLORS } from '../constants/config';
 import { useTranslation } from '../i18n/useTranslation';
-import { fetchFwiActual, FwiActualResponse } from '../services/api';
+import {
+  fetchFwiActual,
+  fetchFocosFirmsApi,
+  FwiActualResponse,
+  DeteccionFirmsItem
+} from '../services/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-interface FocoTactivo {
+interface FocoMapItem {
   id: string;
-  codigo: string;
+  sensor: string;
   nombre: string;
   lat: number;
   lon: number;
-  x: number; // coordenadas en lienzo SVG (0-100)
+  x: number; // Coordenada en lienzo SVG (0-100)
   y: number;
-  frp: number; // Potencia radiativa MW
+  frp: number;
   criticidad: 'critico' | 'alto' | 'moderado';
   distanciaKm: number;
-  brigadas: string;
-  aguaLanzadaL: number;
-  direccionAvanceDeg: number;
+  vientoDireccion: string;
 }
 
 export const MapScreen: React.FC = () => {
   const { t, idioma } = useTranslation();
   const [fwi, setFwi] = useState<FwiActualResponse | null>(null);
-  const [focoSeleccionado, setFocoSeleccionado] = useState<FocoTactivo | null>(null);
-  const [modalRutaEscapeVisible, setModalRutaEscapeVisible] = useState(false);
-  const [capaSimulacionActiva, setCapaSimulacionActiva] = useState(true);
+  const [focos, setFocos] = useState<FocoMapItem[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [focoSeleccionado, setFocoSeleccionado] = useState<FocoMapItem | null>(null);
+  const [modalEscapeVisible, setModalEscapeVisible] = useState(false);
 
-  // Focos satelitales NASA FIRMS / SERFOR sobre Coracora y Parinacochas
-  const FOCOS_ACTIVOS: FocoTactivo[] = [
+  // Focos satelitales iniciales de referencia sobre Parinacochas
+  const FOCOS_DEFAULT: FocoMapItem[] = [
     {
-      id: 'F-412',
-      codigo: 'VIIRS-20261030-01',
-      nombre: 'Foco Huaccana Alta (Pajonal)',
+      id: 'VIIRS-01',
+      sensor: 'VIIRS (375m)',
+      nombre: 'Sector Huaccana Alta',
       lat: -15.0228,
       lon: -73.7653,
       x: 58,
@@ -76,342 +80,366 @@ export const MapScreen: React.FC = () => {
       frp: 58.4,
       criticidad: 'critico',
       distanciaKm: 3.4,
-      brigadas: 'Brigada B-12 Coracora (8 combatientes)',
-      aguaLanzadaL: 3200,
-      direccionAvanceDeg: 45 // Viento empujando hacia el Noreste
+      vientoDireccion: 'Hacia el Noreste (subiendo quebrada)'
     },
     {
-      id: 'F-418',
-      codigo: 'MODIS-20261030-02',
-      nombre: 'Sector Paucaray - Quebrada',
+      id: 'MODIS-02',
+      sensor: 'MODIS (1km)',
+      nombre: 'Paucaray - Quebrada Baja',
       lat: -15.0800,
       lon: -73.8100,
-      x: 32,
+      x: 34,
       y: 68,
       frp: 28.1,
       criticidad: 'alto',
-      distanciaKm: 6.8,
-      brigadas: 'Brigada Comunal Huaccana (6 voluntarios)',
-      aguaLanzadaL: 1500,
-      direccionAvanceDeg: 50
+      distanciaKm: 6.2,
+      vientoDireccion: 'Hacia ladera este'
     },
     {
-      id: 'F-425',
-      codigo: 'VIIRS-20261030-03',
-      nombre: 'Ladera Upahuacho Norte',
-      lat: -14.9624,
-      lon: -73.8051,
-      x: 74,
-      y: 26,
-      frp: 12.3,
+      id: 'VIIRS-03',
+      sensor: 'VIIRS (375m)',
+      nombre: 'Pajonal Secce / Chumpi',
+      lat: -14.9950,
+      lon: -73.7200,
+      x: 75,
+      y: 28,
+      frp: 16.5,
       criticidad: 'moderado',
-      distanciaKm: 11.2,
-      brigadas: 'En ruta de reconocimiento OGRD',
-      aguaLanzadaL: 0,
-      direccionAvanceDeg: 40
+      distanciaKm: 8.9,
+      vientoDireccion: 'Hacia cumbre rocosa'
     }
   ];
 
+  const cargarDatos = async () => {
+    setCargando(true);
+    try {
+      const [fwiData, firmsData] = await Promise.all([
+        fetchFwiActual(),
+        fetchFocosFirmsApi(15)
+      ]);
+
+      if (fwiData) setFwi(fwiData);
+
+      if (firmsData && firmsData.length > 0) {
+        // Mapear detecciones reales de Django a coordenadas relativas del mapa
+        const minLat = -15.20, maxLat = -14.90;
+        const minLon = -73.95, maxLon = -73.65;
+
+        const focosReales: FocoMapItem[] = firmsData.slice(0, 5).map((f, i) => {
+          const lat = typeof f.latitud === 'string' ? parseFloat(f.latitud) : f.latitud;
+          const lon = typeof f.longitud === 'string' ? parseFloat(f.longitud) : f.longitud;
+          const frp = typeof f.frp_mw === 'string' ? parseFloat(f.frp_mw) : f.frp_mw || 20;
+
+          // Normalizar x, y en porcentaje
+          const normX = Math.max(15, Math.min(85, ((lon - minLon) / (maxLon - minLon)) * 100));
+          const normY = Math.max(15, Math.min(85, ((maxLat - lat) / (maxLat - minLat)) * 100));
+
+          const dist = Math.round((Math.sqrt(Math.pow((lat - -15.0189) * 111, 2) + Math.pow((lon - -73.7806) * 107, 2))) * 10) / 10;
+
+          return {
+            id: `FIRMS-${f.id_deteccion || i + 1}`,
+            sensor: f.sensor || 'VIIRS',
+            nombre: `Foco Satelital #${i + 1} (${f.codigo_producto || 'NASA'})`,
+            lat,
+            lon,
+            x: normX,
+            y: normY,
+            frp,
+            criticidad: frp > 40 ? 'critico' : frp > 20 ? 'alto' : 'moderado',
+            distanciaKm: dist || 3.5,
+            vientoDireccion: fwiData ? `Empuja hacia ${fwiData.direccion_viento}` : 'Viento hacia el Noreste'
+          };
+        });
+
+        setFocos(focosReales);
+        setFocoSeleccionado(focosReales[0]);
+      } else {
+        setFocos(FOCOS_DEFAULT);
+        setFocoSeleccionado(FOCOS_DEFAULT[0]);
+      }
+    } catch {
+      setFocos(FOCOS_DEFAULT);
+      setFocoSeleccionado(FOCOS_DEFAULT[0]);
+    } finally {
+      setCargando(false);
+    }
+  };
+
   useEffect(() => {
-    fetchFwiActual().then((res) => {
-      if (res) setFwi(res);
-    });
-    // Por defecto seleccionar el más crítico y cercano
-    setFocoSeleccionado(FOCOS_ACTIVOS[0]);
+    cargarDatos();
   }, []);
 
-  const focoActivo = focoSeleccionado || FOCOS_ACTIVOS[0];
+  const focoActivo = focoSeleccionado || focos[0];
 
   return (
     <View style={styles.container}>
-      {/* 1. Header Táctico y Widget Meteorológico FWI */}
-      <View style={styles.topWidget}>
-        <View style={styles.topWidgetRow}>
-          <View>
-            <Text style={styles.mapTitle}>{t('map_title')}</Text>
-            <Text style={styles.mapSubtitle}>Coracora, Parinacochas • DEM UTM 18S</Text>
-          </View>
-
-          {/* Toggle de Simulación */}
-          <TouchableOpacity
-            style={[styles.toggleBtn, capaSimulacionActiva && styles.toggleBtnActive]}
-            onPress={() => setCapaSimulacionActiva(!capaSimulacionActiva)}
-            activeOpacity={0.7}
-          >
-            <Layers size={14} color={capaSimulacionActiva ? '#ffffff' : '#94a3b8'} />
-            <Text style={[styles.toggleBtnText, capaSimulacionActiva && styles.toggleBtnTextActive]}>
-              Simulación Viento
-            </Text>
-          </TouchableOpacity>
+      {/* 1. CABECERA METEOROLÓGICA Y ESTADO */}
+      <View style={styles.headerBar}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle}>{t('map_title')}</Text>
+          <Text style={styles.headerSubtitle}>
+            {focos.length} focos detectados en Parinacochas
+          </Text>
         </View>
 
-        {/* Indicadores Meteo en vivo */}
-        <View style={styles.meteoStrip}>
-          <View style={styles.meteoBadge}>
-            <Text style={styles.meteoBadgeTitle}>FWI</Text>
-            <Text style={[styles.meteoBadgeVal, { color: '#ef4444' }]}>
-              {fwi?.fwi ? fwi.fwi.toFixed(1) : '68.4'} EXTREMO
-            </Text>
-          </View>
-
-          <View style={styles.meteoBadge}>
-            <Wind size={12} color="#38bdf8" />
-            <Text style={styles.meteoBadgeText}>
-              {fwi?.velocidad_viento ? `${fwi.velocidad_viento.toFixed(0)} km/h` : '24 km/h'} SO
-            </Text>
-          </View>
-
-          <View style={styles.meteoBadge}>
-            <Droplets size={12} color="#06b6d4" />
-            <Text style={styles.meteoBadgeText}>
-              {fwi?.humedad_relativa ? `${fwi.humedad_relativa.toFixed(0)}%` : '22%'}
-            </Text>
-          </View>
-
-          <View style={styles.meteoBadge}>
-            <Thermometer size={12} color="#f59e0b" />
-            <Text style={styles.meteoBadgeText}>
-              {fwi?.temperatura ? `${fwi.temperatura.toFixed(1)}°C` : '17.8°C'}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* 2. Lienzo Cartográfico Táctico con Elipses de Viento y Focos */}
-      <View style={styles.canvasContainer}>
-        <Svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <Defs>
-            {/* Gradiente Frente de Fuego 1h, 3h, 6h */}
-            <LinearGradient id="fireCone" x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor="#ef4444" stopOpacity="0.65" />
-              <Stop offset="50%" stopColor="#f59e0b" stopOpacity="0.35" />
-              <Stop offset="100%" stopColor="#eab308" stopOpacity="0.1" />
-            </LinearGradient>
-          </Defs>
-
-          {/* Cuadrícula Táctica de Fondo (Límites UTM) */}
-          <G stroke="rgba(255,255,255,0.06)" strokeWidth="0.3">
-            {[20, 40, 60, 80].map((v) => (
-              <React.Fragment key={`grid-${v}`}>
-                <Line x1={v} y1="0" x2={v} y2="100" />
-                <Line x1="0" y1={v} x2="100" y2={v} />
-              </React.Fragment>
-            ))}
-          </G>
-
-          {/* Curvas topográficas andinas simuladas */}
-          <Path
-            d="M 10 90 Q 30 70 50 85 T 90 60"
-            fill="none"
-            stroke="rgba(56, 189, 248, 0.2)"
-            strokeWidth="0.5"
-            strokeDasharray="2, 2"
-          />
-          <Path
-            d="M 5 60 Q 25 40 60 55 T 95 30"
-            fill="none"
-            stroke="rgba(56, 189, 248, 0.2)"
-            strokeWidth="0.5"
-            strokeDasharray="2, 2"
-          />
-
-          {/* Quebrada y Río Choclococha / Coracora */}
-          <Path
-            d="M 20 0 Q 35 30 45 60 T 60 100"
-            fill="none"
-            stroke="#06b6d4"
-            strokeWidth="1.2"
-            opacity="0.4"
-          />
-
-          {/* Simulación Elíptica de Propagación del Frente por Viento (Cell2Fire) */}
-          {capaSimulacionActiva && (
-            <G>
-              {/* Isócrona 6 horas (Mayor alcance) */}
-              <Path
-                d="M 58 42 C 68 28, 86 18, 92 12 C 84 26, 76 46, 58 42 Z"
-                fill="rgba(239, 68, 68, 0.15)"
-                stroke="#ef4444"
-                strokeWidth="0.6"
-                strokeDasharray="2, 1"
-              />
-              {/* Isócrona 3 horas */}
-              <Path
-                d="M 58 42 C 64 32, 76 25, 80 20 C 74 30, 68 44, 58 42 Z"
-                fill="rgba(245, 158, 11, 0.25)"
-                stroke="#f59e0b"
-                strokeWidth="0.8"
-              />
-              {/* Isócrona 1 hora (Frente inmediato) */}
-              <Path
-                d="M 58 42 C 61 36, 68 32, 70 28 C 66 35, 63 43, 58 42 Z"
-                fill="rgba(239, 68, 68, 0.55)"
-                stroke="#ffffff"
-                strokeWidth="0.8"
-              />
-              {/* Flecha del vector de viento */}
-              <Line x1="58" y1="42" x2="74" y2="24" stroke="#38bdf8" strokeWidth="0.8" />
-            </G>
-          )}
-
-          {/* Renderizado de Focos Satelitales */}
-          {FOCOS_ACTIVOS.map((foco) => {
-            const isSelected = foco.id === focoActivo.id;
-            const color =
-              foco.criticidad === 'critico'
-                ? '#ef4444'
-                : foco.criticidad === 'alto'
-                ? '#f59e0b'
-                : '#eab308';
-
-            return (
-              <G key={foco.id} onPress={() => setFocoSeleccionado(foco)}>
-                {/* Halo pulsante */}
-                <Circle cx={foco.x} cy={foco.y} r={isSelected ? 6 : 4} fill={color} opacity="0.3" />
-                <Circle
-                  cx={foco.x}
-                  cy={foco.y}
-                  r={isSelected ? 3.5 : 2.5}
-                  fill={color}
-                  stroke="#ffffff"
-                  strokeWidth={isSelected ? 1.2 : 0.6}
-                />
-              </G>
-            );
-          })}
-
-          {/* Ubicación del Usuario / Dispositivo Actual */}
-          <G>
-            <Circle cx="48" cy="72" r="3.2" fill="#38bdf8" stroke="#ffffff" strokeWidth="1" />
-            <Circle cx="48" cy="72" r="8" fill="none" stroke="#38bdf8" strokeWidth="0.4" strokeDasharray="1,1" />
-          </G>
-        </Svg>
-
-        {/* Leyenda Flotante Cartográfica */}
-        <View style={styles.floatingLegend}>
-          <View style={styles.legendRow}>
-            <View style={[styles.legendDot, { backgroundColor: '#ef4444' }]} />
-            <Text style={styles.legendText}>Crítico (&gt;40 MW)</Text>
-          </View>
-          <View style={styles.legendRow}>
-            <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
-            <Text style={styles.legendText}>Alto (15-40 MW)</Text>
-          </View>
-          <View style={styles.legendRow}>
-            <View style={[styles.legendDot, { backgroundColor: '#38bdf8' }]} />
-            <Text style={styles.legendText}>Tu Ubicación</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* 3. Tarjeta Deslizante Inferior (Bottom Sheet Táctico) */}
-      <View style={styles.bottomCard}>
-        <View style={styles.bottomCardDragBar} />
-
-        <View style={styles.cardHeaderRow}>
-          <View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Flame size={18} color="#ef4444" />
-              <Text style={styles.cardFireTitle}>{focoActivo.nombre}</Text>
-            </View>
-            <Text style={styles.cardCoords}>
-              {focoActivo.lat.toFixed(4)}, {focoActivo.lon.toFixed(4)} • FRP {focoActivo.frp} MW
-            </Text>
-          </View>
-
-          <View style={styles.distanceBadge}>
-            <Crosshair size={13} color="#38bdf8" />
-            <Text style={styles.distanceText}>{focoActivo.distanciaKm} km</Text>
-          </View>
-        </View>
-
-        {/* Métricas de Combate */}
-        <View style={styles.metricsGrid}>
-          <View style={styles.metricItem}>
-            <Users size={14} color="#38bdf8" />
-            <Text style={styles.metricLabel}>{t('map_brigades_active')}</Text>
-            <Text style={styles.metricValue}>{focoActivo.brigadas}</Text>
-          </View>
-
-          <View style={styles.metricItem}>
-            <Droplets size={14} color="#06b6d4" />
-            <Text style={styles.metricLabel}>{t('map_water_dropped')}</Text>
-            <Text style={styles.metricValue}>{focoActivo.aguaLanzadaL.toLocaleString()} Litros</Text>
-          </View>
-        </View>
-
-        {/* BOTÓN DIRECTO: RUTA SEGURA DE ESCAPE */}
-        <TouchableOpacity
-          style={styles.btnEscapeRoute}
-          onPress={() => setModalRutaEscapeVisible(true)}
-          activeOpacity={0.88}
-        >
-          <Navigation size={18} color="#ffffff" />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.btnEscapeTitle}>{t('map_escape_route')}</Text>
-            <Text style={styles.btnEscapeSub}>Dirección segura contraviento hacia zona rocosa</Text>
-          </View>
+        <TouchableOpacity style={styles.btnRefresh} onPress={cargarDatos}>
+          <RefreshCw size={14} color={COLORS.firePrimary} />
+          <Text style={styles.btnRefreshText}>Actualizar</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Modal de Detalle de Ruta Segura de Escape */}
+      {/* Barra de condiciones meteorológicas en vivo */}
+      <View style={styles.meteoBar}>
+        <View style={styles.meteoItem}>
+          <Flame size={14} color="#dc2626" />
+          <Text style={styles.meteoLabel}>Peligro FWI:</Text>
+          <Text style={[styles.meteoVal, { color: '#dc2626' }]}>
+            {fwi?.nivel_peligro || 'CRÍTICO'}
+          </Text>
+        </View>
+
+        <View style={styles.meteoItem}>
+          <Wind size={14} color="#0284c7" />
+          <Text style={styles.meteoLabel}>Viento:</Text>
+          <Text style={styles.meteoVal}>
+            {fwi?.velocidad_viento ? `${Math.round(fwi.velocidad_viento)} km/h` : '24 km/h'}
+          </Text>
+        </View>
+
+        <View style={styles.meteoItem}>
+          <Droplets size={14} color="#059669" />
+          <Text style={styles.meteoLabel}>Humedad:</Text>
+          <Text style={styles.meteoVal}>
+            {fwi?.humedad_relativa ? `${Math.round(fwi.humedad_relativa)}%` : '18%'}
+          </Text>
+        </View>
+      </View>
+
+      {/* 2. LIENZO DEL MAPA DE PARINACOCHAS */}
+      <View style={styles.mapCanvasContainer}>
+        {cargando ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color={COLORS.firePrimary} />
+            <Text style={styles.loadingText}>Cargando satélites NASA FIRMS...</Text>
+          </View>
+        ) : (
+          <Svg width="100%" height="100%" viewBox="0 0 100 100">
+            {/* Fondo cartográfico claro */}
+            <Rect width="100" height="100" fill="#f1f5f9" />
+
+            {/* Curvas de nivel / Relieve suave de la cordillera */}
+            <Path
+              d="M 0 30 Q 30 15 60 25 T 100 20 L 100 0 L 0 0 Z"
+              fill="#e2e8f0"
+              opacity={0.6}
+            />
+            <Path
+              d="M 0 50 Q 40 40 70 55 T 100 45 L 100 100 L 0 100 Z"
+              fill="#e2e8f0"
+              opacity={0.4}
+            />
+
+            {/* Quebradas / Ríos de referencia */}
+            <Path
+              d="M 20 0 Q 30 40 45 60 T 55 100"
+              fill="none"
+              stroke="#bae6fd"
+              strokeWidth="1.2"
+            />
+            <Path
+              d="M 60 0 Q 70 30 65 70 T 80 100"
+              fill="none"
+              stroke="#bae6fd"
+              strokeWidth="1"
+            />
+
+            {/* Etiquetas de Sectores */}
+            <SvgText x="48" y="52" fill="#334155" fontSize="3.2" fontWeight="bold">
+              Coracora
+            </SvgText>
+            <Circle cx="46" cy="51" r="1.2" fill="#0284c7" />
+
+            <SvgText x="56" y="38" fill="#475569" fontSize="2.8">
+              Huaccana
+            </SvgText>
+            <SvgText x="28" y="74" fill="#475569" fontSize="2.8">
+              Paucaray
+            </SvgText>
+            <SvgText x="70" y="24" fill="#475569" fontSize="2.8">
+              Chumpi
+            </SvgText>
+            <SvgText x="15" y="40" fill="#475569" fontSize="2.8">
+              Pullo
+            </SvgText>
+
+            {/* Mi Ubicación (Punto azul pulsante) */}
+            <Circle cx="46" cy="51" r="3.5" fill="rgba(2, 132, 199, 0.2)" />
+            <Circle cx="46" cy="51" r="1.8" fill="#0284c7" stroke="#ffffff" strokeWidth="0.5" />
+
+            {/* Focos Activos Satelitales */}
+            {focos.map((foco) => {
+              const isSelected = focoActivo?.id === foco.id;
+              const color =
+                foco.criticidad === 'critico'
+                  ? '#dc2626'
+                  : foco.criticidad === 'alto'
+                  ? '#ea580c'
+                  : '#d97706';
+
+              return (
+                <G key={foco.id} onPress={() => setFocoSeleccionado(foco)}>
+                  {/* Halo de fuego */}
+                  <Circle
+                    cx={foco.x}
+                    cy={foco.y}
+                    r={isSelected ? 6 : 4}
+                    fill={color}
+                    opacity={isSelected ? 0.35 : 0.2}
+                  />
+
+                  {/* Núcleo de llama */}
+                  <Circle
+                    cx={foco.x}
+                    cy={foco.y}
+                    r={isSelected ? 3 : 2.2}
+                    fill={color}
+                    stroke="#ffffff"
+                    strokeWidth={isSelected ? 0.8 : 0.5}
+                  />
+
+                  {/* Flecha de dirección de avance por viento */}
+                  <Line
+                    x1={foco.x}
+                    y1={foco.y}
+                    x2={foco.x + 4}
+                    y2={foco.y - 4}
+                    stroke="#dc2626"
+                    strokeWidth="0.8"
+                    strokeDasharray="1,1"
+                  />
+                </G>
+              );
+            })}
+          </Svg>
+        )}
+
+        {/* Leyenda rápida flotante en esquina */}
+        <View style={styles.mapLegend}>
+          <View style={styles.legendRow}>
+            <View style={[styles.legendDot, { backgroundColor: '#0284c7' }]} />
+            <Text style={styles.legendText}>Tu Ubicación</Text>
+          </View>
+          <View style={styles.legendRow}>
+            <View style={[styles.legendDot, { backgroundColor: '#dc2626' }]} />
+            <Text style={styles.legendText}>Foco Activo</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* 3. TARJETA OPERATIVA INFERIOR (DETALLE DEL FOCO MÁS PRÓXIMO) */}
+      {focoActivo && (
+        <View style={styles.detailCard}>
+          <View style={styles.detailHeader}>
+            <View style={styles.detailTitleBox}>
+              <View style={styles.fireBadge}>
+                <Flame size={14} color="#ffffff" />
+                <Text style={styles.fireBadgeText}>{focoActivo.criticidad.toUpperCase()}</Text>
+              </View>
+              <Text style={styles.detailName}>{focoActivo.nombre}</Text>
+            </View>
+
+            <Text style={styles.detailDistance}>
+              A {focoActivo.distanciaKm} km
+            </Text>
+          </View>
+
+          {/* Información práctica para pobladores y brigadistas */}
+          <View style={styles.detailGrid}>
+            <View style={styles.detailItem}>
+              <Compass size={14} color={COLORS.textSecondary} />
+              <Text style={styles.detailItemLabel}>Avance del Fuego:</Text>
+              <Text style={styles.detailItemValue}>{focoActivo.vientoDireccion}</Text>
+            </View>
+
+            <View style={styles.detailItem}>
+              <MapPin size={14} color={COLORS.textSecondary} />
+              <Text style={styles.detailItemLabel}>Sensor Satelital:</Text>
+              <Text style={styles.detailItemValue}>{focoActivo.sensor} • {focoActivo.frp} MW</Text>
+            </View>
+          </View>
+
+          {/* Botón de Ruta Segura de Escape */}
+          <TouchableOpacity
+            style={styles.btnEscape}
+            onPress={() => setModalEscapeVisible(true)}
+            activeOpacity={0.88}
+          >
+            <ShieldAlert size={16} color="#ffffff" />
+            <Text style={styles.btnEscapeText}>RUTA SEGURA DE ESCAPE (GUÍA VITAL)</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* MODAL: GUÍA DE EVACUACIÓN Y ESCAPE ANDINO */}
       <Modal
-        visible={modalRutaEscapeVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalRutaEscapeVisible(false)}
+        visible={modalEscapeVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalEscapeVisible(false)}
       >
-        <View style={styles.modalEscapeBackdrop}>
-          <View style={styles.modalEscapeContent}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Navigation size={22} color="#10b981" />
-                <Text style={styles.modalEscapeTitle}>Ruta Segura de Evacuación</Text>
+                <ShieldAlert size={20} color="#dc2626" />
+                <Text style={styles.modalTitle}>Protocolo de Escape Andino</Text>
               </View>
-              <TouchableOpacity onPress={() => setModalRutaEscapeVisible(false)}>
-                <X size={20} color="#94a3b8" />
+              <TouchableOpacity onPress={() => setModalEscapeVisible(false)}>
+                <X size={20} color={COLORS.textPrimary} />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.warningBox}>
-              <AlertTriangle size={20} color="#ef4444" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.warningBoxTitle}>Norma Crítica de Supervivencia</Text>
-                <Text style={styles.warningBoxText}>{t('map_escape_warning')}</Text>
+            <ScrollView style={{ maxHeight: 320 }}>
+              {/* Advertencia Vital en Quechua */}
+              <View style={styles.warningQuechuaBox}>
+                <Text style={styles.warningQuechuaTitle}>
+                  ¡Qata wichayman amapuni asuykuychu!
+                </Text>
+                <Text style={styles.warningQuechuaDesc}>
+                  Ninaqa wayra qallariptin qata wichayman tawa kutitaraq utqaylla phawan. Qusñimanqa ama wichaychu, kinraykama qispiy ichu mana kanchu chayman.
+                </Text>
               </View>
-            </View>
 
-            <ScrollView style={{ maxHeight: 240 }} showsVerticalScrollIndicator={false}>
-              <View style={styles.stepItem}>
-                <View style={styles.stepNum}><Text style={styles.stepNumText}>1</Text></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.stepTitle}>Evacúa hacia el Sur-Oeste (215°)</Text>
-                  <Text style={styles.stepDesc}>Muévete perpendicular al viento. No intentes ganarle en velocidad cuesta arriba.</Text>
+              {/* Reglas de Evacuación en Español */}
+              <View style={styles.rulesList}>
+                <View style={styles.ruleItem}>
+                  <CheckCircle2 size={16} color="#059669" />
+                  <Text style={styles.ruleText}>
+                    <Text style={{ fontWeight: '800' }}>Evacúa lateralmente:</Text> Muévete hacia los costados de la dirección del viento, nunca cuesta arriba.
+                  </Text>
                 </View>
-              </View>
 
-              <View style={styles.stepItem}>
-                <View style={styles.stepNum}><Text style={styles.stepNumText}>2</Text></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.stepTitle}>Punto de Encuentro: Plaza Comunal Huaccana</Text>
-                  <Text style={styles.stepDesc}>Zona libre de pajonal a 1.8 km con resguardo de brigadistas y agua.</Text>
+                <View style={styles.ruleItem}>
+                  <CheckCircle2 size={16} color="#059669" />
+                  <Text style={styles.ruleText}>
+                    <Text style={{ fontWeight: '800' }}>Busca zonas sin combustible:</Text> Dirígete a quebradas rocosas, caminos afirmados o áreas ya quemadas.
+                  </Text>
                 </View>
-              </View>
 
-              <View style={styles.stepItem}>
-                <View style={styles.stepNum}><Text style={styles.stepNumText}>3</Text></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.stepTitle}>Cubre Vías Respiratorias</Text>
-                  <Text style={styles.stepDesc}>Usa pañuelo húmedo para mitigar inhalación de micropartículas PM 2.5.</Text>
+                <View style={styles.ruleItem}>
+                  <CheckCircle2 size={16} color="#059669" />
+                  <Text style={styles.ruleText}>
+                    <Text style={{ fontWeight: '800' }}>Protege tus vías respiratorias:</Text> Usa pañuelo húmedo y camina agachado cerca al suelo si hay humo denso.
+                  </Text>
                 </View>
               </View>
             </ScrollView>
 
             <TouchableOpacity
-              style={styles.btnCloseModal}
-              onPress={() => setModalRutaEscapeVisible(false)}
+              style={styles.modalCloseBtn}
+              onPress={() => setModalEscapeVisible(false)}
             >
-              <Text style={styles.btnCloseModalText}>Entendido • Iniciar Evacuación</Text>
+              <Text style={styles.modalCloseBtnText}>Entendido</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -423,300 +451,263 @@ export const MapScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.bgPrimary,
+    backgroundColor: COLORS.bgPrimary
   },
-  topWidget: {
-    backgroundColor: '#0f172a',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
-  },
-  topWidgetRow: {
+  headerBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderSubtle
   },
-  mapTitle: {
+  headerTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#ffffff',
+    color: COLORS.textPrimary
   },
-  mapSubtitle: {
-    fontSize: 10.5,
-    color: '#94a3b8',
-    fontWeight: '600',
+  headerSubtitle: {
+    fontSize: 11,
+    color: COLORS.textSecondary
   },
-  toggleBtn: {
+  btnRefresh: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 5,
+    gap: 4,
     paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: '#fee2e2'
   },
-  toggleBtnActive: {
-    backgroundColor: '#ef4444',
-    borderColor: '#b91c1c',
-  },
-  toggleBtnText: {
+  btnRefreshText: {
     fontSize: 11,
-    color: '#94a3b8',
     fontWeight: '700',
+    color: COLORS.firePrimary
   },
-  toggleBtnTextActive: {
-    color: '#ffffff',
+  meteoBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: '#ffffff',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderSubtle
   },
-  meteoStrip: {
+  meteoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 4
   },
-  meteoBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+  meteoLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary
   },
-  meteoBadgeTitle: {
-    fontSize: 9.5,
+  meteoVal: {
+    fontSize: 11.5,
     fontWeight: '800',
-    color: '#94a3b8',
+    color: COLORS.textPrimary
   },
-  meteoBadgeVal: {
-    fontSize: 11,
-    fontWeight: '900',
-  },
-  meteoBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#e2e8f0',
-  },
-  canvasContainer: {
+  mapCanvasContainer: {
     flex: 1,
-    backgroundColor: '#060911',
-    position: 'relative',
+    position: 'relative'
   },
-  floatingLegend: {
+  loadingBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8
+  },
+  loadingText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontWeight: '600'
+  },
+  mapLegend: {
     position: 'absolute',
     top: 12,
-    left: 12,
-    backgroundColor: 'rgba(15, 23, 42, 0.92)',
-    padding: 8,
+    right: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    gap: 5,
+    borderColor: COLORS.borderSubtle,
+    gap: 4
   },
   legendRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 6
   },
   legendDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: 4
   },
   legendText: {
-    fontSize: 10,
-    color: '#cbd5e1',
-    fontWeight: '600',
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: COLORS.textPrimary
   },
-  bottomCard: {
-    backgroundColor: '#0f172a',
+  detailCard: {
+    backgroundColor: '#ffffff',
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
-    borderTopWidth: 1,
-    borderTopColor: '#1e293b',
     padding: 16,
-    paddingBottom: 20,
-    elevation: 8,
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 4
   },
-  bottomCardDragBar: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#334155',
-    alignSelf: 'center',
-    marginBottom: 10,
-  },
-  cardHeaderRow: {
+  detailHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10
   },
-  cardFireTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#ffffff',
-  },
-  cardCoords: {
-    fontSize: 11,
-    color: '#94a3b8',
-    marginTop: 2,
-    fontFamily: 'monospace',
-  },
-  distanceBadge: {
+  detailTitleBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
+    gap: 8,
+    flex: 1
   },
-  distanceText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#38bdf8',
-  },
-  metricsGrid: {
+  fireBadge: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 14,
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#dc2626',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6
   },
-  metricItem: {
-    flex: 1,
-    backgroundColor: 'rgba(30, 41, 59, 0.5)',
-    borderRadius: 8,
+  fireBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#ffffff'
+  },
+  detailName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    flex: 1
+  },
+  detailDistance: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#dc2626'
+  },
+  detailGrid: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
     padding: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: COLORS.borderSubtle,
+    gap: 6,
+    marginBottom: 12
   },
-  metricLabel: {
-    fontSize: 10,
-    color: '#94a3b8',
-    marginTop: 4,
-    marginBottom: 2,
-  },
-  metricValue: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#f8fafc',
-  },
-  btnEscapeRoute: {
+  detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#047857',
-    borderWidth: 1,
-    borderColor: '#10b981',
+    gap: 6
+  },
+  detailItemLabel: {
+    fontSize: 11.5,
+    color: COLORS.textSecondary,
+    fontWeight: '600'
+  },
+  detailItemValue: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    flex: 1
+  },
+  btnEscape: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#dc2626',
     borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingVertical: 12
   },
-  btnEscapeTitle: {
-    fontSize: 13.5,
-    fontWeight: '900',
+  btnEscapeText: {
     color: '#ffffff',
+    fontSize: 12.5,
+    fontWeight: '900',
+    letterSpacing: 0.3
   },
-  btnEscapeSub: {
-    fontSize: 10.5,
-    color: '#a7f3d0',
-    marginTop: 1,
-  },
-  modalEscapeBackdrop: {
+  modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    padding: 16
   },
-  modalEscapeContent: {
-    backgroundColor: '#0f172a',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#1e293b',
-    padding: 20,
-    paddingBottom: 36,
+  modalBox: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 14,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderSubtle
   },
-  modalEscapeTitle: {
+  modalTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#ffffff',
+    color: COLORS.textPrimary
   },
-  warningBox: {
-    flexDirection: 'row',
-    gap: 10,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+  warningQuechuaBox: {
+    backgroundColor: '#fef2f2',
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.35)',
-    borderRadius: 8,
+    borderColor: '#fca5a5',
+    borderRadius: 10,
     padding: 12,
-    marginBottom: 14,
+    marginBottom: 14
   },
-  warningBoxTitle: {
-    fontSize: 12,
+  warningQuechuaTitle: {
+    fontSize: 14,
     fontWeight: '800',
-    color: '#f87171',
-    marginBottom: 2,
+    color: '#dc2626',
+    marginBottom: 4
   },
-  warningBoxText: {
-    fontSize: 11,
-    color: '#fecaca',
-    lineHeight: 15,
+  warningQuechuaDesc: {
+    fontSize: 12,
+    color: '#991b1b',
+    lineHeight: 16
   },
-  stepItem: {
+  rulesList: {
+    gap: 10,
+    marginBottom: 16
+  },
+  ruleItem: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
-    backgroundColor: 'rgba(30, 41, 59, 0.4)',
-    padding: 10,
-    borderRadius: 8,
+    gap: 8,
+    alignItems: 'flex-start'
   },
-  stepNum: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#10b981',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepNumText: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#ffffff',
-  },
-  stepTitle: {
+  ruleText: {
     fontSize: 12.5,
-    fontWeight: '700',
-    color: '#ffffff',
+    color: COLORS.textPrimary,
+    flex: 1,
+    lineHeight: 16
   },
-  stepDesc: {
-    fontSize: 11,
-    color: '#94a3b8',
-    marginTop: 2,
-    lineHeight: 14,
-  },
-  btnCloseModal: {
-    backgroundColor: '#10b981',
+  modalCloseBtn: {
+    backgroundColor: '#f1f5f9',
+    paddingVertical: 10,
     borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 10,
+    alignItems: 'center'
   },
-  btnCloseModalText: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#ffffff',
-  },
+  modalCloseBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textPrimary
+  }
 });

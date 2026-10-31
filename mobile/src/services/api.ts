@@ -1,15 +1,72 @@
 import { API_BASE } from '../constants/config';
 
+export interface UsuarioDto {
+  id_usuario: number;
+  uuid: string;
+  username: string;
+  first_name?: string;
+  last_name?: string;
+  nombre_visible?: string;
+  email?: string;
+  telefono?: string;
+  idioma_preferido?: 'es' | 'qu';
+  estado?: string;
+  roles?: Array<{ id_rol: number; codigo: string; nombre: string }>;
+}
+
 export interface LoginResponse {
   token: string;
-  usuario: {
-    id_usuario: number;
-    uuid: string;
-    username: string;
-    nombre_visible?: string;
-    roles?: Array<{ codigo: string; nombre: string }>;
-    idioma_preferido?: 'es' | 'qu';
+  usuario: UsuarioDto;
+  mensaje?: string;
+}
+
+export interface RegistroPayload {
+  username: string;
+  password: string;
+  password_confirm: string;
+  first_name?: string;
+  last_name?: string;
+  nombre_visible?: string;
+  email?: string;
+  telefono?: string;
+  idioma_preferido?: 'es' | 'qu';
+}
+
+export interface ActualizarPerfilPayload {
+  first_name?: string;
+  last_name?: string;
+  nombre_visible?: string;
+  email?: string;
+  telefono?: string;
+  idioma_preferido?: 'es' | 'qu';
+}
+
+export interface InsigniaItem {
+  id_insignia: number;
+  codigo: string;
+  nombre: string;
+  descripcion: string;
+  icono_url?: string;
+  criterio?: {
+    puntos?: number;
+    cantidad?: number;
+    tipo_actividad?: string;
   };
+  activa: boolean;
+  total_poseedores?: number;
+}
+
+export interface DeteccionFirmsItem {
+  id_deteccion: number;
+  proveedor: string;
+  sensor: string;
+  codigo_producto: string;
+  fecha_observacion: string;
+  latitud: number | string;
+  longitud: number | string;
+  frp_mw: number | string;
+  confianza: string;
+  brillo_kelvin?: string;
 }
 
 export interface FwiActualResponse {
@@ -43,6 +100,32 @@ export interface AlertaItem {
 }
 
 /**
+ * Registro de nuevo poblador o brigadista en Django.
+ */
+export async function registroCiudadanoApi(payload: RegistroPayload): Promise<LoginResponse> {
+  const res = await fetch(`${API_BASE}/usuarios/registro/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    let msg = 'Error al registrar usuario.';
+    if (typeof errorData === 'object') {
+      const firstKey = Object.keys(errorData)[0];
+      if (firstKey) {
+        const val = errorData[firstKey];
+        msg = Array.isArray(val) ? `${firstKey}: ${val[0]}` : String(val);
+      }
+    }
+    throw new Error(msg);
+  }
+
+  return await res.json();
+}
+
+/**
  * Iniciar sesión con Token DRF.
  */
 export async function loginApi(username: string, password: string): Promise<LoginResponse> {
@@ -58,6 +141,96 @@ export async function loginApi(username: string, password: string): Promise<Logi
   }
 
   return await res.json();
+}
+
+/**
+ * Consulta el perfil del usuario autenticado.
+ */
+export async function fetchPerfilUsuarioApi(token: string): Promise<UsuarioDto> {
+  const res = await fetch(`${API_BASE}/usuarios/usuarios/me/`, {
+    headers: {
+      Authorization: `Token ${token}`
+    }
+  });
+
+  if (!res.ok) {
+    throw new Error(`Error al obtener perfil (HTTP ${res.status})`);
+  }
+
+  return await res.json();
+}
+
+/**
+ * Actualiza los datos de perfil del usuario en Django.
+ */
+export async function actualizarPerfilUsuarioApi(
+  token: string,
+  payload: ActualizarPerfilPayload
+): Promise<UsuarioDto> {
+  const res = await fetch(`${API_BASE}/usuarios/usuarios/me/`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Token ${token}`
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    let msg = 'Error al actualizar perfil.';
+    if (typeof errorData === 'object') {
+      const firstKey = Object.keys(errorData)[0];
+      if (firstKey) {
+        const val = errorData[firstKey];
+        msg = Array.isArray(val) ? `${firstKey}: ${val[0]}` : String(val);
+      }
+    }
+    throw new Error(msg);
+  }
+
+  return await res.json();
+}
+
+/**
+ * Consulta el catálogo de insignias cívicas de mérito desde Django.
+ */
+export async function fetchInsigniasCatalogoApi(): Promise<InsigniaItem[]> {
+  try {
+    const res = await fetch(`${API_BASE}/gamificacion/insignias/`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.results || data || [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Consulta el cuadro de honor y ranking comunitario.
+ */
+export async function fetchCuadroHonorApi(): Promise<any> {
+  try {
+    const res = await fetch(`${API_BASE}/gamificacion/insignias/cuadro-honor/`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Consulta los focos satelitales NASA FIRMS reales en Parinacochas.
+ */
+export async function fetchFocosFirmsApi(pageSize = 25): Promise<DeteccionFirmsItem[]> {
+  try {
+    const res = await fetch(`${API_BASE}/firms/detecciones/?page_size=${pageSize}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.results || data || [];
+  } catch {
+    return [];
+  }
 }
 
 /**

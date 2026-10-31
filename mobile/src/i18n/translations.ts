@@ -125,6 +125,27 @@ export interface Translations {
   btn_siren_alarm: string;
   siren_active: string;
 
+  // Registro & Edición de Perfil
+  register_title: string;
+  register_subtitle: string;
+  btn_create_account: string;
+  btn_go_to_login: string;
+  btn_go_to_register: string;
+  field_first_name: string;
+  field_last_name: string;
+  field_username: string;
+  field_phone: string;
+  field_email: string;
+  field_password: string;
+  field_password_confirm: string;
+  field_community: string;
+  btn_edit_profile: string;
+  btn_save_changes: string;
+  profile_updated_success: string;
+  my_badges_title: string;
+  badges_unlocked: string;
+  badges_locked: string;
+
   // Navegación
   nav_home: string;
   nav_map: string;
@@ -247,6 +268,26 @@ export const DICCIONARIO: Record<Idioma, Translations> = {
     btn_siren_alarm: '🔔 ACTIVAR SIRENA DE EVACUACIÓN COMUNAL',
     siren_active: '¡Sirena comunal activada!',
 
+    register_title: 'Crear Perfil Comunal',
+    register_subtitle: 'Únete como poblador o brigadista para proteger Parinacochas',
+    btn_create_account: 'CREAR MI PERFIL',
+    btn_go_to_login: '¿Ya tienes una cuenta? Iniciar Sesión',
+    btn_go_to_register: '¿No tienes cuenta? Crear Perfil',
+    field_first_name: 'Nombres',
+    field_last_name: 'Apellidos',
+    field_username: 'Nombre de usuario',
+    field_phone: 'Teléfono / Celular de contacto',
+    field_email: 'Correo electrónico (opcional)',
+    field_password: 'Contraseña segura',
+    field_password_confirm: 'Confirmar contraseña',
+    field_community: 'Comunidad o Sector',
+    btn_edit_profile: 'Editar Mi Perfil',
+    btn_save_changes: 'Guardar Cambios',
+    profile_updated_success: '¡Perfil actualizado correctamente!',
+    my_badges_title: 'Mis Insignias de Mérito',
+    badges_unlocked: 'Insignias Desbloqueadas',
+    badges_locked: 'Insignias por Desbloquear',
+
     nav_home: 'Inicio',
     nav_map: 'Mapa Vivo',
     nav_report: 'Reportar',
@@ -366,6 +407,26 @@ export const DICCIONARIO: Record<Idioma, Translations> = {
     credential_verified: 'SHA-256 Criptográfica Sello SERFOR / COEP',
     btn_siren_alarm: '🔔 AYLLU MANCHAKUY SIRENATA TOQYACHIY',
     siren_active: '¡Ayllu sirena qaparichkanñam!',
+
+    register_title: 'Ayllu Runapa Qillqakuynin',
+    register_subtitle: 'Parinaquchata amachanapaq aylluman yaykuy',
+    btn_create_account: 'KIKIYPA PERFILNINTA RURAY',
+    btn_go_to_login: '¿Ñachu qillqasqa kanki? Yaykuy',
+    btn_go_to_register: '¿Manaraqchu qillqasqa kanki? Qillqakuy',
+    field_first_name: 'Sutikuna',
+    field_last_name: 'Ayllu sutikuna',
+    field_username: 'Yaykuna suti',
+    field_phone: 'Telefonoyki / Celular',
+    field_email: 'Chaski correo (munaspaqa)',
+    field_password: 'Pakasqa simi',
+    field_password_confirm: 'Pakasqa simi takyachiy',
+    field_community: 'Ayllu / Suyuyki',
+    btn_edit_profile: 'Perfilniyta Allichay',
+    btn_save_changes: 'Takyachispa Waqaychay',
+    profile_updated_success: '¡Perfil allichasqaña!',
+    my_badges_title: 'Quri Unanchakunay',
+    badges_unlocked: 'Tarisqa Unanchakuna',
+    badges_locked: 'Tarinapaq Unanchakuna',
 
     nav_home: 'Qallariy',
     nav_map: 'Saywiti',

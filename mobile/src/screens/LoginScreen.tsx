@@ -31,9 +31,14 @@ import { SatelliteSyncBadge } from '../components/SatelliteSyncBadge';
 interface LoginScreenProps {
   onSuccess: () => void;
   onEmergencyReport: () => void;
+  onGoToRegister: () => void;
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onEmergencyReport }) => {
+export const LoginScreen: React.FC<LoginScreenProps> = ({
+  onSuccess,
+  onEmergencyReport,
+  onGoToRegister
+}) => {
   const { t, idioma, setIdioma } = useTranslation();
   const login = useAuthStore((s) => s.login);
 
@@ -271,6 +276,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onEmergency
               </View>
             )}
           </TouchableOpacity>
+
+          {/* Enlace para Crear Perfil / Registro */}
+          <TouchableOpacity
+            style={styles.btnGoRegister}
+            onPress={onGoToRegister}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.btnGoRegisterText}>
+              {t('btn_go_to_register')}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* 5. Acceso Rápido Biométrico y Google */}
@@ -457,7 +473,7 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    color: '#ffffff',
+    color: COLORS.textPrimary,
     fontSize: 13.5,
   },
   btnLogin: {
@@ -475,6 +491,16 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 13.5,
     fontWeight: '800',
+  },
+  btnGoRegister: {
+    alignItems: 'center',
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  btnGoRegisterText: {
+    fontSize: 13,
+    color: COLORS.firePrimary,
+    fontWeight: '700',
   },
   socialButtonsContainer: {
     gap: 10,

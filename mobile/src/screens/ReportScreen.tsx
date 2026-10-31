@@ -7,25 +7,22 @@ import {
   ScrollView,
   ActivityIndicator,
   TextInput,
-  Alert
+  Alert,
+  Platform
 } from 'react-native';
 import * as Location from 'expo-location';
-import Svg, { Rect, Line, Circle, G, Text as SvgText, Path } from 'react-native-svg';
 import {
   Flame,
   ArrowLeft,
   MapPin,
-  Compass,
   CheckCircle2,
-  Scan,
-  Mic,
-  Home,
-  ShieldAlert,
-  Send,
   Camera,
   RotateCcw,
-  Sparkles,
-  AlertTriangle
+  Send,
+  Home,
+  AlertTriangle,
+  FileText,
+  Image as ImageIcon
 } from 'lucide-react-native';
 import { COLORS } from '../constants/config';
 import { useTranslation } from '../i18n/useTranslation';
@@ -46,32 +43,24 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
   const token = useAuthStore((s) => s.token);
   const { isOnline, refrescarContador } = useNetworkSync();
 
-  // Estados del Formulario Táctico
+  // Estados del Formulario
   const [tipoFuego, setTipoFuego] = useState<TipoFuego>('incendio_descontrolado');
   const [combustible, setCombustible] = useState<TipoCombustible>('ichu_pajonal');
-  const [escalaArea, setEscalaArea] = useState<'menor_1ha' | '1a5ha' | 'mayor_5ha'>('1a5ha');
-  const [viviendasCercanas500m, setViviendasCercanas500m] = useState<boolean>(true);
-  const [notaVoz, setNotaVoz] = useState<string>('');
-  const [grabandoVoz, setGrabandoVoz] = useState<boolean>(false);
+  const [viviendasEnRiesgo, setViviendasEnRiesgo] = useState<boolean>(true);
+  const [descripcion, setDescripcion] = useState<string>('');
+  const [fotoTomada, setFotoTomada] = useState<boolean>(false);
 
-  // Telemetría GPS en tiempo real
+  // Telemetría GPS real
   const [latitud, setLatitud] = useState<number>(-15.0189);
   const [longitud, setLongitud] = useState<number>(-73.7806);
   const [precisionM, setPrecisionM] = useState<number>(3.0);
-  const [azimut, setAzimut] = useState<number>(215);
+  const [altitudM, setAltitudM] = useState<number>(3180);
   const [capturandoGps, setCapturandoGps] = useState<boolean>(true);
-
-  // Visión Computacional WillAi Vision Scan
-  const [visionScanActive, setVisionScanActive] = useState<boolean>(true);
-  const [scanDensidadHumo, setScanDensidadHumo] = useState<number>(82);
-  const [scanSeveridad, setScanSeveridad] = useState<string>('CRÍTICA / FRENTE ACTIVO');
-  const [scanDistanciaOptica, setScanDistanciaOptica] = useState<number>(450);
 
   // Estados de envío
   const [enviando, setEnviando] = useState<boolean>(false);
   const [resultadoEnvio, setResultadoEnvio] = useState<'online' | 'offline' | null>(null);
 
-  // Obtener GPS real del dispositivo
   const capturarGps = async () => {
     setCapturandoGps(true);
     try {
@@ -88,10 +77,8 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
       setLatitud(loc.coords.latitude);
       setLongitud(loc.coords.longitude);
       setPrecisionM(loc.coords.accuracy ? Math.round(loc.coords.accuracy * 10) / 10 : 3.0);
-
-      const heading = await Location.getHeadingAsync().catch(() => null);
-      if (heading?.trueHeading !== undefined && heading.trueHeading >= 0) {
-        setAzimut(Math.round(heading.trueHeading));
+      if (loc.coords.altitude) {
+        setAltitudM(Math.round(loc.coords.altitude));
       }
     } catch (e) {
       console.warn('GPS capture fallback:', e);
@@ -104,285 +91,301 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
     capturarGps();
   }, []);
 
-  const handleSimularDictadoVoz = () => {
-    setGrabandoVoz(true);
-    setTimeout(() => {
-      setGrabandoVoz(false);
-      setNotaVoz('Humo denso avanzando rápidamente hacia la quebrada de Huaccana. Se observan 3 chozas en riesgo.');
-    }, 1500);
+  const handleSimularFoto = () => {
+    setFotoTomada(true);
+    Alert.alert(
+      idioma === 'qu' ? 'Foto hap\'isqa' : 'Evidencia Fotográfica',
+      idioma === 'qu' ? 'Ninapa foton hap\'isqaña.' : 'Foto capturada con metadatos GPS incrustados.'
+    );
   };
 
-  const handleDespachoUrgente = async () => {
+  const handleEnviarReporte = async () => {
     setEnviando(true);
+    const clientUuid = `rep-movil-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const fechaCaptura = new Date().toISOString();
 
-    const payloadReporte = {
-      client_uuid: '',
+    const payload = {
+      client_uuid: clientUuid,
       latitud,
       longitud,
       precision_m: precisionM,
-      azimut,
+      azimut: 210,
       tipo_fuego: tipoFuego,
       combustible,
+      foto_uri: fotoTomada ? 'file://evidencia_incendio.jpg' : null,
       fecha_captura: fechaCaptura
     };
 
     if (isOnline) {
       try {
-        await enviarReporteApi(payloadReporte, token);
+        await enviarReporteApi(payload, token);
         setResultadoEnvio('online');
-        return;
-      } catch (error) {
-        // Fallback a SQLite offline
-        encolarReporte(payloadReporte);
-        refrescarContador();
+      } catch (err) {
+        // Si la red falla a mitad del envío, guardar en cola SQLite
+        await encolarReporte(payload);
+        await refrescarContador();
         setResultadoEnvio('offline');
-        return;
       } finally {
         setEnviando(false);
       }
+    } else {
+      // Sin conexión: guardar en base de datos local SQLite
+      await encolarReporte(payload);
+      await refrescarContador();
+      setResultadoEnvio('offline');
+      setEnviando(false);
     }
-
-    // Modo Offline
-    encolarReporte(payloadReporte);
-    refrescarContador();
-    setResultadoEnvio('offline');
-    setEnviando(false);
   };
-
-  if (resultadoEnvio) {
-    return (
-      <View style={styles.successContainer}>
-        <View style={styles.successIconBox}>
-          <CheckCircle2 size={54} color={resultadoEnvio === 'online' ? COLORS.emerald : COLORS.fireAmber} />
-        </View>
-
-        <Text style={styles.successTitle}>
-          {resultadoEnvio === 'online' ? t('report_sent_online') : t('report_saved_offline')}
-        </Text>
-
-        <Text style={styles.successDesc}>
-          {resultadoEnvio === 'online'
-            ? 'Despachado a Brigada Forestal B-12 Coracora, COEP Parinacochas y Bomberos.'
-            : t('report_offline_explanation')}
-        </Text>
-
-        <View style={styles.summaryBox}>
-          <Text style={styles.summaryItem}>📍 GPS: {latitud.toFixed(4)}, {longitud.toFixed(4)} (±{precisionM}m)</Text>
-          <Text style={styles.summaryItem}>🔥 Tipo: {tipoFuego} • {combustible}</Text>
-          <Text style={styles.summaryItem}>👁️ Vision Scan: {scanDensidadHumo}% Humo • Azimut {azimut}°</Text>
-          <Text style={styles.summaryItem}>🏠 Viviendas a &lt;500m: {viviendasCercanas500m ? 'SÍ (Alerta Habitacional)' : 'NO'}</Text>
-        </View>
-
-        <TouchableOpacity style={styles.btnSuccessReturn} onPress={onBack} activeOpacity={0.8}>
-          <Text style={styles.btnSuccessReturnText}>{t('btn_cancel')}</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-          <ArrowLeft size={20} color="#ffffff" />
+      {/* Cabecera */}
+      <View style={styles.headerRow}>
+        <TouchableOpacity style={styles.btnBack} onPress={onBack} activeOpacity={0.7}>
+          <ArrowLeft size={18} color={COLORS.textPrimary} />
+          <Text style={styles.btnBackText}>{t('btn_cancel')}</Text>
         </TouchableOpacity>
-        <View>
-          <Text style={styles.headerTitle}>{t('report_title')}</Text>
-          <Text style={styles.headerSubtitle}>WillAi Vision Scan + GPS ±3m</Text>
+
+        <View style={styles.statusBadge}>
+          <View style={[styles.statusDot, { backgroundColor: isOnline ? '#059669' : '#d97706' }]} />
+          <Text style={styles.statusText}>
+            {isOnline ? 'Central Conectada' : 'Modo Sin Señal (SQLite)'}
+          </Text>
         </View>
       </View>
 
-      {/* 1. MÓDULO VISOR DE CÁMARA CON HUD TÁCTICO WILLAI VISION SCAN */}
-      <View style={styles.cameraBox}>
-        {/* Marco Táctico de Visión Computacional */}
-        <View style={styles.hudOverlay}>
-          {/* Header del HUD */}
-          <View style={styles.hudHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Scan size={14} color="#10b981" />
-              <Text style={styles.hudTitleText}>{t('camera_hud_scan')}</Text>
-            </View>
-            <View style={styles.hudLiveBadge}>
-              <Text style={styles.hudLiveBadgeText}>IA ACTIVA</Text>
-            </View>
-          </View>
+      {/* Pantalla de Confirmación de Envío */}
+      {resultadoEnvio !== null ? (
+        <View style={styles.cardSuccess}>
+          <CheckCircle2 size={48} color={resultadoEnvio === 'online' ? '#059669' : '#d97706'} />
+          <Text style={styles.successTitle}>
+            {resultadoEnvio === 'online'
+              ? t('report_sent_online')
+              : t('report_saved_offline')}
+          </Text>
+          <Text style={styles.successDesc}>
+            {resultadoEnvio === 'online'
+              ? 'El reporte ha sido transmitido en tiempo real al Centro de Operaciones de Emergencia (COEP Parinacochas).'
+              : t('report_offline_explanation')}
+          </Text>
 
-          {/* Gráfico SVG de Retícula Táctica y Detección de Fuego */}
-          <View style={styles.reticleContainer}>
-            <Svg width="100%" height="160" viewBox="0 0 200 120">
-              {/* Esquinas de Enfoque */}
-              <Path d="M 15 25 L 15 15 L 25 15" stroke="#10b981" strokeWidth="2" fill="none" />
-              <Path d="M 185 25 L 185 15 L 175 15" stroke="#10b981" strokeWidth="2" fill="none" />
-              <Path d="M 15 95 L 15 105 L 25 105" stroke="#10b981" strokeWidth="2" fill="none" />
-              <Path d="M 185 95 L 185 105 L 175 105" stroke="#10b981" strokeWidth="2" fill="none" />
-
-              {/* Bounding Box IA sobre Columna de Humo */}
-              <Rect
-                x="55"
-                y="20"
-                width="90"
-                height="80"
-                stroke="#ef4444"
-                strokeWidth="1.5"
-                strokeDasharray="4, 3"
-                fill="rgba(239, 68, 68, 0.15)"
-              />
-              <SvgText x="60" y="32" fill="#ef4444" fontSize="8" fontWeight="bold">
-                [HUMO DENSO: 82%]
-              </SvgText>
-
-              {/* Cruz Central Táctica */}
-              <Line x1="100" y1="52" x2="100" y2="68" stroke="#38bdf8" strokeWidth="1" />
-              <Line x1="92" y1="60" x2="108" y2="60" stroke="#38bdf8" strokeWidth="1" />
-              <Circle cx="100" cy="60" r="16" stroke="#38bdf8" strokeWidth="0.8" strokeDasharray="2, 2" fill="none" />
-            </Svg>
-          </View>
-
-          {/* Telemetría de Visión Computacional en Pantalla */}
-          <View style={styles.hudTelemetryGrid}>
-            <View style={styles.hudTelemetryItem}>
-              <Text style={styles.hudTelemetryLabel}>{t('smoke_density')}</Text>
-              <Text style={[styles.hudTelemetryVal, { color: '#ef4444' }]}>{scanDensidadHumo}%</Text>
-            </View>
-            <View style={styles.hudTelemetryItem}>
-              <Text style={styles.hudTelemetryLabel}>{t('severity_estimated')}</Text>
-              <Text style={[styles.hudTelemetryVal, { color: '#f59e0b' }]}>CRÍTICA</Text>
-            </View>
-            <View style={styles.hudTelemetryItem}>
-              <Text style={styles.hudTelemetryLabel}>{t('azimuth_heading')}</Text>
-              <Text style={[styles.hudTelemetryVal, { color: '#38bdf8' }]}>{azimut}° SO</Text>
-            </View>
-            <View style={styles.hudTelemetryItem}>
-              <Text style={styles.hudTelemetryLabel}>{t('distance_optical')}</Text>
-              <Text style={[styles.hudTelemetryVal, { color: '#10b981' }]}>~{scanDistanciaOptica}m</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      {/* 2. GEORREFERENCIACIÓN FIJA DE ALTA PRECISIÓN (±3m) */}
-      <View style={styles.card}>
-        <View style={styles.cardHeaderRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <MapPin size={18} color="#38bdf8" />
-            <Text style={styles.cardTitle}>Posición Satelital Fija GPS</Text>
-          </View>
-          <TouchableOpacity onPress={capturarGps} style={styles.btnRecalibrar}>
-            <RotateCcw size={13} color="#38bdf8" />
-            <Text style={styles.btnRecalibrarText}>Recalibrar</Text>
+          <TouchableOpacity style={styles.btnSuccessClose} onPress={onBack}>
+            <Text style={styles.btnSuccessCloseText}>Volver al Inicio</Text>
           </TouchableOpacity>
         </View>
-
-        <View style={styles.gpsCoordsBox}>
-          <Text style={styles.gpsCoordsText}>{latitud.toFixed(6)}, {longitud.toFixed(6)}</Text>
-          <View style={styles.accuracyTag}>
-            <Text style={styles.accuracyTagText}>Alta Precisión ±{precisionM}m</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* 3. FORMULARIO DE VERIFICACIÓN ÁGIL */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Verificación Rápida del Frente</Text>
-
-        {/* Tipo de Fuego */}
-        <View style={styles.toggleRow}>
-          <TouchableOpacity
-            style={[styles.toggleBtn, tipoFuego === 'incendio_descontrolado' && styles.toggleBtnActiveRed]}
-            onPress={() => setTipoFuego('incendio_descontrolado')}
-          >
-            <Flame size={16} color={tipoFuego === 'incendio_descontrolado' ? '#ffffff' : '#94a3b8'} />
-            <Text style={[styles.toggleBtnText, tipoFuego === 'incendio_descontrolado' && styles.toggleBtnTextActive]}>
-              Incendio Descontrolado
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.toggleBtn, tipoFuego === 'quema_agricola_controlada' && styles.toggleBtnActiveAmber]}
-            onPress={() => setTipoFuego('quema_agricola_controlada')}
-          >
-            <Text style={[styles.toggleBtnText, tipoFuego === 'quema_agricola_controlada' && styles.toggleBtnTextActive]}>
-              Quema Controlada
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Escala del Área */}
-        <Text style={styles.fieldLabel}>Escala del Área Afectada</Text>
-        <View style={styles.toggleRow}>
-          {[
-            { id: 'menor_1ha', label: '< 1 ha (Foco)' },
-            { id: '1a5ha', label: '1 - 5 ha' },
-            { id: 'mayor_5ha', label: '> 5 ha (Frente)' }
-          ].map((item) => (
+      ) : (
+        <>
+          {/* 1. SECCIÓN: FOTO DEL FUEGO */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>1. Evidencia Fotográfica</Text>
             <TouchableOpacity
-              key={item.id}
-              style={[styles.scaleBtn, escalaArea === item.id && styles.scaleBtnActive]}
-              onPress={() => setEscalaArea(item.id as any)}
+              style={[styles.photoBox, fotoTomada && styles.photoBoxCaptured]}
+              onPress={handleSimularFoto}
+              activeOpacity={0.8}
             >
-              <Text style={[styles.scaleBtnText, escalaArea === item.id && styles.scaleBtnTextActive]}>
-                {item.label}
-              </Text>
+              {fotoTomada ? (
+                <View style={styles.photoCapturedContent}>
+                  <CheckCircle2 size={32} color="#059669" />
+                  <Text style={styles.photoCapturedText}>Foto adjunta con éxito</Text>
+                  <Text style={styles.photoCapturedSub}>Toca para cambiar de fotografía</Text>
+                </View>
+              ) : (
+                <View style={styles.photoPlaceholder}>
+                  <Camera size={36} color={COLORS.firePrimary} />
+                  <Text style={styles.photoBtnText}>Tomar Foto del Incendio</Text>
+                  <Text style={styles.photoBtnSub}>Ayuda a las brigadas a dimensionar el fuego</Text>
+                </View>
+              )}
             </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Indicador de Viviendas a Menos de 500m */}
-        <TouchableOpacity
-          style={[styles.viviendasBox, viviendasCercanas500m && styles.viviendasBoxActive]}
-          onPress={() => setViviendasCercanas500m(!viviendasCercanas500m)}
-          activeOpacity={0.8}
-        >
-          <Home size={20} color={viviendasCercanas500m ? '#ef4444' : '#94a3b8'} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.viviendasTitle, viviendasCercanas500m && { color: '#fca5a5' }]}>
-              {t('viviendas_500m')}
-            </Text>
-            <Text style={styles.viviendasSub}>{t('viviendas_500m_desc')}</Text>
           </View>
-          <View style={[styles.checkbox, viviendasCercanas500m && styles.checkboxActive]}>
-            {viviendasCercanas500m && <CheckCircle2 size={16} color="#ffffff" />}
-          </View>
-        </TouchableOpacity>
 
-        {/* Dictado de Voz / Nota Rápida */}
-        <Text style={styles.fieldLabel}>{t('voice_note')}</Text>
-        <View style={styles.voiceWrapper}>
-          <TextInput
-            style={styles.voiceInput}
-            placeholder={t('voice_note_placeholder')}
-            placeholderTextColor="#64748b"
-            value={notaVoz}
-            onChangeText={setNotaVoz}
-            multiline
-          />
+          {/* 2. SECCIÓN: UBICACIÓN GPS */}
+          <View style={styles.card}>
+            <View style={styles.cardTitleRow}>
+              <Text style={styles.cardTitle}>2. Ubicación GPS</Text>
+              <TouchableOpacity
+                style={styles.btnRefreshGps}
+                onPress={capturarGps}
+                disabled={capturandoGps}
+              >
+                {capturandoGps ? (
+                  <ActivityIndicator size="small" color={COLORS.firePrimary} />
+                ) : (
+                  <>
+                    <RotateCcw size={12} color={COLORS.firePrimary} />
+                    <Text style={styles.btnRefreshGpsText}>Actualizar</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.gpsGrid}>
+              <View style={styles.gpsItem}>
+                <Text style={styles.gpsLabel}>Latitud</Text>
+                <Text style={styles.gpsValue}>{latitud.toFixed(4)}° S</Text>
+              </View>
+
+              <View style={styles.gpsItem}>
+                <Text style={styles.gpsLabel}>Longitud</Text>
+                <Text style={styles.gpsValue}>{longitud.toFixed(4)}° W</Text>
+              </View>
+
+              <View style={styles.gpsItem}>
+                <Text style={styles.gpsLabel}>Precisión</Text>
+                <Text style={[styles.gpsValue, { color: '#059669' }]}>±{precisionM} m</Text>
+              </View>
+
+              <View style={styles.gpsItem}>
+                <Text style={styles.gpsLabel}>Altitud</Text>
+                <Text style={styles.gpsValue}>{altitudM} msnm</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* 3. SECCIÓN: TIPO DE FUEGO */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>3. ¿Qué tipo de evento es?</Text>
+            <View style={styles.optionsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.optionBtn,
+                  tipoFuego === 'incendio_descontrolado' && styles.optionBtnActiveFire
+                ]}
+                onPress={() => setTipoFuego('incendio_descontrolado')}
+                activeOpacity={0.8}
+              >
+                <Flame
+                  size={18}
+                  color={tipoFuego === 'incendio_descontrolado' ? '#ffffff' : '#dc2626'}
+                />
+                <Text
+                  style={[
+                    styles.optionBtnText,
+                    tipoFuego === 'incendio_descontrolado' && styles.optionBtnTextActive
+                  ]}
+                >
+                  {t('fire_wildfire')}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.optionBtn,
+                  tipoFuego === 'quema_agricola_controlada' && styles.optionBtnActiveAmber
+                ]}
+                onPress={() => setTipoFuego('quema_agricola_controlada')}
+                activeOpacity={0.8}
+              >
+                <AlertTriangle
+                  size={18}
+                  color={tipoFuego === 'quema_agricola_controlada' ? '#ffffff' : '#d97706'}
+                />
+                <Text
+                  style={[
+                    styles.optionBtnText,
+                    tipoFuego === 'quema_agricola_controlada' && styles.optionBtnTextActive
+                  ]}
+                >
+                  {t('fire_controlled')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* 4. SECCIÓN: COMBUSTIBLE QUE SE QUEMA */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>4. ¿Qué vegetación se está quemando?</Text>
+            <View style={styles.fuelGrid}>
+              {[
+                { id: 'ichu_pajonal', label: t('fuel_ichu') },
+                { id: 'matorral', label: t('fuel_matorral') },
+                { id: 'bofedal', label: t('fuel_bofedal') },
+                { id: 'cultivo', label: t('fuel_cultivo') }
+              ].map((f) => (
+                <TouchableOpacity
+                  key={f.id}
+                  style={[styles.fuelBtn, combustible === f.id && styles.fuelBtnActive]}
+                  onPress={() => setCombustible(f.id as TipoCombustible)}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[styles.fuelBtnText, combustible === f.id && styles.fuelBtnTextActive]}
+                  >
+                    {f.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* 5. SECCIÓN: VIVIENDAS EN RIESGO */}
+          <View style={styles.card}>
+            <View style={styles.switchRow}>
+              <View style={{ flex: 1, marginRight: 12 }}>
+                <Text style={styles.switchTitle}>¿Hay viviendas o personas cerca?</Text>
+                <Text style={styles.switchSubtitle}>A menos de 500 metros del fuego</Text>
+              </View>
+
+              <View style={styles.switchButtons}>
+                <TouchableOpacity
+                  style={[
+                    styles.switchBtn,
+                    viviendasEnRiesgo && { backgroundColor: '#dc2626' }
+                  ]}
+                  onPress={() => setViviendasEnRiesgo(true)}
+                >
+                  <Text style={[styles.switchBtnText, viviendasEnRiesgo && { color: '#ffffff' }]}>
+                    SÍ
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.switchBtn,
+                    !viviendasEnRiesgo && { backgroundColor: '#64748b' }
+                  ]}
+                  onPress={() => setViviendasEnRiesgo(false)}
+                >
+                  <Text style={[styles.switchBtnText, !viviendasEnRiesgo && { color: '#ffffff' }]}>
+                    NO
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* 6. OBSERVACIÓN OPCIONAL */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>5. Detalle adicional (opcional)</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Ej: El fuego avanza hacia la quebrada de Huaccana..."
+              placeholderTextColor={COLORS.textMuted}
+              value={descripcion}
+              onChangeText={setDescripcion}
+              multiline
+              numberOfLines={2}
+            />
+          </View>
+
+          {/* BOTÓN PRINCIPAL DE ENVÍO */}
           <TouchableOpacity
-            style={[styles.micBtn, grabandoVoz && styles.micBtnActive]}
-            onPress={handleSimularDictadoVoz}
+            style={[styles.btnSubmit, enviando && styles.btnSubmitDisabled]}
+            onPress={handleEnviarReporte}
+            disabled={enviando}
+            activeOpacity={0.88}
           >
-            <Mic size={18} color="#ffffff" />
+            {enviando ? (
+              <ActivityIndicator color="#ffffff" size="small" />
+            ) : (
+              <>
+                <Send size={18} color="#ffffff" />
+                <Text style={styles.btnSubmitText}>ENVIAR REPORTE A LA CENTRAL</Text>
+              </>
+            )}
           </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* 4. BOTÓN DE DESPACHO URGENTE DIRECTO A BRIGADAS Y BOMBEROS */}
-      <TouchableOpacity
-        style={[styles.btnDispatch, enviando && styles.btnDispatchDisabled]}
-        onPress={handleDespachoUrgente}
-        disabled={enviando}
-        activeOpacity={0.88}
-      >
-        {enviando ? (
-          <ActivityIndicator color="#ffffff" />
-        ) : (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <ShieldAlert size={22} color="#ffffff" />
-            <Text style={styles.btnDispatchText}>{t('btn_dispatch_urgent')}</Text>
-          </View>
-        )}
-      </TouchableOpacity>
+        </>
+      )}
     </ScrollView>
   );
 };
@@ -390,362 +393,310 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.bgPrimary,
+    backgroundColor: COLORS.bgPrimary
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 40
   },
-  header: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
+    justifyContent: 'space-between',
+    marginBottom: 16
   },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 8,
-    backgroundColor: COLORS.bgSecondary,
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle,
+  btnBack: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 8
   },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#ffffff',
-  },
-  headerSubtitle: {
-    fontSize: 11,
-    color: '#38bdf8',
+  btnBackText: {
+    fontSize: 13,
     fontWeight: '700',
+    color: COLORS.textPrimary
   },
-  cameraBox: {
-    height: 250,
-    backgroundColor: '#030712',
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#1e293b',
-    overflow: 'hidden',
-    marginBottom: 16,
-    position: 'relative',
-  },
-  hudOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(3, 7, 18, 0.75)',
-    justifyContent: 'space-between',
-    padding: 12,
-  },
-  hudHeader: {
+  statusBadge: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  hudTitleText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#34d399',
-    letterSpacing: 0.8,
-  },
-  hudLiveBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.25)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    gap: 6,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#10b981',
+    borderColor: COLORS.borderSubtle
   },
-  hudLiveBadgeText: {
-    fontSize: 8.5,
-    fontWeight: '900',
-    color: '#10b981',
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4
   },
-  reticleContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hudTelemetryGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-    borderRadius: 8,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  hudTelemetryItem: {
-    alignItems: 'center',
-  },
-  hudTelemetryLabel: {
-    fontSize: 9,
-    color: '#94a3b8',
-    marginBottom: 2,
-    fontWeight: '700',
-  },
-  hudTelemetryVal: {
+  statusText: {
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '700',
+    color: COLORS.textSecondary
   },
   card: {
-    backgroundColor: COLORS.bgCard,
-    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 16,
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
-    padding: 14,
-    marginBottom: 14,
-    gap: 10,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+    marginBottom: 12
   },
-  cardHeaderRow: {
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    marginBottom: 10
+  },
+  cardTitleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 10
   },
-  cardTitle: {
-    fontSize: 13.5,
+  photoBox: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#cbd5e1',
+    paddingVertical: 24,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  photoBoxCaptured: {
+    borderColor: '#059669',
+    backgroundColor: '#f0fdf4'
+  },
+  photoPlaceholder: {
+    alignItems: 'center'
+  },
+  photoBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginTop: 8
+  },
+  photoBtnSub: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginTop: 2
+  },
+  photoCapturedContent: {
+    alignItems: 'center'
+  },
+  photoCapturedText: {
+    fontSize: 14,
     fontWeight: '800',
-    color: '#ffffff',
+    color: '#059669',
+    marginTop: 6
   },
-  btnRecalibrar: {
+  photoCapturedSub: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginTop: 2
+  },
+  btnRefreshGps: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingVertical: 3,
     paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 6,
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    backgroundColor: '#fee2e2'
   },
-  btnRecalibrarText: {
-    fontSize: 10.5,
+  btnRefreshGpsText: {
+    fontSize: 11,
     fontWeight: '700',
-    color: '#38bdf8',
+    color: COLORS.firePrimary
   },
-  gpsCoordsBox: {
+  gpsGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    padding: 10,
-    borderRadius: 8,
+    flexWrap: 'wrap',
+    gap: 8
   },
-  gpsCoordsText: {
+  gpsItem: {
+    width: '48%',
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle
+  },
+  gpsLabel: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    fontWeight: '600'
+  },
+  gpsValue: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#ffffff',
-    fontFamily: 'monospace',
+    color: COLORS.textPrimary,
+    marginTop: 2
   },
-  accuracyTag: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  accuracyTagText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#34d399',
-  },
-  toggleRow: {
+  optionsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 8
   },
-  toggleBtn: {
+  optionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: COLORS.bgSecondary,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: COLORS.borderSubtle,
-    borderRadius: 8,
-    paddingVertical: 10,
+    borderColor: COLORS.borderSubtle
   },
-  toggleBtnActiveRed: {
-    backgroundColor: '#b91c1c',
-    borderColor: '#ef4444',
+  optionBtnActiveFire: {
+    backgroundColor: '#dc2626',
+    borderColor: '#dc2626'
   },
-  toggleBtnActiveAmber: {
+  optionBtnActiveAmber: {
     backgroundColor: '#d97706',
-    borderColor: '#f59e0b',
+    borderColor: '#d97706'
   },
-  toggleBtnText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#94a3b8',
-  },
-  toggleBtnTextActive: {
-    color: '#ffffff',
-  },
-  fieldLabel: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#94a3b8',
-    marginTop: 4,
-  },
-  scaleBtn: {
-    flex: 1,
-    alignItems: 'center',
-    backgroundColor: COLORS.bgSecondary,
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle,
-    borderRadius: 6,
-    paddingVertical: 8,
-  },
-  scaleBtnActive: {
-    backgroundColor: 'rgba(56, 189, 248, 0.2)',
-    borderColor: '#38bdf8',
-  },
-  scaleBtnText: {
-    fontSize: 11,
-    color: '#94a3b8',
-    fontWeight: '700',
-  },
-  scaleBtnTextActive: {
-    color: '#38bdf8',
-  },
-  viviendasBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle,
-    borderRadius: 8,
-    padding: 12,
-  },
-  viviendasBoxActive: {
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    borderColor: 'rgba(239, 68, 68, 0.4)',
-  },
-  viviendasTitle: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: '#ffffff',
-  },
-  viviendasSub: {
-    fontSize: 10.5,
-    color: '#94a3b8',
-    marginTop: 2,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: '#64748b',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxActive: {
-    backgroundColor: '#ef4444',
-    borderColor: '#ef4444',
-  },
-  voiceWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.bgSecondary,
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  voiceInput: {
-    flex: 1,
-    color: '#ffffff',
+  optionBtnText: {
     fontSize: 12,
-    minHeight: 40,
+    fontWeight: '700',
+    color: COLORS.textSecondary
   },
-  micBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#ef4444',
+  optionBtnTextActive: {
+    color: '#ffffff'
+  },
+  fuelGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8
+  },
+  fuelBtn: {
+    width: '48%',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    alignItems: 'center'
+  },
+  fuelBtnActive: {
+    backgroundColor: COLORS.firePrimary,
+    borderColor: COLORS.firePrimary
+  },
+  fuelBtnText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: COLORS.textSecondary
+  },
+  fuelBtnTextActive: {
+    color: '#ffffff'
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  switchTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: COLORS.textPrimary
+  },
+  switchSubtitle: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginTop: 2
+  },
+  switchButtons: {
+    flexDirection: 'row',
+    gap: 6
+  },
+  switchBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle
+  },
+  switchBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.textSecondary
+  },
+  textInput: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    padding: 10,
+    fontSize: 13,
+    color: COLORS.textPrimary,
+    minHeight: 60,
+    textAlignVertical: 'top'
+  },
+  btnSubmit: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  micBtnActive: {
-    backgroundColor: '#b91c1c',
-  },
-  btnDispatch: {
-    backgroundColor: '#b91c1c',
+    gap: 8,
+    backgroundColor: '#dc2626',
     borderRadius: 12,
     paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 6,
-    shadowColor: '#ef4444',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
+    marginTop: 6
   },
-  btnDispatchDisabled: {
-    opacity: 0.6,
+  btnSubmitDisabled: {
+    opacity: 0.65
   },
-  btnDispatchText: {
+  btnSubmitText: {
+    color: '#ffffff',
     fontSize: 14,
     fontWeight: '900',
-    color: '#ffffff',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4
   },
-  successContainer: {
-    flex: 1,
-    backgroundColor: COLORS.bgPrimary,
+  cardSuccess: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
     padding: 24,
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  successIconBox: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    marginTop: 20
   },
   successTitle: {
-    fontSize: 19,
+    fontSize: 17,
     fontWeight: '800',
-    color: '#ffffff',
-    textAlign: 'center',
-    marginBottom: 8,
+    color: COLORS.textPrimary,
+    marginTop: 12,
+    textAlign: 'center'
   },
   successDesc: {
-    fontSize: 12.5,
-    color: '#cbd5e1',
+    fontSize: 13,
+    color: COLORS.textSecondary,
     textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 18,
+    marginTop: 8,
+    lineHeight: 18
   },
-  summaryBox: {
-    backgroundColor: COLORS.bgCard,
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle,
-    borderRadius: 8,
-    padding: 14,
-    width: '100%',
-    gap: 6,
-    marginBottom: 20,
-  },
-  summaryItem: {
-    fontSize: 11.5,
-    color: '#cbd5e1',
-  },
-  btnSuccessReturn: {
-    backgroundColor: COLORS.bgSecondary,
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle,
-    borderRadius: 8,
+  btnSuccessClose: {
+    marginTop: 20,
+    backgroundColor: '#f1f5f9',
     paddingVertical: 12,
-    width: '100%',
-    alignItems: 'center',
+    paddingHorizontal: 24,
+    borderRadius: 10
   },
-  btnSuccessReturnText: {
-    fontSize: 13.5,
+  btnSuccessCloseText: {
+    fontSize: 13,
     fontWeight: '700',
-    color: '#ffffff',
-  },
+    color: COLORS.textPrimary
+  }
 });
