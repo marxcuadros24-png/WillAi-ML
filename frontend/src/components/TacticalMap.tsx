@@ -764,7 +764,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     incidentesActivos.forEach((inc) => {
       const isCritical = inc.severidad === 'critica' || inc.severidad === 'alta';
       const isSelected = selectedIncidente?.id === inc.id;
-      const bgColor = inc.estado === 'controlado' ? '#10b981' : isCritical ? '#ef4444' : '#f59e0b';
+      const bgColor = inc.estado === 'controlado' ? '#10b981' : inc.estado === 'pendiente' ? '#0284c7' : isCritical ? '#ef4444' : '#f59e0b';
 
       const iconHtml = `
         <div style="
@@ -806,6 +806,11 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           </div>
           <h4 style="font-size: 13px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">${inc.titulo}</h4>
           <p style="font-size: 11px; color: #cbd5e1; margin-bottom: 8px;">${inc.descripcion}</p>
+          ${inc.fotografia_url ? `
+            <div style="margin-top: 6px; margin-bottom: 8px;">
+              <img src="${inc.fotografia_url.startsWith('http') ? inc.fotografia_url : 'http://127.0.0.1:8000' + inc.fotografia_url}" style="width: 100%; max-height: 120px; object-fit: cover; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2);" alt="Evidencia fotográfica"/>
+            </div>
+          ` : ''}
           <div style="font-size: 11px; color: #94a3b8; display: flex; flex-direction: column; gap: 2px;">
             <span><strong>Comunidad:</strong> ${inc.comunidad}</span>
             <span><strong>Viviendas en riesgo:</strong> <strong style="color: #ef4444;">${inc.viviendas_riesgo}</strong></span>

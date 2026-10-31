@@ -30,9 +30,22 @@ export function useNetworkSync() {
     // Inicializar contador
     refrescarContador();
 
-    // Suscribirse a cambios de red con NetInfo
+    // Comprobar estado de red inicial al abrir la app y sincronizar cola pendiente
+    NetInfo.fetch().then((state) => {
+      const conectado = Boolean(state.isConnected);
+      setIsOnline(conectado);
+      if (conectado) {
+        const count = contarReportesPendientes();
+        if (count > 0) {
+          forzarSync();
+        }
+      }
+      wasOfflineRef.current = !conectado;
+    });
+
+    // Suscribirse a cambios continuos de red con NetInfo
     const unsubscribe = NetInfo.addEventListener((state: NetInfoState) => {
-      const conectado = Boolean(state.isConnected && state.isInternetReachable !== false);
+      const conectado = Boolean(state.isConnected);
       setIsOnline(conectado);
 
       // Si antes estábamos offline y ahora hay señal, sincronizar automáticamente

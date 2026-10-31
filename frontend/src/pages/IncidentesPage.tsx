@@ -13,6 +13,8 @@ export const IncidentesPage: React.FC = () => {
     onOpenDispatch,
     onOpenChangeStatus,
     onOpenCloseIncident,
+    handleAceptarIncidente,
+    handleRechazarIncidente,
     setSelectedIncidente,
     setSidebarTab
   } = useAppContext();
@@ -35,6 +37,8 @@ export const IncidentesPage: React.FC = () => {
       onOpenChangeStatus={onOpenChangeStatus}
       onOpenCloseIncident={onOpenCloseIncident}
       onViewOnMap={handleViewOnMap}
+      onAceptar={handleAceptarIncidente}
+      onRechazar={handleRechazarIncidente}
     />
   );
 };

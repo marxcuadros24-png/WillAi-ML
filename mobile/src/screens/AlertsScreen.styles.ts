@@ -165,3 +165,4 @@ export const styles = StyleSheet.create({
     color: '#dc2626'
   }
 });
+

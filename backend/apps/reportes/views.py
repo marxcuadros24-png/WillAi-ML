@@ -26,7 +26,7 @@ class ReporteViewSet(viewsets.ModelViewSet):
         return ReporteSerializer
 
     def get_permissions(self):
-        if self.action in ['list', 'retrieve']:
+        if self.action in ['list', 'retrieve', 'create']:
             return [permissions.AllowAny()]
         return [permissions.IsAuthenticated()]
 

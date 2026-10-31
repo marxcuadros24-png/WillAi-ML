@@ -261,8 +261,36 @@ export const App: React.FC = () => {
     }
   };
 
+  const isPollingRef = React.useRef<boolean>(false);
+
   useEffect(() => {
     loadAllData();
+
+    // Consulta específica de novedades de incidentes evitando solicitudes simultáneas (Requisito 7)
+    const interval = setInterval(async () => {
+      if (isPollingRef.current) return;
+      if (typeof document !== 'undefined' && document.hidden) return;
+
+      isPollingRef.current = true;
+      try {
+        const fresh = await fetchIncidentes();
+        setIncidentes((prev) => {
+          if (
+            prev.length !== fresh.length ||
+            prev.some((p, i) => fresh[i] && (p.id !== fresh[i].id || p.estado !== fresh[i].estado))
+          ) {
+            return fresh;
+          }
+          return prev;
+        });
+      } catch (err) {
+        console.warn('Sondeo ligero de incidentes:', err);
+      } finally {
+        isPollingRef.current = false;
+      }
+    }, 8000);
+
+    return () => clearInterval(interval);
   }, []);
 
   // Handlers for Timeline filters
@@ -557,6 +585,33 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleAceptarIncidenteAction = async (inc: Incidente) => {
+    try {
+      await cambiarEstadoIncidente(inc.id, 'confirmado', 'Incidente aceptado y verificado por operador');
+      showToast(`Incidente ${inc.codigo} aceptado y confirmado exitosamente`);
+      setIncidentes((prev) => prev.map((item) => (item.id === inc.id ? { ...item, estado: 'en_combate' } : item)));
+      const fresh = await fetchIncidentes();
+      setIncidentes(fresh);
+    } catch (err) {
+      showToast('Error al aceptar el incidente');
+    }
+  };
+
+  const handleRechazarIncidenteAction = async (inc: Incidente) => {
+    if (!window.confirm(`¿Estás seguro de rechazar y descartar el incidente ${inc.codigo}? Se registrará como falsa alarma.`)) {
+      return;
+    }
+    try {
+      await cambiarEstadoIncidente(inc.id, 'descartado', 'Incidente descartado / falsa alarma');
+      showToast(`Incidente ${inc.codigo} descartado correctamente`);
+      setIncidentes((prev) => prev.map((item) => (item.id === inc.id ? { ...item, estado: 'cerrado' } : item)));
+      const fresh = await fetchIncidentes();
+      setIncidentes(fresh);
+    } catch (err) {
+      showToast('Error al rechazar el incidente');
+    }
+  };
+
   const handleValidarReporteAction = async (reporte: ReporteCiudadano, resultado: 'validado' | 'rechazado' | 'observado') => {
     try {
       await validarReporte(reporte.id, resultado, `Verificación operativa desde Centro de Mando Táctico (${resultado})`);
@@ -714,6 +769,8 @@ export const App: React.FC = () => {
       setModalIncidentTarget(inc);
       setIsCloseIncidentModalOpen(true);
     },
+    handleAceptarIncidente: handleAceptarIncidenteAction,
+    handleRechazarIncidente: handleRechazarIncidenteAction,
     handleValidarReporteAction,
     handleEliminarReporteAction,
     handleConvertirReporteAIncidente,

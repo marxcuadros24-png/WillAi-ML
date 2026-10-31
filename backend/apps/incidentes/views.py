@@ -1,3 +1,4 @@
+from apps.reportes.models import Reporte, ValidacionReporte
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -27,7 +28,8 @@ class IncidenteViewSet(viewsets.ModelViewSet):
     queryset = Incidente.objects.select_related('distrito', 'comunidad', 'creado_por').prefetch_related(
         'asignaciones_brigadas__brigada',
         'acciones',
-        'historial_estados'
+        'historial_estados',
+        'vinculos_reporte__reporte__evidencias'
     ).all()
     filterset_fields = ['estado', 'prioridad', 'tipo_incendio', 'distrito', 'comunidad']
     search_fields = ['codigo', 'titulo', 'resumen']
@@ -135,6 +137,27 @@ class IncidenteViewSet(viewsets.ModelViewSet):
             estado_nuevo=nuevo_estado,
             nota=nota
         )
+
+        # Sincronización coherente de reportes vinculados (Requisito 5)
+        for rep in incidente.reportes_vinculados.all():
+            if nuevo_estado in [Incidente.EstadoIncidente.CONFIRMADO, Incidente.EstadoIncidente.ASIGNADO, Incidente.EstadoIncidente.EN_COMBATE]:
+                rep.estado = Reporte.EstadoReporte.VALIDADO
+                rep.save(update_fields=['estado'])
+                ValidacionReporte.objects.create(
+                    reporte=rep,
+                    revisor=request.user,
+                    resultado=ValidacionReporte.ResultadoValidacion.VALIDADO,
+                    comentario=nota or f"Validado al confirmar incidente {incidente.codigo}"
+                )
+            elif nuevo_estado == Incidente.EstadoIncidente.DESCARTADO:
+                rep.estado = Reporte.EstadoReporte.RECHAZADO
+                rep.save(update_fields=['estado'])
+                ValidacionReporte.objects.create(
+                    reporte=rep,
+                    revisor=request.user,
+                    resultado=ValidacionReporte.ResultadoValidacion.RECHAZADO,
+                    comentario=nota or f"Rechazado al descartar incidente {incidente.codigo}"
+                )
 
         return Response(
             {

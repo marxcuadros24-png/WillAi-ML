@@ -18,6 +18,7 @@
     },
     "android": {
       "package": "pe.willai.coracora",
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#080c14"
       },

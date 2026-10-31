@@ -402,9 +402,7 @@ export async function enviarReporteApi(
   },
   token?: string | null
 ): Promise<any> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
-  };
+  const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Token ${token}`;
 
   // Mapeo al modelo Reporte de Django
@@ -415,26 +413,47 @@ export async function enviarReporteApi(
       ? 'pastizal'
       : 'forestal';
 
-  const body = {
-    tipo_incendio: tipoIncendioDjango,
-    fecha_evento: payload.fecha_captura,
-    latitud: payload.latitud,
-    longitud: payload.longitud,
-    precision_metros: payload.precision_m || 10.0,
-    origen: 'movil',
-    descripcion: `[WillAI Móvil] Tipo: ${payload.tipo_fuego} | Combustible: ${payload.combustible} | Azimut: ${payload.azimut ?? 'N/A'}° | UUID: ${payload.client_uuid}`,
-    autoriza_publicacion: false
-  };
+  const formData = new FormData();
+  formData.append('tipo_incendio', tipoIncendioDjango);
+  formData.append('fecha_evento', payload.fecha_captura);
+  formData.append('latitud', String(payload.latitud));
+  formData.append('longitud', String(payload.longitud));
+  formData.append('precision_metros', String(payload.precision_m || 10.0));
+  formData.append('origen', 'movil');
+  formData.append(
+    'descripcion',
+    `[WillAI Móvil] Tipo: ${payload.tipo_fuego} | Combustible: ${payload.combustible} | Azimut: ${payload.azimut ?? 'N/A'}° | UUID: ${payload.client_uuid}`
+  );
+  formData.append('autoriza_publicacion', 'false');
+
+  if (payload.foto_uri && !payload.foto_uri.startsWith('http')) {
+    const filename = payload.foto_uri.split('/').pop() || 'evidencia.jpg';
+    const match = /\.(\w+)$/.exec(filename);
+    const ext = match ? match[1].toLowerCase() : 'jpg';
+    const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+
+    formData.append('fotografia', {
+      uri: payload.foto_uri,
+      name: filename,
+      type: mime
+    } as any);
+  }
 
   const res = await fetch(`${API_BASE}/reportes/reportes/`, {
     method: 'POST',
     headers,
-    body: JSON.stringify(body)
+    body: formData
   });
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `HTTP ${res.status}`);
+    let msg = `HTTP ${res.status}`;
+    if (typeof err === 'object') {
+      const firstVal = Object.values(err)[0];
+      if (Array.isArray(firstVal)) msg = String(firstVal[0]);
+      else if (typeof firstVal === 'string') msg = String(firstVal);
+    }
+    throw new Error(msg);
   }
 
   return await res.json();

@@ -89,3 +89,4 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onFinish }) => {
     </View>
   );
 };
+

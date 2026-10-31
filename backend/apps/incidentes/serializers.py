@@ -98,7 +98,9 @@ class IncidenteListSerializer(serializers.ModelSerializer):
     tipo_incendio_display = serializers.CharField(source='get_tipo_incendio_display', read_only=True)
     distrito_nombre = serializers.ReadOnlyField(source='distrito.nombre')
     comunidad_nombre = serializers.ReadOnlyField(source='comunidad.nombre')
+    creado_por_nombre = serializers.ReadOnlyField(source='creado_por.nombre_visible')
     brigadas_asignadas = serializers.SerializerMethodField()
+    fotografia_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Incidente
@@ -118,7 +120,10 @@ class IncidenteListSerializer(serializers.ModelSerializer):
             'distrito_nombre',
             'comunidad',
             'comunidad_nombre',
+            'creado_por_nombre',
+            'resumen',
             'brigadas_asignadas',
+            'fotografia_url',
             'detectado_en',
             'creado_en',
         ]
@@ -142,6 +147,22 @@ class IncidenteListSerializer(serializers.ModelSerializer):
         except Exception:
             return []
 
+    def get_fotografia_url(self, obj):
+        try:
+            vinculo = obj.vinculos_reporte.select_related('reporte').prefetch_related('reporte__evidencias').first()
+            if vinculo and vinculo.reporte:
+                ev = vinculo.reporte.evidencias.filter(tipo='fotografia').first() or vinculo.reporte.evidencias.first()
+                if ev and ev.archivo:
+                    request = self.context.get('request')
+                    if request:
+                        return request.build_absolute_uri(ev.archivo.url)
+                    return ev.archivo.url
+                elif ev and ev.uri_archivo and ev.uri_archivo.startswith('http'):
+                    return ev.uri_archivo
+        except Exception:
+            pass
+        return None
+
 
 class IncidenteDetailSerializer(serializers.ModelSerializer):
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
@@ -149,10 +170,13 @@ class IncidenteDetailSerializer(serializers.ModelSerializer):
     tipo_incendio_display = serializers.CharField(source='get_tipo_incendio_display', read_only=True)
     distrito_nombre = serializers.ReadOnlyField(source='distrito.nombre')
     comunidad_nombre = serializers.ReadOnlyField(source='comunidad.nombre')
+    creado_por_nombre = serializers.ReadOnlyField(source='creado_por.nombre_visible')
     asignaciones_brigadas = AsignacionBrigadaSerializer(many=True, read_only=True)
     acciones = AccionAtencionSerializer(many=True, read_only=True)
     historial_estados = HistorialIncidenteSerializer(many=True, read_only=True)
     cierre = CierreIncidenteSerializer(read_only=True)
+    fotografia_url = serializers.SerializerMethodField()
+    fotografias = serializers.SerializerMethodField()
 
     class Meta:
         model = Incidente
@@ -173,6 +197,7 @@ class IncidenteDetailSerializer(serializers.ModelSerializer):
             'distrito_nombre',
             'comunidad',
             'comunidad_nombre',
+            'creado_por_nombre',
             'detectado_en',
             'confirmado_en',
             'cerrado_en',
@@ -181,6 +206,41 @@ class IncidenteDetailSerializer(serializers.ModelSerializer):
             'acciones',
             'historial_estados',
             'cierre',
+            'fotografia_url',
+            'fotografias',
             'creado_en',
             'actualizado_en',
         ]
+
+    def get_fotografia_url(self, obj):
+        try:
+            vinculo = obj.vinculos_reporte.select_related('reporte').prefetch_related('reporte__evidencias').first()
+            if vinculo and vinculo.reporte:
+                ev = vinculo.reporte.evidencias.filter(tipo='fotografia').first() or vinculo.reporte.evidencias.first()
+                if ev and ev.archivo:
+                    request = self.context.get('request')
+                    if request:
+                        return request.build_absolute_uri(ev.archivo.url)
+                    return ev.archivo.url
+                elif ev and ev.uri_archivo and ev.uri_archivo.startswith('http'):
+                    return ev.uri_archivo
+        except Exception:
+            pass
+        return None
+
+    def get_fotografias(self, obj):
+        urls = []
+        try:
+            for v in obj.vinculos_reporte.select_related('reporte').prefetch_related('reporte__evidencias').all():
+                if v.reporte:
+                    for ev in v.reporte.evidencias.all():
+                        if ev.archivo:
+                            request = self.context.get('request')
+                            url = request.build_absolute_uri(ev.archivo.url) if request else ev.archivo.url
+                            if url and url not in urls:
+                                urls.append(url)
+                        elif ev.uri_archivo and ev.uri_archivo.startswith('http') and ev.uri_archivo not in urls:
+                            urls.append(ev.uri_archivo)
+        except Exception:
+            pass
+        return urls
