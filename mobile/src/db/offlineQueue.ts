@@ -106,12 +106,31 @@ export function marcarComoSincronizado(client_uuid: string): void {
  */
 export function marcarErrorSync(client_uuid: string, error: string): void {
   try {
+    const res = db.getFirstSync<{ intentos: number }>(
+      `SELECT intentos FROM reportes_pendientes WHERE client_uuid = ?`,
+      [client_uuid]
+    );
+    const nuevosIntentos = (res?.intentos ?? 0) + 1;
+    // Si falló más de 3 veces, marcar como 'error' para no saturar la red ni la cola
+    const nuevoEstado = nuevosIntentos >= 3 ? 'error' : 'pendiente';
+
     db.runSync(
-      `UPDATE reportes_pendientes SET estado_sync = 'pendiente', error_mensaje = ?, intentos = intentos + 1 WHERE client_uuid = ?`,
-      [error, client_uuid]
+      `UPDATE reportes_pendientes SET estado_sync = ?, error_mensaje = ?, intentos = ? WHERE client_uuid = ?`,
+      [nuevoEstado, error, nuevosIntentos, client_uuid]
     );
   } catch (err) {
     console.error('Error al registrar fallo de sync:', err);
+  }
+}
+
+/**
+ * Purga de la base de datos local los reportes que ya fueron sincronizados o que superaron el límite de reintentos.
+ */
+export function purgarReportesAntiguos(): void {
+  try {
+    db.runSync(`DELETE FROM reportes_pendientes WHERE estado_sync = 'sincronizado' OR intentos >= 3`);
+  } catch (err) {
+    console.warn('[offlineQueue] Error al purgar reportes antiguos:', err);
   }
 }
 
@@ -132,20 +151,24 @@ export async function sincronizarColaOffline(token?: string | null): Promise<{
   let fallidos = 0;
 
   for (const item of pendientes) {
-    try {
-      // Sanitizar URI: evitar cadenas simuladas que provoquen FileNotFoundException en OkHttp
-      const fotoLimpia =
-        item.foto_uri &&
-        !item.foto_uri.includes('evidencia_incendio.jpg') &&
-        (item.foto_uri.startsWith('file://') || item.foto_uri.startsWith('content://'))
-          ? item.foto_uri
-          : null;
+    const latitudRedondeada = Number(Number(item.latitud).toFixed(6));
+    const longitudRedondeada = Number(Number(item.longitud).toFixed(6));
 
+    // Si ya falló previamente (intentos >= 1), la foto suele estar purgada de la caché de Android: enviar sin foto
+    const fotoLimpia =
+      (item.intentos || 0) < 1 &&
+      item.foto_uri &&
+      !item.foto_uri.includes('evidencia_incendio.jpg') &&
+      (item.foto_uri.startsWith('file://') || item.foto_uri.startsWith('content://'))
+        ? item.foto_uri
+        : null;
+
+    try {
       await enviarReporteApi(
         {
           client_uuid: item.client_uuid,
-          latitud: item.latitud,
-          longitud: item.longitud,
+          latitud: latitudRedondeada,
+          longitud: longitudRedondeada,
           precision_m: item.precision_m,
           azimut: item.azimut,
           tipo_fuego: item.tipo_fuego,
@@ -160,9 +183,29 @@ export async function sincronizarColaOffline(token?: string | null): Promise<{
       sincronizados++;
     } catch (err: any) {
       console.warn(`[offlineQueue] Fallo al sincronizar reporte ${item.client_uuid}:`, err?.message || err);
-      marcarErrorSync(item.client_uuid, err?.message || 'Error de red');
-
-      fallidos++;
+      // Intento de rescate inmediato enviando como JSON puro sin fotografía
+      try {
+        await enviarReporteApi(
+          {
+            client_uuid: item.client_uuid,
+            latitud: latitudRedondeada,
+            longitud: longitudRedondeada,
+            precision_m: item.precision_m,
+            azimut: item.azimut,
+            tipo_fuego: item.tipo_fuego,
+            combustible: item.combustible,
+            foto_uri: null,
+            fecha_captura: item.fecha_captura
+          },
+          token
+        );
+        marcarComoSincronizado(item.client_uuid);
+        sincronizados++;
+      } catch (rescueErr: any) {
+        console.warn(`[offlineQueue] Falló rescate para ${item.client_uuid}:`, rescueErr?.message || rescueErr);
+        marcarErrorSync(item.client_uuid, rescueErr?.message || err?.message || 'Error de red');
+        fallidos++;
+      }
     }
   }
 

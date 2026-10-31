@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
-import { contarReportesPendientes, sincronizarColaOffline } from '../db/offlineQueue';
+import { contarReportesPendientes, sincronizarColaOffline, purgarReportesAntiguos } from '../db/offlineQueue';
 import { useAuthStore } from '../stores/authStore';
 
 export function useNetworkSync() {
@@ -37,6 +37,9 @@ export function useNetworkSync() {
   }, [token, refrescarContador]);
 
   useEffect(() => {
+    // 0. Purgar reportes antiguos completados o corruptos para no atascar la cola
+    purgarReportesAntiguos();
+
     // 1. Inicializar contador
     refrescarContador();
 
@@ -85,11 +88,17 @@ export function useNetworkSync() {
     };
   }, [refrescarContador, forzarSync]);
 
+  const limpiarCola = useCallback(() => {
+    purgarReportesAntiguos();
+    refrescarContador();
+  }, [refrescarContador]);
+
   return {
     isOnline,
     pendingCount,
     syncing,
     refrescarContador,
-    forzarSync
+    forzarSync,
+    limpiarCola
   };
 }

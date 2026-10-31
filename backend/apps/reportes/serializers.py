@@ -115,6 +115,18 @@ class CrearReporteSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id_reporte', 'uuid']
 
+    def to_internal_value(self, data):
+        # Normalizar y redondear coordenadas a 6 decimales para evitar rechazo de validación GPS (max_digits=9, decimal_places=6)
+        mutable_data = data.copy() if hasattr(data, 'copy') else dict(data)
+        for campo in ('latitud', 'longitud'):
+            val = mutable_data.get(campo)
+            if val is not None:
+                try:
+                    mutable_data[campo] = f"{round(float(val), 6):.6f}"
+                except (ValueError, TypeError):
+                    pass
+        return super().to_internal_value(mutable_data)
+
     def create(self, validated_data):
         from apps.incidentes.models import Incidente, ReporteIncidente, HistorialIncidente
         from apps.geografia.models import Distrito

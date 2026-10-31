@@ -178,8 +178,8 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
 
     const payload = {
       client_uuid: clientUuid,
-      latitud,
-      longitud,
+      latitud: Number(Number(latitud).toFixed(6)),
+      longitud: Number(Number(longitud).toFixed(6)),
       precision_m: precisionM,
       azimut: 210,
       tipo_fuego: tipoFuego,
@@ -245,7 +245,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
           </Text>
           <Text style={styles.successDesc}>
             {resultadoEnvio === 'online'
-              ? 'Los bomberos B-12 de Coracora y la central de emergencia ya recibieron tu foto y coordenadas.'
+              ? 'la central de emergencia ya recibieron tu foto y coordenadas.'
               : 'En este cerro no hay señal de internet. Tu aviso quedó guardado de forma segura y se enviará automáticamente apenas recuperes cobertura.'}
           </Text>
 
@@ -528,7 +528,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
               <>
                 <Send size={20} color="#ffffff" />
                 <Text style={styles.btnSubmitText}>
-                  {idioma === 'qu' ? 'BOMBEROKUNAMAN WILLAYTA KACHAY' : 'ENVIAR AVISO A LOS BOMBEROS'}
+                  {idioma === 'qu' ? ' WILLAYTA KACHAY' : 'ENVIAR AVISO A WILLAI'}
                 </Text>
               </>
             )}

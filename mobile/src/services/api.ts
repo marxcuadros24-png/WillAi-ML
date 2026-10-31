@@ -424,36 +424,41 @@ export async function enviarReporteApi(
   let res: Response;
 
   if (hasRealPhoto) {
-    const formData = new FormData();
-    formData.append('tipo_incendio', tipoIncendioDjango);
-    formData.append('fecha_evento', payload.fecha_captura);
-    formData.append('latitud', String(payload.latitud));
-    formData.append('longitud', String(payload.longitud));
-    formData.append('precision_metros', String(payload.precision_m || 10.0));
-    formData.append('origen', 'movil');
-    formData.append(
-      'descripcion',
-      `[WillAI Móvil] Tipo: ${payload.tipo_fuego} | Combustible: ${payload.combustible} | Azimut: ${payload.azimut ?? 'N/A'}° | UUID: ${payload.client_uuid}`
-    );
-    formData.append('autoriza_publicacion', 'false');
+    try {
+      const formData = new FormData();
+      formData.append('tipo_incendio', tipoIncendioDjango);
+      formData.append('fecha_evento', payload.fecha_captura);
+      formData.append('latitud', String(Number(Number(payload.latitud).toFixed(6))));
+      formData.append('longitud', String(Number(Number(payload.longitud).toFixed(6))));
+      formData.append('precision_metros', String(payload.precision_m || 10.0));
+      formData.append('origen', 'movil');
+      formData.append(
+        'descripcion',
+        `[WillAI Móvil] Tipo: ${payload.tipo_fuego} | Combustible: ${payload.combustible} | Azimut: ${payload.azimut ?? 'N/A'}° | UUID: ${payload.client_uuid}`
+      );
+      formData.append('autoriza_publicacion', 'false');
 
-    const cleanUri = payload.foto_uri!;
-    const filename = cleanUri.split('/').pop() || 'evidencia.jpg';
-    const match = /\.(\w+)$/.exec(filename);
-    const ext = match ? match[1].toLowerCase() : 'jpg';
-    const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+      const cleanUri = payload.foto_uri!;
+      const filename = cleanUri.split('/').pop() || 'evidencia.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const ext = match ? match[1].toLowerCase() : 'jpg';
+      const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
 
-    formData.append('fotografia', {
-      uri: cleanUri,
-      name: filename,
-      type: mime
-    } as any);
+      formData.append('fotografia', {
+        uri: cleanUri,
+        name: filename,
+        type: mime
+      } as any);
 
-    res = await fetch(`${API_BASE}/reportes/reportes/`, {
-      method: 'POST',
-      headers,
-      body: formData
-    });
+      res = await fetch(`${API_BASE}/reportes/reportes/`, {
+        method: 'POST',
+        headers,
+        body: formData
+      });
+    } catch (photoErr: any) {
+      console.warn('[api] Fallo al adjuntar archivo local de foto (archivo purgado de caché o inaccesible), enviando como JSON de rescate:', photoErr?.message);
+      return await enviarReporteApi({ ...payload, foto_uri: null }, token);
+    }
   } else {
     // Si no hay foto real, enviar payload JSON limpio (100% confiable y sin fallos de parsing multipart)
     const jsonBody = {
