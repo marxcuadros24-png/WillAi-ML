@@ -90,6 +90,16 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
 
   useEffect(() => {
     capturarGps();
+
+    // Recuperar fotografía pendiente si Android cerró la actividad al abrir la cámara
+    ImagePicker.getPendingResultAsync()
+      .then((res: any) => {
+        if (res && !res.canceled && 'assets' in res && res.assets && res.assets.length > 0) {
+          setFotoUri(res.assets[0].uri);
+          setFotoTomada(true);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // 1. Tomar fotografía REAL con la cámara del teléfono
@@ -174,15 +184,18 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
       azimut: 210,
       tipo_fuego: tipoFuego,
       combustible,
-      foto_uri: fotoUri || (fotoTomada ? 'file://evidencia_incendio.jpg' : null),
+      foto_uri: fotoUri || null,
       fecha_captura: fechaCaptura
     };
 
     if (isOnline) {
       try {
+        console.log('[ReportScreen] Enviando reporte en línea a Django:', payload.client_uuid);
         await enviarReporteApi(payload, token);
+        console.log('[ReportScreen] Reporte entregado con éxito a Django');
         setResultadoEnvio('online');
-      } catch (err) {
+      } catch (err: any) {
+        console.warn('[ReportScreen] Fallo envío directo, encolando en SQLite:', err?.message || err);
         // Si la red falla a mitad del envío, guardar en cola SQLite
         await encolarReporte(payload);
         await refrescarContador();
@@ -192,6 +205,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
       }
     } else {
       // Sin conexión: guardar en base de datos local SQLite
+      console.log('[ReportScreen] Sin conexión a internet, guardando en SQLite local...');
       await encolarReporte(payload);
       await refrescarContador();
       setResultadoEnvio('offline');

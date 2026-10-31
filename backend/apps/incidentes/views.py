@@ -30,7 +30,7 @@ class IncidenteViewSet(viewsets.ModelViewSet):
         'acciones',
         'historial_estados',
         'vinculos_reporte__reporte__evidencias'
-    ).all()
+    ).order_by('-creado_en')
     filterset_fields = ['estado', 'prioridad', 'tipo_incendio', 'distrito', 'comunidad']
     search_fields = ['codigo', 'titulo', 'resumen']
 

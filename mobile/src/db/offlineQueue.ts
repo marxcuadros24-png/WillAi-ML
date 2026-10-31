@@ -133,6 +133,14 @@ export async function sincronizarColaOffline(token?: string | null): Promise<{
 
   for (const item of pendientes) {
     try {
+      // Sanitizar URI: evitar cadenas simuladas que provoquen FileNotFoundException en OkHttp
+      const fotoLimpia =
+        item.foto_uri &&
+        !item.foto_uri.includes('evidencia_incendio.jpg') &&
+        (item.foto_uri.startsWith('file://') || item.foto_uri.startsWith('content://'))
+          ? item.foto_uri
+          : null;
+
       await enviarReporteApi(
         {
           client_uuid: item.client_uuid,
@@ -142,7 +150,7 @@ export async function sincronizarColaOffline(token?: string | null): Promise<{
           azimut: item.azimut,
           tipo_fuego: item.tipo_fuego,
           combustible: item.combustible,
-          foto_uri: item.foto_uri,
+          foto_uri: fotoLimpia,
           fecha_captura: item.fecha_captura
         },
         token
@@ -151,7 +159,9 @@ export async function sincronizarColaOffline(token?: string | null): Promise<{
       marcarComoSincronizado(item.client_uuid);
       sincronizados++;
     } catch (err: any) {
-      marcarErrorSync(item.client_uuid, err.message || 'Error de red');
+      console.warn(`[offlineQueue] Fallo al sincronizar reporte ${item.client_uuid}:`, err?.message || err);
+      marcarErrorSync(item.client_uuid, err?.message || 'Error de red');
+
       fallidos++;
     }
   }

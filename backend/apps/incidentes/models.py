@@ -104,7 +104,7 @@ class Incidente(models.Model):
         db_table = 'incidentes'
         verbose_name = 'Incidente Forestal'
         verbose_name_plural = 'Incidentes Forestales'
-        ordering = ['-detectado_en', '-creado_en']
+        ordering = ['-creado_en']
         indexes = [
             models.Index(fields=['estado', 'prioridad'], name='idx_inc_estado_prio'),
             models.Index(fields=['latitud_referencia', 'longitud_referencia'], name='idx_inc_coords'),
