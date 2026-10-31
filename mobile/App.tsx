@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, SafeAreaView, TouchableOpacity, Text, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Home, Flame, User, Bell } from 'lucide-react-native';
+import { Home, Flame, User, Bell, Map as MapIcon, ShieldAlert, Scan } from 'lucide-react-native';
 
 import { COLORS } from './src/constants/config';
 import { initDatabase } from './src/db/database';
@@ -11,15 +11,20 @@ import { useNetworkSync } from './src/hooks/useNetworkSync';
 import { configurarCanalNotificacionesAndroid } from './src/services/notifications';
 
 import { HomeScreen } from './src/screens/HomeScreen';
+import { MapScreen } from './src/screens/MapScreen';
 import { ReportScreen } from './src/screens/ReportScreen';
+import { AlertsScreen } from './src/screens/AlertsScreen';
+import { ProfileScreen } from './src/screens/ProfileScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
+
+type ScreenType = 'home' | 'map' | 'report' | 'alerts' | 'profile' | 'login';
 
 export default function App() {
   const { t, cargarIdiomaGuardado } = useTranslation();
-  const { isAuthenticated, cargarSesionGuardada, usuario, logout } = useAuthStore();
+  const { isAuthenticated, cargarSesionGuardada } = useAuthStore();
   const { pendingCount } = useNetworkSync();
 
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'report' | 'login'>('home');
+  const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
 
   useEffect(() => {
     // 1. Inicializar SQLite
@@ -40,39 +45,63 @@ export default function App() {
       {/* Pantalla Activa */}
       <View style={styles.screenContainer}>
         {currentScreen === 'home' && (
-          <HomeScreen onNavigateToReport={() => setCurrentScreen('report')} />
+          <HomeScreen
+            onNavigateToReport={() => setCurrentScreen('report')}
+            onNavigateToMap={() => setCurrentScreen('map')}
+            onNavigateToAlerts={() => setCurrentScreen('alerts')}
+            onNavigateToProfile={() => setCurrentScreen('profile')}
+          />
         )}
+
+        {currentScreen === 'map' && <MapScreen />}
 
         {currentScreen === 'report' && (
           <ReportScreen onBack={() => setCurrentScreen('home')} />
         )}
 
+        {currentScreen === 'alerts' && <AlertsScreen />}
+
+        {currentScreen === 'profile' && <ProfileScreen />}
+
         {currentScreen === 'login' && (
           <LoginScreen
             onSuccess={() => setCurrentScreen('home')}
-            onSkip={() => setCurrentScreen('home')}
+            onEmergencyReport={() => setCurrentScreen('report')}
           />
         )}
       </View>
 
-      {/* Barra de Navegación Inferior (Tabs) */}
+      {/* Barra de Navegación Inferior Táctica (5 Tabs) */}
       <View style={styles.tabBar}>
+        {/* 1. Inicio */}
         <TouchableOpacity
           style={[styles.tabItem, currentScreen === 'home' && styles.tabItemActive]}
           onPress={() => setCurrentScreen('home')}
           activeOpacity={0.7}
         >
-          <Home size={20} color={currentScreen === 'home' ? COLORS.firePrimary : COLORS.textMuted} />
+          <Home size={19} color={currentScreen === 'home' ? COLORS.firePrimary : COLORS.textMuted} />
           <Text style={[styles.tabText, currentScreen === 'home' && styles.tabTextActive]}>
             {t('nav_home')}
           </Text>
         </TouchableOpacity>
 
-        {/* Botón Central Flotante de Emergencia */}
+        {/* 2. Mapa Vivo */}
+        <TouchableOpacity
+          style={[styles.tabItem, currentScreen === 'map' && styles.tabItemActive]}
+          onPress={() => setCurrentScreen('map')}
+          activeOpacity={0.7}
+        >
+          <MapIcon size={19} color={currentScreen === 'map' ? COLORS.firePrimary : COLORS.textMuted} />
+          <Text style={[styles.tabText, currentScreen === 'map' && styles.tabTextActive]}>
+            {t('nav_map')}
+          </Text>
+        </TouchableOpacity>
+
+        {/* 3. BOTÓN FLOTANTE CENTRAL DE EMERGENCIA: REPORTAR CON IA */}
         <TouchableOpacity
           style={styles.tabReportBtn}
           onPress={() => setCurrentScreen('report')}
-          activeOpacity={0.85}
+          activeOpacity={0.88}
         >
           <Flame size={24} color="#ffffff" />
           {pendingCount > 0 && (
@@ -82,20 +111,44 @@ export default function App() {
           )}
         </TouchableOpacity>
 
+        {/* 4. Alertas (con Badge Rojo Regional) */}
         <TouchableOpacity
-          style={[styles.tabItem, currentScreen === 'login' && styles.tabItemActive]}
+          style={[styles.tabItem, currentScreen === 'alerts' && styles.tabItemActive]}
+          onPress={() => setCurrentScreen('alerts')}
+          activeOpacity={0.7}
+        >
+          <View style={{ position: 'relative' }}>
+            <Bell size={19} color={currentScreen === 'alerts' ? COLORS.firePrimary : COLORS.textMuted} />
+            <View style={styles.redAlertDot} />
+          </View>
+          <Text style={[styles.tabText, currentScreen === 'alerts' && styles.tabTextActive]}>
+            {t('nav_alerts')}
+          </Text>
+        </TouchableOpacity>
+
+        {/* 5. Perfil / Login */}
+        <TouchableOpacity
+          style={[styles.tabItem, (currentScreen === 'profile' || currentScreen === 'login') && styles.tabItemActive]}
           onPress={() => {
             if (isAuthenticated) {
-              logout();
+              setCurrentScreen('profile');
             } else {
               setCurrentScreen('login');
             }
           }}
           activeOpacity={0.7}
         >
-          <User size={20} color={currentScreen === 'login' ? COLORS.firePrimary : COLORS.textMuted} />
-          <Text style={[styles.tabText, currentScreen === 'login' && styles.tabTextActive]}>
-            {isAuthenticated ? (usuario?.username || 'Perfil') : 'Login'}
+          <User
+            size={19}
+            color={currentScreen === 'profile' || currentScreen === 'login' ? COLORS.firePrimary : COLORS.textMuted}
+          />
+          <Text
+            style={[
+              styles.tabText,
+              (currentScreen === 'profile' || currentScreen === 'login') && styles.tabTextActive
+            ]}
+          >
+            {isAuthenticated ? t('nav_profile') : 'Acceso'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -107,50 +160,52 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.bgPrimary,
-    paddingTop: Platform.OS === 'android' ? 30 : 0
+    paddingTop: Platform.OS === 'android' ? 30 : 0,
   },
   screenContainer: {
-    flex: 1
+    flex: 1,
   },
   tabBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    height: 60,
-    backgroundColor: COLORS.bgSecondary,
+    height: 62,
+    backgroundColor: '#0b1324',
     borderTopWidth: 1,
-    borderTopColor: COLORS.borderSubtle,
-    paddingHorizontal: 16
+    borderTopColor: '#1e293b',
+    paddingHorizontal: 8,
   },
   tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    gap: 4
+    gap: 3,
   },
   tabItemActive: {},
   tabText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: COLORS.textMuted
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: COLORS.textMuted,
   },
   tabTextActive: {
     color: COLORS.firePrimary,
-    fontWeight: '700'
+    fontWeight: '800',
   },
   tabReportBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.firePrimary,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#b91c1c',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-    elevation: 6,
-    shadowColor: COLORS.firePrimary,
+    marginBottom: 18,
+    elevation: 8,
+    borderWidth: 2,
+    borderColor: '#ef4444',
+    shadowColor: '#ef4444',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
   },
   tabBadge: {
     position: 'absolute',
@@ -163,11 +218,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: COLORS.bgSecondary
+    borderColor: '#0b1324',
   },
   tabBadgeText: {
     fontSize: 9,
     fontWeight: '900',
-    color: '#ffffff'
-  }
+    color: '#ffffff',
+  },
+  redAlertDot: {
+    position: 'absolute',
+    top: -2,
+    right: -3,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#ef4444',
+  },
 });

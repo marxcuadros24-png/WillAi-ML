@@ -1,11 +1,22 @@
 export type Idioma = 'es' | 'qu';
 
 export interface Translations {
-  // App
+  // App General
   app_name: string;
   app_subtitle: string;
   lang_es: string;
   lang_qu: string;
+
+  // Login & Acceso Operativo
+  login_title: string;
+  login_subtitle: string;
+  role_brigadista: string;
+  role_poblador: string;
+  btn_biometric: string;
+  btn_google: string;
+  btn_emergency_fast: string;
+  btn_emergency_fast_sub: string;
+  satellite_sync_active: string;
 
   // Estado de Conexión
   status_online: string;
@@ -15,7 +26,7 @@ export interface Translations {
   syncing_now: string;
   all_synced: string;
 
-  // Peligro FWI
+  // Peligro FWI & Meteo
   fwi_title: string;
   fwi_level: string;
   danger_low: string;
@@ -26,33 +37,46 @@ export interface Translations {
   wind: string;
   humidity: string;
 
-  // Advertencias de Seguridad Andina en Quechua y Español
+  // Advertencias de Seguridad Andina
   safety_title: string;
   do_not_climb: string;
   do_not_climb_desc: string;
   alert_uncertainty: string;
   uncertainty_desc: string;
 
-  // Botón Principal de Emergencia
+  // Mapa Táctico & Simulación
+  map_title: string;
+  map_focos_activos: string;
+  map_simulacion_viento: string;
+  map_isocronas: string;
+  map_nearest_fire: string;
+  map_escape_route: string;
+  map_escape_route_desc: string;
+  map_escape_warning: string;
+  map_brigades_active: string;
+  map_water_dropped: string;
+
+  // Reporte con Cámara & Vision Scan
   btn_report_fire: string;
   btn_report_subtitle: string;
-
-  // Formulario Rápido de 3 Toques
   report_title: string;
-  step_1_title: string;
-  step_1_subtitle: string;
-  step_2_title: string;
-  step_2_subtitle: string;
-  step_3_title: string;
-  step_3_subtitle: string;
+  camera_hud_scan: string;
+  smoke_density: string;
+  severity_estimated: string;
+  azimuth_heading: string;
+  distance_optical: string;
+  viviendas_500m: string;
+  viviendas_500m_desc: string;
+  area_scale: string;
+  voice_note: string;
+  voice_note_placeholder: string;
+  btn_dispatch_urgent: string;
 
-  // Tipos de Fuego
+  // Tipos de Fuego & Combustible
   fire_wildfire: string;
   fire_wildfire_desc: string;
   fire_controlled: string;
   fire_controlled_desc: string;
-
-  // Tipos de Combustible
   fuel_ichu: string;
   fuel_matorral: string;
   fuel_bofedal: string;
@@ -72,25 +96,41 @@ export interface Translations {
   report_saved_offline: string;
   report_offline_explanation: string;
 
-  // Alertas
+  // Centro de Notificaciones & Alertas
   alerts_title: string;
   alerts_empty: string;
+  alert_red_banner: string;
+  alert_red_banner_desc: string;
+  btn_i_am_safe: string;
+  i_am_safe_confirmed: string;
+  air_quality: string;
+  georadar_title: string;
+  georadar_radius: string;
   operator_verified: string;
   satellite_auto: string;
   pending_verification: string;
   confirm_read: string;
   alert_read: string;
 
-  // Roles
-  role_comunero: string;
-  role_brigadista: string;
-  instructions_comunero: string;
-  instructions_brigadista: string;
+  // Perfil & Insignias
+  profile_title: string;
+  profile_rank: string;
+  profile_xp: string;
+  badges_title: string;
+  telemetry_title: string;
+  hectares_protected: string;
+  co2_avoided: string;
+  credential_title: string;
+  credential_verified: string;
+  btn_siren_alarm: string;
+  siren_active: string;
 
   // Navegación
   nav_home: string;
+  nav_map: string;
   nav_report: string;
   nav_alerts: string;
+  nav_profile: string;
 }
 
 export const DICCIONARIO: Record<Idioma, Translations> = {
@@ -100,19 +140,29 @@ export const DICCIONARIO: Record<Idioma, Translations> = {
     lang_es: 'ES',
     lang_qu: 'QU',
 
+    login_title: 'Centro de Mando Operativo',
+    login_subtitle: 'Sistema Satelital Copernicus & NASA FIRMS',
+    role_brigadista: 'Brigadista Forestal',
+    role_poblador: 'Poblador / Guardián',
+    btn_biometric: 'Ingresar con Biometría (Huella / Rostro)',
+    btn_google: 'Continuar con Google',
+    btn_emergency_fast: '🚨 REPORTE DE EMERGENCIA (SIN REGISTRO)',
+    btn_emergency_fast_sub: 'Cualquier ciudadano puede reportar un fuego activo al instante con GPS',
+    satellite_sync_active: 'Satélites Copernicus & NASA FIRMS Sincronizados',
+
     status_online: 'Conectado a Red 4G/2G',
-    status_offline: 'Sin Señal (Modo Offline)',
+    status_offline: 'Sin Señal (Modo Offline SQLite)',
     offline_mode: 'Modo Sin Conexión',
     pending_reports_counter: '{count} reporte(s) en cola SQLite',
     syncing_now: 'Sincronizando reportes...',
     all_synced: 'Todos los reportes sincronizados',
 
-    fwi_title: 'Índice de Peligro Canadiense FWI',
+    fwi_title: 'Índice Canadiense de Peligro FWI',
     fwi_level: 'Nivel Actual en Coracora',
     danger_low: 'BAJO',
     danger_moderate: 'MODERADO',
     danger_high: 'ALTO',
-    danger_critical: 'CRÍTICO',
+    danger_critical: 'CRÍTICO / EXTREMO',
     temp: 'Temperatura',
     wind: 'Viento',
     humidity: 'Humedad',
@@ -123,22 +173,36 @@ export const DICCIONARIO: Record<Idioma, Translations> = {
     alert_uncertainty: '⚠️ Alerta con margen de incertidumbre',
     uncertainty_desc: 'Detección satelital / modelo preliminar. Verificadores locales y brigadas están en camino a confirmar.',
 
-    btn_report_fire: 'REPORTAR INCENDIO',
-    btn_report_subtitle: 'Toca aquí para enviar coordenadas GPS al COEP',
+    map_title: 'Mapa de Incidencias en Vivo',
+    map_focos_activos: 'Focos Activos Satelitales',
+    map_simulacion_viento: 'Propagación Elíptica por Viento (Cell2Fire)',
+    map_isocronas: 'Frente 1h, 3h y 6h',
+    map_nearest_fire: 'Foco Más Próximo',
+    map_escape_route: 'Ruta Segura de Escape',
+    map_escape_route_desc: 'Trayectoria contra el viento hacia quebrada rocosa sin combustible.',
+    map_escape_warning: '⚠️ ¡Qata wichayman amapuni asuykuychu! Evacúa hacia la zona rocosa / quebrada sin ichu.',
+    map_brigades_active: 'Brigadas Desplegadas',
+    map_water_dropped: 'Agua y Retardante Lanzado',
 
-    report_title: 'Reporte Rápido de Fuego',
-    step_1_title: 'Paso 1: ¿Qué tipo de fuego es?',
-    step_1_subtitle: 'Selecciona una opción',
-    step_2_title: 'Paso 2: ¿Qué vegetación se quema?',
-    step_2_subtitle: 'Tipo de combustible andino',
-    step_3_title: 'Paso 3: Posición GPS y Envío',
-    step_3_subtitle: 'Capturando satélites en tiempo real',
+    btn_report_fire: 'REPORTAR INCENDIO',
+    btn_report_subtitle: 'Escaneo táctico WillAi Vision Scan + GPS',
+    report_title: 'Reportar Incendio con IA y GPS',
+    camera_hud_scan: 'WILLAI VISION SCAN v2.4 — ESCANEO TÁCTICO',
+    smoke_density: 'Densidad de Humo',
+    severity_estimated: 'Severidad Estimada',
+    azimuth_heading: 'Rumbo Azimut',
+    distance_optical: 'Distancia Óptica',
+    viviendas_500m: 'Viviendas Rurales a < 500m',
+    viviendas_500m_desc: 'Riesgo inminente de afectación habitacional en caserío',
+    area_scale: 'Escala del Frente',
+    voice_note: 'Dictado de Voz / Nota Rápida',
+    voice_note_placeholder: 'Toca el micrófono o escribe una observación...',
+    btn_dispatch_urgent: '🚨 DESPACHO URGENTE B-12 Y BOMBEROS',
 
     fire_wildfire: 'Incendio Descontrolado',
     fire_wildfire_desc: 'Fuego activo que avanza sin control',
     fire_controlled: 'Quema Agrícola Controlada',
     fire_controlled_desc: 'Rocería o limpieza de chacra con resguardo',
-
     fuel_ichu: 'Ichu / Pajonal Altoandino',
     fuel_matorral: 'Matorral / Tola',
     fuel_bofedal: 'Bofedal / Humedal',
@@ -151,27 +215,43 @@ export const DICCIONARIO: Record<Idioma, Translations> = {
     gps_retry: 'Recalibrar GPS',
 
     btn_send_report: 'GUARDAR Y ENVIAR REPORTE',
-    btn_cancel: 'Volver al Inicio',
+    btn_cancel: 'Volver',
     report_sent_online: '¡Reporte recibido por el COEP Coracora!',
     report_saved_offline: '¡Reporte guardado en el teléfono!',
     report_offline_explanation: 'No tienes señal en este sector. Tu reporte quedó guardado de forma segura en la base de datos de tu teléfono y se enviará automáticamente cuando recuperes cobertura 2G o 4G.',
 
-    alerts_title: 'Alertas Comunitarias Recientes',
+    alerts_title: 'Centro de Notificaciones y Alertas',
     alerts_empty: 'No hay alertas activas en tu sector.',
+    alert_red_banner: '🔴 ALERTA ROJA REGIONAL: CORDILLERA PARINACOCHAS',
+    alert_red_banner_desc: 'Viento 28 km/h, FWI Crítico (68.4). Se ordena extrema precaución en laderas de Coracora, Upahuacho y Chumpi.',
+    btn_i_am_safe: '✅ Me encuentro a salvo',
+    i_am_safe_confirmed: 'Estado confirmado: Persona a salvo en zona segura',
+    air_quality: 'Calidad del Aire (PM 2.5)',
+    georadar_title: 'Radio Georadar de Alertas',
+    georadar_radius: 'Radio de Cobertura',
     operator_verified: 'Confirmado por Operador COEP',
-    satellite_auto: 'Detección Satelital Automática',
+    satellite_auto: 'Detección Satelital Automática VIIRS',
     pending_verification: 'Por Verificar en Terreno',
     confirm_read: 'Marcar como Leído',
     alert_read: 'Alerta Confirmada',
 
-    role_comunero: 'Poblador / Comunero',
-    role_brigadista: 'Brigadista Forestal B-12',
-    instructions_comunero: 'Evita acercarte a la línea de humo. Si vives cerca a la ladera, prepara a niños y ancianos para evacuar hacia la plaza comunal.',
-    instructions_brigadista: 'Verifica azimut del viento antes del ataque. Equípate con batefuegos, pulaski y mochila extintora. Espera confirmación de radio.',
+    profile_title: 'Perfil y Mérito Comunitario',
+    profile_rank: 'Guardián Rango IV — Halcón Andino',
+    profile_xp: 'Puntos Cívicos de Protección',
+    badges_title: 'Colección de Insignias Tácticas',
+    telemetry_title: 'Telemetría de Impacto Ambiental',
+    hectares_protected: 'ha de Bosque Nativo e Ichu Resguardadas',
+    co2_avoided: 'kg de CO₂ Evitado por Alerta Temprana',
+    credential_title: 'Credencial Digital Oficial Verificada',
+    credential_verified: 'Firma Criptográfica SHA-256 SERFOR / COEP',
+    btn_siren_alarm: '🔔 ACTIVAR SIRENA DE EVACUACIÓN COMUNAL',
+    siren_active: '¡Sirena comunal activada!',
 
     nav_home: 'Inicio',
+    nav_map: 'Mapa Vivo',
     nav_report: 'Reportar',
-    nav_alerts: 'Alertas'
+    nav_alerts: 'Alertas',
+    nav_profile: 'Perfil'
   },
 
   qu: {
@@ -180,8 +260,18 @@ export const DICCIONARIO: Record<Idioma, Translations> = {
     lang_es: 'ES',
     lang_qu: 'QU',
 
+    login_title: 'Kamachikuq Umalliq Wasi',
+    login_subtitle: 'Copernicus & NASA FIRMS Quyllur Llikacha',
+    role_brigadista: 'B-12 Nina Waqaychaq',
+    role_poblador: 'Ayllu Runa / Guardián',
+    btn_biometric: 'Ruk\'ana / Qawariqninwan Yaykuy',
+    btn_google: 'Google Llikawan Yaykuy',
+    btn_emergency_fast: '🚨 UTQAYLLA WILLAKUY (MANA QILLQAKUSPA)',
+    btn_emergency_fast_sub: 'Mayqan llaqtamasipas GPS nisqawan ninata utqaylla willayta atin',
+    satellite_sync_active: 'Copernicus & NASA FIRMS Quyllurkuna Tupanachisqa',
+
     status_online: 'Llikapi Tupanachisqa (4G/2G)',
-    status_offline: 'Mana Llikayuq (Telefono Ukhullapi)',
+    status_offline: 'Mana Llikayuq (SQLite Telefonopi)',
     offline_mode: 'Mana Internet Llikayuq',
     pending_reports_counter: '{count} willakuy(kuna) suyachkan',
     syncing_now: 'Willakuykuna apachikuchkan...',
@@ -192,7 +282,7 @@ export const DICCIONARIO: Record<Idioma, Translations> = {
     danger_low: 'PISI',
     danger_moderate: 'CHAWPI',
     danger_high: 'HATUN',
-    danger_critical: 'ANCHA HATUN',
+    danger_critical: 'ANCHA HATUN / SASA',
     temp: 'Rupay',
     wind: 'Wayra',
     humidity: 'Qapa / Mikhuy',
@@ -203,22 +293,36 @@ export const DICCIONARIO: Record<Idioma, Translations> = {
     alert_uncertainty: '⚠️ Kay willakuyqa mana allinta chiqapchaqa kanmanchu',
     uncertainty_desc: 'Hawa pacha quyllur qawasqanmanta willakuy. Huñusqa runakunañam rispa chiqapchanqa.',
 
-    btn_report_fire: 'NINATA WILLAKUY',
-    btn_report_subtitle: 'Kaypi ñit\'iy COEP umalliqkunaman apachinaykipaq',
+    map_title: 'Kunan Nina Kawsay Saywiti',
+    map_focos_activos: 'Quyllurpa Qawasqan Ninakuna',
+    map_simulacion_viento: 'Wayrawan Nina Phawaynin (Cell2Fire)',
+    map_isocronas: '1h, 3h hinaspa 6h Chayaynin',
+    map_nearest_fire: 'Aswan Sispa Nina',
+    map_escape_route: 'Qispina Allin Ñan',
+    map_escape_route_desc: 'Wayrapa contranman qaqakunaman qispina ñan, mana ichuyuq.',
+    map_escape_warning: '⚠️ ¡Qata wichayman amapuni asuykuychu! Qaqa pampaman qispiykuychik.',
+    map_brigades_active: 'Llamkachkaq Brigadakuna',
+    map_water_dropped: 'Yaku Hich\'asqa',
 
-    report_title: 'Utqaylla Nina Willakuy',
-    step_1_title: '1 Kaq: ¿Ima laya ninataq?',
-    step_1_subtitle: 'Hukta akllay',
-    step_2_title: '2 Kaq: ¿Ima qurataq rupachkan?',
-    step_2_subtitle: 'Urqukunapi kawsaykuna',
-    step_3_title: '3 Kaq: Maypi kachkasqayki (GPS)',
-    step_3_subtitle: 'Hawa pacha quyllur tupachkanku',
+    btn_report_fire: 'NINATA WILLAKUY',
+    btn_report_subtitle: 'WillAi Vision Scan qaway + GPS',
+    report_title: 'IA Quyllurwan hinaspa GPS-wan Willakuy',
+    camera_hud_scan: 'WILLAI VISION SCAN v2.4 — TÁCTICO QAWAY',
+    smoke_density: 'Qusñi Kanchaynin',
+    severity_estimated: 'Nina Manchakuy Chani',
+    azimuth_heading: 'Wayrapa Mayman Rinqan',
+    distance_optical: 'Karu Kaynin',
+    viviendas_500m: '500m sispallapi Wasikuna',
+    viviendas_500m_desc: 'Ayllu wasikunapaq ancha hatun manchakuy',
+    area_scale: 'Pampa Rupay Hatun Kaynin',
+    voice_note: 'Kunkawan Willakuy / Rimay Qillqana',
+    voice_note_placeholder: 'Micrófono ñit\'iy rimayta qallarinaykipaq...',
+    btn_dispatch_urgent: '🚨 UTQAYLLA B-12 BOMBEROKUNAMAN WILLAY',
 
     fire_wildfire: 'Mana Kamachisqa Nina',
     fire_wildfire_desc: 'Sallqa nina maymanpas phawaq, mana amachasqa',
     fire_controlled: 'Kamachisqa Chakrawan Rupachiy',
     fire_controlled_desc: 'Chakrata qawariykuspa chhalla rupachiy',
-
     fuel_ichu: 'Ichu / Sallqa Pampa',
     fuel_matorral: 'Ch\'akillapa / T\'ula',
     fuel_bofedal: 'Uqhu / Bofedal Yaku Pampa',
@@ -231,27 +335,42 @@ export const DICCIONARIO: Record<Idioma, Translations> = {
     gps_retry: 'Wakmanta GPS maskay',
 
     btn_send_report: 'WILLAKUYTA TAQIKUY HINASPA APACHIY',
-    btn_cancel: 'Kutiy Qallariyman',
+    btn_cancel: 'Kutiy',
     report_sent_online: '¡COEP Quracuraman willakuy chayasqaña!',
     report_saved_offline: '¡Willakuyqa telefonoykipi taqikusqaña!',
     report_offline_explanation: 'Kaypiqa manam llikachu kachkan. Willakusqaykiqa telefonoykipi allin waqaychasqam kachkan; signal 2G/4G chayamuptinlla kikillan apachikusunqa.',
 
     alerts_title: 'Ayllukunapaq Willakuykuna',
     alerts_empty: 'Manam ima manchakuypas kanchu kunanqa.',
+    alert_red_banner: '🔴 PUKA WILLAKUY: PARINAQUCHA SALLQA PAMPAKUNA',
+    alert_red_banner_desc: 'Wayra 28 km/h, FWI Ancha Hatun (68.4). Quracura, Upawachu, Chumpipi allinta qawakuychik.',
+    btn_i_am_safe: '✅ Allinllampim kani / Qispiykuniñam',
+    i_am_safe_confirmed: 'Chiqapchasqa: Runaqa allinllañam kachkan',
+    air_quality: 'Wayra Qapa Kaynin (PM 2.5)',
+    georadar_title: 'Karu Mast\'ariy Georadar',
+    georadar_radius: 'Karu Chayaynin',
     operator_verified: 'COEP Umalliqpa Chiqapchasqan',
-    satellite_auto: 'Quyllur Kikinmanta Qawasqa',
+    satellite_auto: 'Quyllur Kikinmanta Qawasqa VIIRS',
     pending_verification: 'Pachapi Chiqapchanankukamalla',
     confirm_read: 'Ñawinchasqañam Ñitiy',
     alert_read: 'Willakuy Qawasqaña',
 
-    role_comunero: 'Ayllu Runa / Llaqtamasi',
-    role_brigadista: 'B-12 Nina Waqaychaq (Brigadista)',
-    instructions_comunero: 'Qusñimanqa ama asuykuychu. Wawachakunata, machu-payakunatapas ayllu plazaman pusaykuychik.',
-    instructions_brigadista: 'Wayrapa riyninta qaway nina chayananta manaraq harkaspa. Batefuego, pulaski yanapakuykunawan lliw allichasqa riychik.',
+    profile_title: 'Sallqa Waqaychaqpa Qillqan',
+    profile_rank: 'Waqaychaq Rango IV — Anka / Kuntur',
+    profile_xp: 'Pachamama Waqaychay Chani',
+    badges_title: 'Quri Unanchakuna',
+    telemetry_title: 'Pachamama Allinyasqa Tupuy',
+    hectares_protected: 'ha Sallqa Pampa Waqaychasqa',
+    co2_avoided: 'kg CO₂ Qusñi Hark\'asqa',
+    credential_title: 'Kamachikuq Qillqasqa Verificasqa',
+    credential_verified: 'SHA-256 Criptográfica Sello SERFOR / COEP',
+    btn_siren_alarm: '🔔 AYLLU MANCHAKUY SIRENATA TOQYACHIY',
+    siren_active: '¡Ayllu sirena qaparichkanñam!',
 
     nav_home: 'Qallariy',
+    nav_map: 'Saywiti',
     nav_report: 'Willakuy',
-    nav_alerts: 'Willakuykuna'
+    nav_alerts: 'Willakuykuna',
+    nav_profile: 'Waqaychaq'
   }
 };
-
