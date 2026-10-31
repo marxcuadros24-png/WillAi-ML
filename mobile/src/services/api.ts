@@ -219,6 +219,84 @@ export async function fetchCuadroHonorApi(): Promise<any> {
   }
 }
 
+export interface IncidenteItem {
+  id_incidente: number;
+  codigo: string;
+  titulo: string;
+  tipo_incendio: string;
+  tipo_incendio_display?: string;
+  estado: string;
+  estado_display?: string;
+  prioridad: string;
+  prioridad_display?: string;
+  latitud_referencia: number | string;
+  longitud_referencia: number | string;
+  distrito_nombre?: string;
+  comunidad_nombre?: string;
+  brigadas_asignadas?: any[];
+  detectado_en?: string;
+  creado_en: string;
+  resumen?: string;
+  fotografia_url?: string;
+  reportante_nombre?: string;
+}
+
+export interface IncidenteDetail extends IncidenteItem {
+  confirmado_en?: string;
+  cerrado_en?: string;
+  cierre?: {
+    id_cierre: number;
+    cerrado_por_nombre: string;
+    motivo: string;
+    evidencia_uri: string;
+    cerrado_en: string;
+  };
+  historial_estados?: Array<{
+    id_historial: number;
+    estado_nuevo: string;
+    nota: string;
+    usuario_nombre?: string;
+    registrado_en: string;
+  }>;
+  acciones?: Array<{
+    id_accion: number;
+    tipo_accion: string;
+    descripcion: string;
+    usuario_nombre?: string;
+    brigada_nombre?: string;
+    registrada_en: string;
+  }>;
+}
+
+/**
+ * Consulta los incidentes operacionales registrados en Django.
+ */
+export async function fetchIncidentesApi(token?: string | null): Promise<IncidenteItem[]> {
+  try {
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Token ${token}`;
+    const res = await fetch(`${API_BASE}/incidentes/incidentes/`, { headers });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.results || data || [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Consulta el detalle completo de un incidente por su ID.
+ */
+export async function fetchIncidenteDetalleApi(id: number): Promise<IncidenteDetail | null> {
+  try {
+    const res = await fetch(`${API_BASE}/incidentes/incidentes/${id}/`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Consulta los focos satelitales NASA FIRMS reales en Parinacochas.
  */

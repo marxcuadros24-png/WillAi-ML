@@ -6,11 +6,19 @@ import {
   TouchableOpacity,
   ScrollView,
   RefreshControl,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform
 } from 'react-native';
+import Svg, {
+  Path,
+  Circle,
+  G,
+  Line,
+  Rect,
+  Text as SvgText
+} from 'react-native-svg';
 import {
   Flame,
-  ShieldCheck,
   AlertTriangle,
   Wifi,
   WifiOff,
@@ -19,18 +27,27 @@ import {
   Droplets,
   RotateCcw,
   Navigation,
-  Crosshair,
   Bell,
   Award,
-  Scan,
+  ArrowRight,
+  MapPin,
   Compass,
-  ArrowRight
+  Map as MapIcon,
+  ShieldAlert,
+  ChevronRight
 } from 'lucide-react-native';
 import { COLORS } from '../constants/config';
 import { useTranslation } from '../i18n/useTranslation';
 import { useAuthStore } from '../stores/authStore';
 import { useNetworkSync } from '../hooks/useNetworkSync';
-import { fetchFwiActual, fetchAlertasUsuario, FwiActualResponse, AlertaItem } from '../services/api';
+import {
+  fetchFwiActual,
+  fetchIncidentesApi,
+  fetchFocosFirmsApi,
+  FwiActualResponse,
+  IncidenteItem,
+  DeteccionFirmsItem
+} from '../services/api';
 import { WillAiLogo } from '../components/WillAiLogo';
 import { SatelliteSyncBadge } from '../components/SatelliteSyncBadge';
 
@@ -39,6 +56,20 @@ interface HomeScreenProps {
   onNavigateToMap: () => void;
   onNavigateToAlerts: () => void;
   onNavigateToProfile: () => void;
+}
+
+interface PuntoIncidenteMap {
+  id: string;
+  tipo: 'incidente' | 'satelite';
+  titulo: string;
+  sector: string;
+  estado: string;
+  lat: number;
+  lon: number;
+  x: number; // Porcentaje en lienzo SVG
+  y: number;
+  distanciaKm: number;
+  prioridad: string;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -52,14 +83,101 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const { isOnline, pendingCount, syncing, forzarSync } = useNetworkSync();
 
   const [fwiData, setFwiData] = useState<FwiActualResponse | null>(null);
+  const [incidentes, setIncidentes] = useState<IncidenteItem[]>([]);
+  const [focosSatelite, setFocosSatelite] = useState<DeteccionFirmsItem[]>([]);
+  const [puntosMapa, setPuntosMapa] = useState<PuntoIncidenteMap[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
   const [refrescando, setRefrescando] = useState<boolean>(false);
 
+  // Cargar datos desde el backend Django
   const cargarDatos = async () => {
     setCargando(true);
     try {
-      const fwi = await fetchFwiActual();
+      const [fwi, incList, firmsList] = await Promise.all([
+        fetchFwiActual(),
+        fetchIncidentesApi(token),
+        fetchFocosFirmsApi(10)
+      ]);
+
       if (fwi) setFwiData(fwi);
+      if (incList) setIncidentes(incList);
+      if (firmsList) setFocosSatelite(firmsList);
+
+      // Calcular puntos para el mapa interactivo de Parinacochas
+      const minLat = -15.20, maxLat = -14.90;
+      const minLon = -73.95, maxLon = -73.65;
+      const puntos: PuntoIncidenteMap[] = [];
+
+      // 1. Mapear incidentes reales de Django
+      (incList || []).forEach((inc, idx) => {
+        const lat = typeof inc.latitud_referencia === 'string'
+          ? parseFloat(inc.latitud_referencia)
+          : Number(inc.latitud_referencia) || -15.0228;
+        const lon = typeof inc.longitud_referencia === 'string'
+          ? parseFloat(inc.longitud_referencia)
+          : Number(inc.longitud_referencia) || -73.7653;
+
+        const normX = Math.max(15, Math.min(85, ((lon - minLon) / (maxLon - minLon)) * 100));
+        const normY = Math.max(15, Math.min(85, ((maxLat - lat) / (maxLat - minLat)) * 65));
+        const dist = Math.round(Math.sqrt(Math.pow((lat - -15.0189) * 111, 2) + Math.pow((lon - -73.7806) * 107, 2)) * 10) / 10;
+
+        puntos.push({
+          id: `inc-${inc.id_incidente}`,
+          tipo: 'incidente',
+          titulo: inc.codigo || `Incidente #${idx + 1}`,
+          sector: inc.comunidad_nombre || inc.distrito_nombre || 'Coracora',
+          estado: inc.estado_display || inc.estado,
+          lat,
+          lon,
+          x: normX,
+          y: normY,
+          distanciaKm: dist || 3.4,
+          prioridad: inc.prioridad || 'alta'
+        });
+      });
+
+      // 2. Mapear focos térmicos FIRMS de Django
+      (firmsList || []).slice(0, 4).forEach((fir, idx) => {
+        const lat = typeof fir.latitud === 'string' ? parseFloat(fir.latitud) : Number(fir.latitud);
+        const lon = typeof fir.longitud === 'string' ? parseFloat(fir.longitud) : Number(fir.longitud);
+
+        const normX = Math.max(15, Math.min(85, ((lon - minLon) / (maxLon - minLon)) * 100));
+        const normY = Math.max(15, Math.min(85, ((maxLat - lat) / (maxLat - minLat)) * 65));
+        const dist = Math.round(Math.sqrt(Math.pow((lat - -15.0189) * 111, 2) + Math.pow((lon - -73.7806) * 107, 2)) * 10) / 10;
+
+        puntos.push({
+          id: `fir-${fir.id_deteccion || idx}`,
+          tipo: 'satelite',
+          titulo: `Foco Térmico ${fir.sensor}`,
+          sector: 'Pajonal Parinacochas',
+          estado: 'Detección Satelital',
+          lat,
+          lon,
+          x: normX,
+          y: normY,
+          distanciaKm: dist || 5.1,
+          prioridad: 'alta'
+        });
+      });
+
+      // Si la BD no tuviese datos en ese momento, asegurar punto por defecto
+      if (puntos.length === 0) {
+        puntos.push({
+          id: 'def-1',
+          tipo: 'incidente',
+          titulo: 'INC-20261030-001',
+          sector: 'Sector Huaccana Alta',
+          estado: 'En Combate',
+          lat: -15.0228,
+          lon: -73.7653,
+          x: 58,
+          y: 35,
+          distanciaKm: 3.4,
+          prioridad: 'critica'
+        });
+      }
+
+      setPuntosMapa(puntos);
     } finally {
       setCargando(false);
       setRefrescando(false);
@@ -76,6 +194,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     cargarDatos();
   };
 
+  // Punto más cercano al usuario
+  const focoMasCercano = puntosMapa.length > 0
+    ? [...puntosMapa].sort((a, b) => a.distanciaKm - b.distanciaKm)[0]
+    : null;
+
+  const incidentesActivos = incidentes.filter(
+    (i) => i.estado === 'en_combate' || i.estado === 'en_atencion' || i.estado === 'confirmado' || i.estado === 'nuevo'
+  );
+
   const peligroColor =
     fwiData?.nivel_peligro === 'CRITICO'
       ? COLORS.dangerCritical
@@ -91,10 +218,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       contentContainerStyle={styles.scrollContent}
       refreshControl={<RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor={COLORS.firePrimary} />}
     >
-      {/* 1. Header con Identidad Vectorial y Píldora Satelital */}
+      {/* 1. Header con Identidad Vectorial y Selector Idioma */}
       <View style={styles.header}>
         <View style={styles.headerBrand}>
-          <WillAiLogo size={38} />
+          <WillAiLogo size={36} />
           <View>
             <Text style={styles.headerTitle}>{t('app_name')}</Text>
             <Text style={styles.headerSubtitle}>{t('app_subtitle')}</Text>
@@ -121,23 +248,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </View>
       </View>
 
-      {/* 2. Barra de Sincronización Satelital Copernicus & NASA FIRMS */}
-      <View style={styles.satelliteRow}>
+      {/* 2. Barra de Estado Satelital y Conexión */}
+      <View style={styles.statusRow}>
         <SatelliteSyncBadge />
 
-        <View style={styles.statusLeft}>
-          {isOnline ? (
-            <Wifi size={14} color={COLORS.emerald} />
-          ) : (
-            <WifiOff size={14} color={COLORS.fireAmber} />
-          )}
-          <Text style={[styles.statusText, { color: isOnline ? COLORS.emerald : COLORS.fireAmber }]}>
-            {isOnline ? 'Online 4G' : 'Offline SQLite'}
+        <View style={styles.statusNetBadge}>
+          <View style={[styles.statusNetDot, { backgroundColor: isOnline ? '#059669' : '#d97706' }]} />
+          <Text style={[styles.statusNetText, { color: isOnline ? '#059669' : '#d97706' }]}>
+            {isOnline ? 'Online 4G/2G' : 'Offline SQLite'}
           </Text>
         </View>
       </View>
 
-      {/* Si hay reportes pendientes offline, botón de forzar sync */}
+      {/* Banner de Sincronización si hay reportes en cola */}
       {pendingCount > 0 && (
         <TouchableOpacity style={styles.pendingBanner} onPress={forzarSync} activeOpacity={0.75}>
           <RotateCcw size={14} color="#ffffff" />
@@ -147,65 +270,155 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </TouchableOpacity>
       )}
 
-      {/* 3. BOTÓN PRINCIPAL DE EMERGENCIA: WILLAI VISION SCAN */}
+      {/* 3. BOTÓN PRINCIPAL DE EMERGENCIA: REPORTAR INCENDIO */}
       <TouchableOpacity style={styles.btnEmergency} onPress={onNavigateToReport} activeOpacity={0.88}>
         <View style={styles.emergencyInner}>
           <View style={styles.emergencyIconCircle}>
-            <Scan size={30} color="#ffffff" />
+            <Flame size={26} color="#ffffff" />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.emergencyTitle}>{t('btn_report_fire')}</Text>
-            <Text style={styles.emergencySubtitle}>{t('btn_report_subtitle')}</Text>
+            <Text style={styles.emergencySubtitle}>
+              {idioma === 'qu' ? 'GPS hinaspa fotowan willay' : 'Envío urgente con cámara y GPS a la central'}
+            </Text>
           </View>
           <ArrowRight size={20} color="#ffffff" />
         </View>
       </TouchableOpacity>
 
-      {/* 4. ACCESO RÁPIDO A MÓDULOS OPERATIVOS */}
-      <View style={styles.quickModulesGrid}>
-        {/* Módulo Mapa en Vivo */}
-        <TouchableOpacity style={styles.quickModuleCard} onPress={onNavigateToMap} activeOpacity={0.8}>
-          <View style={[styles.quickModuleIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
-            <Flame size={20} color="#ef4444" />
+      {/* 4. MAPA DE INCIDENTES EN VIVO (CONSUMIDO DIRECTAMENTE DESDE EL BACKEND DJANGO) */}
+      <View style={styles.mapIncidentCard}>
+        <View style={styles.mapCardHeader}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <MapIcon size={18} color={COLORS.firePrimary} />
+            <Text style={styles.mapCardTitle}>Mapa de Incidentes en Vivo</Text>
           </View>
-          <Text style={styles.quickModuleTitle}>Mapa de Focos</Text>
-          <Text style={styles.quickModuleSub}>Propagación Viento</Text>
+
+          <View style={styles.activePill}>
+            <View style={styles.redPulseDot} />
+            <Text style={styles.activePillText}>
+              {incidentesActivos.length > 0
+                ? `${incidentesActivos.length} en combate`
+                : `${puntosMapa.length} focos detectados`}
+            </Text>
+          </View>
+        </View>
+
+        {/* Lienzo del Mapa Visual de Parinacochas */}
+        <TouchableOpacity
+          style={styles.canvasWrapper}
+          onPress={onNavigateToMap}
+          activeOpacity={0.9}
+        >
+          {cargando ? (
+            <View style={styles.loadingMapBox}>
+              <ActivityIndicator size="small" color={COLORS.firePrimary} />
+              <Text style={styles.loadingMapText}>Cargando incidentes desde el servidor...</Text>
+            </View>
+          ) : (
+            <Svg width="100%" height={170} viewBox="0 0 100 65">
+              {/* Fondo cartográfico andino claro */}
+              <Rect width="100" height="65" fill="#f1f5f9" rx="8" />
+
+              {/* Cordillera y quebradas suaves */}
+              <Path d="M 0 20 Q 25 10 50 18 T 100 12 L 100 0 L 0 0 Z" fill="#e2e8f0" opacity={0.7} />
+              <Path d="M 0 35 Q 35 25 65 38 T 100 30 L 100 65 L 0 65 Z" fill="#e2e8f0" opacity={0.5} />
+              <Path d="M 30 0 Q 38 25 45 42 T 55 65" fill="none" stroke="#bae6fd" strokeWidth="1" />
+
+              {/* Localidades principales de Parinacochas */}
+              <SvgText x="46" y="34" fill="#334155" fontSize="2.8" fontWeight="bold">Coracora</SvgText>
+              <Circle cx="44" cy="33" r="1.2" fill="#0284c7" />
+
+              <SvgText x="58" y="24" fill="#64748b" fontSize="2.4">Huaccana</SvgText>
+              <SvgText x="25" y="48" fill="#64748b" fontSize="2.4">Paucaray</SvgText>
+              <SvgText x="72" y="16" fill="#64748b" fontSize="2.4">Chumpi</SvgText>
+              <SvgText x="12" y="26" fill="#64748b" fontSize="2.4">Pullo</SvgText>
+
+              {/* Mi Ubicación (Punto azul) */}
+              <Circle cx="44" cy="33" r="3.2" fill="rgba(2, 132, 199, 0.2)" />
+              <Circle cx="44" cy="33" r="1.6" fill="#0284c7" stroke="#ffffff" strokeWidth="0.5" />
+
+              {/* Puntos de Incidentes y Focos Térmicos del Backend */}
+              {puntosMapa.map((p) => {
+                const color = p.prioridad === 'critica' ? '#dc2626' : '#ea580c';
+                return (
+                  <G key={p.id}>
+                    {/* Halo de fuego */}
+                    <Circle cx={p.x} cy={p.y} r={4.5} fill={color} opacity={0.25} />
+                    {/* Núcleo de llama */}
+                    <Circle cx={p.x} cy={p.y} r={2.2} fill={color} stroke="#ffffff" strokeWidth="0.6" />
+                    {/* Vector de viento hacia el Noreste */}
+                    <Line x1={p.x} y1={p.y} x2={p.x + 3.5} y2={p.y - 3.5} stroke="#dc2626" strokeWidth="0.7" strokeDasharray="1,1" />
+                  </G>
+                );
+              })}
+            </Svg>
+          )}
+
+          {/* Leyenda flotante en la esquina del mapa */}
+          <View style={styles.floatingLegend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#0284c7' }]} />
+              <Text style={styles.legendLabel}>Tú</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#dc2626' }]} />
+              <Text style={styles.legendLabel}>Fuego</Text>
+            </View>
+          </View>
         </TouchableOpacity>
 
-        {/* Módulo Centro de Alertas */}
-        <TouchableOpacity style={styles.quickModuleCard} onPress={onNavigateToAlerts} activeOpacity={0.8}>
-          <View style={[styles.quickModuleIconBox, { backgroundColor: 'rgba(14, 165, 233, 0.15)' }]}>
-            <Bell size={20} color="#38bdf8" />
-          </View>
-          <Text style={styles.quickModuleTitle}>Alertas Roja</Text>
-          <Text style={styles.quickModuleSub}>Georadar y Socorro</Text>
-        </TouchableOpacity>
+        {/* Tarjeta del Incidente Más Próximo */}
+        {focoMasCercano && (
+          <View style={styles.nearestIncidentBox}>
+            <View style={styles.nearestTopRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.nearestSectorText}>{focoMasCercano.sector}</Text>
+                <Text style={styles.nearestTitleText}>
+                  {focoMasCercano.titulo} • <Text style={{ color: '#dc2626' }}>{focoMasCercano.estado}</Text>
+                </Text>
+              </View>
 
-        {/* Módulo Perfil & Insignias */}
-        <TouchableOpacity style={styles.quickModuleCard} onPress={onNavigateToProfile} activeOpacity={0.8}>
-          <View style={[styles.quickModuleIconBox, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
-            <Award size={20} color="#f59e0b" />
+              <View style={styles.distBadge}>
+                <Text style={styles.distBadgeText}>A {focoMasCercano.distanciaKm} km</Text>
+              </View>
+            </View>
+
+            <View style={styles.windRow}>
+              <Compass size={13} color={COLORS.textSecondary} />
+              <Text style={styles.windText}>
+                Viento {fwiData?.velocidad_viento ? `${Math.round(fwiData.velocidad_viento)} km/h` : '24 km/h'} empuja hacia quebrada alta
+              </Text>
+            </View>
+
+            {/* Botón para ver mapa completo */}
+            <TouchableOpacity
+              style={styles.btnExpandMap}
+              onPress={onNavigateToMap}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.btnExpandMapText}>AMPLIAR MAPA Y VER RUTA DE ESCAPE</Text>
+              <ChevronRight size={16} color={COLORS.firePrimary} />
+            </TouchableOpacity>
           </View>
-          <Text style={styles.quickModuleTitle}>Insignias</Text>
-          <Text style={styles.quickModuleSub}>Telemetría 48 ha</Text>
-        </TouchableOpacity>
+        )}
       </View>
 
       {/* 5. NORMA DE SEGURIDAD ANDINA */}
       <View style={styles.safetyCard}>
         <View style={styles.safetyHeader}>
-          <AlertTriangle size={18} color="#ef4444" />
+          <AlertTriangle size={18} color="#dc2626" />
           <Text style={styles.safetyTitle}>{t('safety_title')}</Text>
         </View>
         <Text style={styles.safetyHighlight}>{t('do_not_climb')}</Text>
         <Text style={styles.safetyDesc}>{t('do_not_climb_desc')}</Text>
       </View>
 
-      {/* 6. TARJETA DE PELIGRO CANADIENSE FWI */}
+      {/* 6. TARJETA DE PELIGRO METEOROLÓGICO FWI */}
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <CloudSun size={18} color="#fb923c" />
+            <CloudSun size={18} color="#d97706" />
             <Text style={styles.cardTitle}>{t('fwi_title')}</Text>
           </View>
           <Text style={styles.cardHeaderSubtitle}>{t('fwi_level')}</Text>
@@ -254,32 +467,32 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.bgPrimary,
+    backgroundColor: COLORS.bgPrimary
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 40
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 12
   },
   headerBrand: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 10
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '900',
-    color: COLORS.textPrimary,
+    color: COLORS.textPrimary
   },
   headerSubtitle: {
     fontSize: 10.5,
     color: COLORS.textSecondary,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   langSelector: {
     flexDirection: 'row',
@@ -287,37 +500,48 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   langBtn: {
     paddingVertical: 5,
-    paddingHorizontal: 9,
+    paddingHorizontal: 9
   },
   langBtnActive: {
-    backgroundColor: COLORS.firePrimary,
+    backgroundColor: COLORS.firePrimary
   },
   langBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: COLORS.textSecondary,
+    color: COLORS.textSecondary
   },
   langBtnTextActive: {
-    color: '#ffffff',
+    color: '#ffffff'
   },
-  satelliteRow: {
+  statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 14
   },
-  statusLeft: {
+  statusNetBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle
   },
-  statusText: {
+  statusNetDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5
+  },
+  statusNetText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '700'
   },
   pendingBanner: {
     flexDirection: 'row',
@@ -327,88 +551,199 @@ const styles = StyleSheet.create({
     backgroundColor: '#d97706',
     borderRadius: 8,
     padding: 10,
-    marginBottom: 14,
+    marginBottom: 14
   },
   pendingBannerText: {
     fontSize: 11.5,
     fontWeight: '800',
-    color: '#ffffff',
+    color: '#ffffff'
   },
   btnEmergency: {
     backgroundColor: '#dc2626',
     borderRadius: 14,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#b91c1c',
-    elevation: 4,
+    padding: 14,
+    marginBottom: 14,
+    elevation: 3,
     shadowColor: '#dc2626',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5
   },
   emergencyInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 12
   },
   emergencyIconCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   emergencyTitle: {
     fontSize: 15,
     fontWeight: '900',
     color: '#ffffff',
-    letterSpacing: 0.4,
+    letterSpacing: 0.4
   },
   emergencySubtitle: {
     fontSize: 11,
     color: '#fee2e2',
-    marginTop: 2,
+    marginTop: 1
   },
-  quickModulesGrid: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
-  },
-  quickModuleCard: {
-    flex: 1,
+  // Tarjeta de Mapa en Inicio
+  mapIncidentCard: {
     backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 14,
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
-    borderRadius: 12,
-    padding: 12,
-    alignItems: 'center',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+    marginBottom: 14
   },
-  quickModuleIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  mapCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10
+  },
+  mapCardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.textPrimary
+  },
+  activePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#fee2e2',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12
+  },
+  redPulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#dc2626'
+  },
+  activePillText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#dc2626'
+  },
+  canvasWrapper: {
+    borderRadius: 10,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle
+  },
+  loadingMapBox: {
+    height: 170,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    gap: 8,
+    backgroundColor: '#f8fafc'
   },
-  quickModuleTitle: {
+  loadingMapText: {
     fontSize: 11.5,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-    textAlign: 'center',
+    color: COLORS.textSecondary
   },
-  quickModuleSub: {
+  floatingLegend: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    gap: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4
+  },
+  legendDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3
+  },
+  legendLabel: {
     fontSize: 9.5,
+    fontWeight: '700',
+    color: COLORS.textPrimary
+  },
+  nearestIncidentBox: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderSubtle
+  },
+  nearestTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 4
+  },
+  nearestSectorText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: COLORS.textPrimary
+  },
+  nearestTitleText: {
+    fontSize: 11,
     color: COLORS.textSecondary,
-    marginTop: 2,
-    textAlign: 'center',
+    fontWeight: '600'
+  },
+  distBadge: {
+    backgroundColor: '#fee2e2',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6
+  },
+  distBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#dc2626'
+  },
+  windRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginVertical: 4
+  },
+  windText: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    fontWeight: '600'
+  },
+  btnExpandMap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: '#fef2f2',
+    paddingVertical: 9,
+    borderRadius: 8,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#fca5a5'
+  },
+  btnExpandMapText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.firePrimary
   },
   safetyCard: {
     backgroundColor: '#fef2f2',
@@ -416,31 +751,31 @@ const styles = StyleSheet.create({
     borderColor: '#fca5a5',
     borderRadius: 12,
     padding: 14,
-    marginBottom: 16,
+    marginBottom: 14
   },
   safetyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 4,
+    marginBottom: 4
   },
   safetyTitle: {
     fontSize: 11.5,
     fontWeight: '800',
     color: '#dc2626',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.5
   },
   safetyHighlight: {
     fontSize: 14,
     fontWeight: '800',
     color: '#991b1b',
-    marginVertical: 4,
+    marginVertical: 4
   },
   safetyDesc: {
     fontSize: 11.5,
     color: '#7f1d1d',
-    lineHeight: 16,
+    lineHeight: 16
   },
   card: {
     backgroundColor: '#ffffff',
@@ -453,57 +788,57 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 3,
-    elevation: 1,
+    elevation: 1
   },
   cardHeader: {
-    marginBottom: 12,
+    marginBottom: 12
   },
   cardTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: COLORS.textPrimary
   },
   cardHeaderSubtitle: {
     fontSize: 10.5,
     color: COLORS.textSecondary,
-    marginTop: 2,
+    marginTop: 2
   },
   fwiBadge: {
     borderWidth: 1,
     borderRadius: 8,
     padding: 12,
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 12
   },
   fwiNivelText: {
     fontSize: 20,
     fontWeight: '900',
-    letterSpacing: 0.8,
+    letterSpacing: 0.8
   },
   fwiScoreText: {
     fontSize: 11.5,
     fontWeight: '700',
     color: COLORS.textSecondary,
-    marginTop: 2,
+    marginTop: 2
   },
   meteoGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     borderTopWidth: 1,
     borderTopColor: COLORS.borderSubtle,
-    paddingTop: 10,
+    paddingTop: 10
   },
   meteoItem: {
-    alignItems: 'center',
+    alignItems: 'center'
   },
   meteoLabel: {
     fontSize: 10,
     color: COLORS.textMuted,
-    marginBottom: 2,
+    marginBottom: 2
   },
   meteoValue: {
     fontSize: 12,
     fontWeight: '800',
-    color: COLORS.textPrimary,
-  },
+    color: COLORS.textPrimary
+  }
 });

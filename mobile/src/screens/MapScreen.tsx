@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,24 +7,14 @@ import {
   ScrollView,
   Dimensions,
   Modal,
-  ActivityIndicator
+  ActivityIndicator,
+  Image,
+  Alert
 } from 'react-native';
-import Svg, {
-  Path,
-  Circle,
-  G,
-  Line,
-  Defs,
-  LinearGradient,
-  Stop,
-  Rect,
-  Text as SvgText
-} from 'react-native-svg';
 import {
   Flame,
   Wind,
   Droplets,
-  Thermometer,
   ShieldAlert,
   Navigation,
   Compass,
@@ -32,166 +22,266 @@ import {
   X,
   MapPin,
   CheckCircle2,
-  RefreshCw
+  RefreshCw,
+  Clock,
+  Calendar,
+  User,
+  FileText,
+  Camera,
+  Trees,
+  Sprout,
+  Building2,
+  ExternalLink,
+  ChevronDown
 } from 'lucide-react-native';
 import { COLORS } from '../constants/config';
 import { useTranslation } from '../i18n/useTranslation';
 import {
   fetchFwiActual,
-  fetchFocosFirmsApi,
+  fetchIncidentesApi,
+  fetchIncidenteDetalleApi,
   FwiActualResponse,
-  DeteccionFirmsItem
+  IncidenteItem,
+  IncidenteDetail
 } from '../services/api';
+import { MapLibreMap, CORACORA_COORDS } from '../components/MapLibreMap';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-interface FocoMapItem {
-  id: string;
-  sensor: string;
-  nombre: string;
-  lat: number;
-  lon: number;
-  x: number; // Coordenada en lienzo SVG (0-100)
-  y: number;
-  frp: number;
-  criticidad: 'critico' | 'alto' | 'moderado';
-  distanciaKm: number;
-  vientoDireccion: string;
+/**
+ * Obtiene la fecha actual en Perú (Zona Horaria America/Lima, UTC-5).
+ * Formato devuelto: YYYY-MM-DD
+ */
+export function getFechaHoyPeru(): string {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Lima',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    return formatter.format(new Date());
+  } catch {
+    const ahora = new Date();
+    const lima = new Date(ahora.getTime() - 5 * 3600000);
+    return lima.toISOString().slice(0, 10);
+  }
+}
+
+/**
+ * Formatea fecha y hora en formato legible oficial de Perú (America/Lima).
+ */
+export function formatearFechaHoraPeru(isoString?: string): { fecha: string; hora: string } {
+  if (!isoString) {
+    const hoy = getFechaHoyPeru().split('-');
+    return {
+      fecha: `${hoy[2]}/${hoy[1]}/${hoy[0]}`,
+      hora: 'En atención'
+    };
+  }
+  try {
+    const d = new Date(isoString);
+    const fecha = d.toLocaleDateString('es-PE', {
+      timeZone: 'America/Lima',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+    const hora = d.toLocaleTimeString('es-PE', {
+      timeZone: 'America/Lima',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }) + ' hrs';
+    return { fecha, hora };
+  } catch {
+    const p = isoString.slice(0, 10).split('-');
+    return {
+      fecha: p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : isoString.slice(0, 10),
+      hora: (isoString.slice(11, 16) || '12:00') + ' hrs'
+    };
+  }
 }
 
 export const MapScreen: React.FC = () => {
-  const { t, idioma } = useTranslation();
+  const { t } = useTranslation();
   const [fwi, setFwi] = useState<FwiActualResponse | null>(null);
-  const [focos, setFocos] = useState<FocoMapItem[]>([]);
-  const [cargando, setCargando] = useState(true);
-  const [focoSeleccionado, setFocoSeleccionado] = useState<FocoMapItem | null>(null);
-  const [modalEscapeVisible, setModalEscapeVisible] = useState(false);
+  const [incidentesHoy, setIncidentesHoy] = useState<IncidenteItem[]>([]);
+  const [todosIncidentes, setTodosIncidentes] = useState<IncidenteItem[]>([]);
+  const [filtroSoloHoy, setFiltroSoloHoy] = useState<boolean>(true);
+  const [tipoCapa, setTipoCapa] = useState<'topo' | 'sat'>('topo');
+  const [cargando, setCargando] = useState<boolean>(true);
+  const [refrescandoSilencioso, setRefrescandoSilencioso] = useState<boolean>(false);
+  const [incidenteSeleccionado, setIncidenteSeleccionado] = useState<IncidenteItem | null>(null);
+  const [detalleIncidente, setDetalleIncidente] = useState<IncidenteDetail | null>(null);
+  const [cargandoDetalle, setCargandoDetalle] = useState<boolean>(false);
+  const [modalEscapeVisible, setModalEscapeVisible] = useState<boolean>(false);
 
-  // Focos satelitales iniciales de referencia sobre Parinacochas
-  const FOCOS_DEFAULT: FocoMapItem[] = [
-    {
-      id: 'VIIRS-01',
-      sensor: 'VIIRS (375m)',
-      nombre: 'Sector Huaccana Alta',
-      lat: -15.0228,
-      lon: -73.7653,
-      x: 58,
-      y: 42,
-      frp: 58.4,
-      criticidad: 'critico',
-      distanciaKm: 3.4,
-      vientoDireccion: 'Hacia el Noreste (subiendo quebrada)'
-    },
-    {
-      id: 'MODIS-02',
-      sensor: 'MODIS (1km)',
-      nombre: 'Paucaray - Quebrada Baja',
-      lat: -15.0800,
-      lon: -73.8100,
-      x: 34,
-      y: 68,
-      frp: 28.1,
-      criticidad: 'alto',
-      distanciaKm: 6.2,
-      vientoDireccion: 'Hacia ladera este'
-    },
-    {
-      id: 'VIIRS-03',
-      sensor: 'VIIRS (375m)',
-      nombre: 'Pajonal Secce / Chumpi',
-      lat: -14.9950,
-      lon: -73.7200,
-      x: 75,
-      y: 28,
-      frp: 16.5,
-      criticidad: 'moderado',
-      distanciaKm: 8.9,
-      vientoDireccion: 'Hacia cumbre rocosa'
-    }
-  ];
+  /**
+   * Carga y filtra los incidentes del día desde la API de Django.
+   */
+  const cargarDatos = useCallback(async (silencioso = false) => {
+    if (!silencioso) setCargando(true);
+    else setRefrescandoSilencioso(true);
 
-  const cargarDatos = async () => {
-    setCargando(true);
     try {
-      const [fwiData, firmsData] = await Promise.all([
+      const [fwiData, incList] = await Promise.all([
         fetchFwiActual(),
-        fetchFocosFirmsApi(15)
+        fetchIncidentesApi()
       ]);
 
       if (fwiData) setFwi(fwiData);
 
-      if (firmsData && firmsData.length > 0) {
-        // Mapear detecciones reales de Django a coordenadas relativas del mapa
-        const minLat = -15.20, maxLat = -14.90;
-        const minLon = -73.95, maxLon = -73.65;
+      const hoyPeru = getFechaHoyPeru();
+      const hoyPeruSinGuiones = hoyPeru.replace(/-/g, '');
 
-        const focosReales: FocoMapItem[] = firmsData.slice(0, 5).map((f, i) => {
-          const lat = typeof f.latitud === 'string' ? parseFloat(f.latitud) : f.latitud;
-          const lon = typeof f.longitud === 'string' ? parseFloat(f.longitud) : f.longitud;
-          const frp = typeof f.frp_mw === 'string' ? parseFloat(f.frp_mw) : f.frp_mw || 20;
+      // Filtrar estrictamente por fecha de hoy en Perú
+      const incidentesDeHoy = (incList || []).filter((inc) => {
+        const fechaDet = inc.detectado_en ? inc.detectado_en.slice(0, 10) : '';
+        const fechaCre = inc.creado_en ? inc.creado_en.slice(0, 10) : '';
+        const codigoNum = inc.codigo ? inc.codigo.replace(/[^0-9]/g, '').slice(0, 8) : '';
+        return (
+          fechaDet === hoyPeru ||
+          fechaCre === hoyPeru ||
+          codigoNum === hoyPeruSinGuiones
+        );
+      });
 
-          // Normalizar x, y en porcentaje
-          const normX = Math.max(15, Math.min(85, ((lon - minLon) / (maxLon - minLon)) * 100));
-          const normY = Math.max(15, Math.min(85, ((maxLat - lat) / (maxLat - minLat)) * 100));
+      // Deduplicar marcadores por id_incidente
+      const mapUnicosHoy = new Map<number, IncidenteItem>();
+      incidentesDeHoy.forEach((item) => {
+        if (!mapUnicosHoy.has(item.id_incidente)) {
+          mapUnicosHoy.set(item.id_incidente, item);
+        }
+      });
+      const unicosHoy = Array.from(mapUnicosHoy.values());
 
-          const dist = Math.round((Math.sqrt(Math.pow((lat - -15.0189) * 111, 2) + Math.pow((lon - -73.7806) * 107, 2))) * 10) / 10;
+      const mapUnicosTodos = new Map<number, IncidenteItem>();
+      (incList || []).forEach((item) => {
+        if (!mapUnicosTodos.has(item.id_incidente)) {
+          mapUnicosTodos.set(item.id_incidente, item);
+        }
+      });
+      const unicosTodos = Array.from(mapUnicosTodos.values());
 
-          return {
-            id: `FIRMS-${f.id_deteccion || i + 1}`,
-            sensor: f.sensor || 'VIIRS',
-            nombre: `Foco Satelital #${i + 1} (${f.codigo_producto || 'NASA'})`,
-            lat,
-            lon,
-            x: normX,
-            y: normY,
-            frp,
-            criticidad: frp > 40 ? 'critico' : frp > 20 ? 'alto' : 'moderado',
-            distanciaKm: dist || 3.5,
-            vientoDireccion: fwiData ? `Empuja hacia ${fwiData.direccion_viento}` : 'Viento hacia el Noreste'
-          };
-        });
+      setIncidentesHoy(unicosHoy);
+      setTodosIncidentes(unicosTodos);
 
-        setFocos(focosReales);
-        setFocoSeleccionado(focosReales[0]);
-      } else {
-        setFocos(FOCOS_DEFAULT);
-        setFocoSeleccionado(FOCOS_DEFAULT[0]);
+      // Si no hay incidente seleccionado o ya no existe, seleccionar el primero de hoy
+      if (unicosHoy.length > 0 && !incidenteSeleccionado) {
+        setIncidenteSeleccionado(unicosHoy[0]);
       }
-    } catch {
-      setFocos(FOCOS_DEFAULT);
-      setFocoSeleccionado(FOCOS_DEFAULT[0]);
+    } catch (err) {
+      // Manejo de tolerancia a desconexión
     } finally {
       setCargando(false);
+      setRefrescandoSilencioso(false);
+    }
+  }, [incidenteSeleccionado]);
+
+  // Carga inicial y sondeo periódico silencioso cada 25 segundos sin recargar todo el mapa
+  useEffect(() => {
+    cargarDatos(false);
+    const interval = setInterval(() => {
+      cargarDatos(true);
+    }, 25000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Al seleccionar un incidente, cargar detalles adicionales (reportante, cierre, historial)
+  const handleSelectIncidente = async (inc: IncidenteItem) => {
+    setIncidenteSeleccionado(inc);
+    setCargandoDetalle(true);
+    setDetalleIncidente(null);
+
+    try {
+      const detalle = await fetchIncidenteDetalleApi(inc.id_incidente);
+      if (detalle) {
+        setDetalleIncidente(detalle);
+      }
+    } catch {
+      // Si falla detalle, se mantiene la información del listado
+    } finally {
+      setCargandoDetalle(false);
     }
   };
 
-  useEffect(() => {
-    cargarDatos();
-  }, []);
+  const incidentesParaMostrar = filtroSoloHoy ? incidentesHoy : todosIncidentes;
+  const hoyPeruStr = getFechaHoyPeru();
 
-  const focoActivo = focoSeleccionado || focos[0];
+  // Extraer valores para la tarjeta inferior según especificaciones de Fase 3
+  const fechaHoraInfo = formatearFechaHoraPeru(
+    detalleIncidente?.detectado_en ||
+    incidenteSeleccionado?.detectado_en ||
+    detalleIncidente?.creado_en ||
+    incidenteSeleccionado?.creado_en
+  );
+
+  // Determinar reportante
+  const reportanteNombre =
+    detalleIncidente?.cierre?.cerrado_por_nombre ||
+    detalleIncidente?.historial_estados?.[0]?.usuario_nombre ||
+    detalleIncidente?.acciones?.[0]?.usuario_nombre ||
+    (incidenteSeleccionado?.comunidad_nombre
+      ? `Comunidad de ${incidenteSeleccionado.comunidad_nombre}`
+      : 'Central de Operaciones COEP Parinacochas');
+
+  // Determinar descripción
+  const descripcionTexto =
+    detalleIncidente?.resumen ||
+    incidenteSeleccionado?.titulo ||
+    'Incidente de fuego registrado por operadores en la zona de Coracora.';
+
+  // Determinar fotografía
+  const fotografiaUrl =
+    detalleIncidente?.cierre?.evidencia_uri ||
+    incidenteSeleccionado?.fotografia_url ||
+    null;
+
+  // Estado operativo
+  const estadoTexto =
+    incidenteSeleccionado?.estado_display ||
+    incidenteSeleccionado?.estado ||
+    'Activo';
+
+  const estadoBadgeColor =
+    (incidenteSeleccionado?.estado || '').includes('combate') || (incidenteSeleccionado?.prioridad || '') === 'critica'
+      ? '#dc2626'
+      : (incidenteSeleccionado?.estado || '').includes('atencion')
+      ? '#ea580c'
+      : '#059669';
 
   return (
     <View style={styles.container}>
-      {/* 1. CABECERA METEOROLÓGICA Y ESTADO */}
+      {/* 1. CABECERA OPERATIVA CON ESTADO METEOROLÓGICO */}
       <View style={styles.headerBar}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>{t('map_title')}</Text>
+          <Text style={styles.headerTitle}>Mapa de Incidentes — Coracora</Text>
           <Text style={styles.headerSubtitle}>
-            {focos.length} focos detectados en Parinacochas
+            {filtroSoloHoy
+              ? `${incidentesHoy.length} ${incidentesHoy.length === 1 ? 'incidente registrado hoy' : 'incidentes registrados hoy'} (${hoyPeruStr})`
+              : `${todosIncidentes.length} incidentes totales en base de datos`}
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.btnRefresh} onPress={cargarDatos}>
-          <RefreshCw size={14} color={COLORS.firePrimary} />
+        <TouchableOpacity
+          style={styles.btnRefresh}
+          onPress={() => cargarDatos(false)}
+          activeOpacity={0.8}
+        >
+          {refrescandoSilencioso ? (
+            <ActivityIndicator size="small" color={COLORS.firePrimary} />
+          ) : (
+            <RefreshCw size={13} color={COLORS.firePrimary} />
+          )}
           <Text style={styles.btnRefreshText}>Actualizar</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Barra de condiciones meteorológicas en vivo */}
+      {/* 2. BARRA DE CONDICIONES METEOROLÓGICAS EN VIVO */}
       <View style={styles.meteoBar}>
         <View style={styles.meteoItem}>
-          <Flame size={14} color="#dc2626" />
+          <Flame size={13} color="#dc2626" />
           <Text style={styles.meteoLabel}>Peligro FWI:</Text>
           <Text style={[styles.meteoVal, { color: '#dc2626' }]}>
             {fwi?.nivel_peligro || 'CRÍTICO'}
@@ -199,7 +289,7 @@ export const MapScreen: React.FC = () => {
         </View>
 
         <View style={styles.meteoItem}>
-          <Wind size={14} color="#0284c7" />
+          <Wind size={13} color="#0284c7" />
           <Text style={styles.meteoLabel}>Viento:</Text>
           <Text style={styles.meteoVal}>
             {fwi?.velocidad_viento ? `${Math.round(fwi.velocidad_viento)} km/h` : '24 km/h'}
@@ -207,7 +297,7 @@ export const MapScreen: React.FC = () => {
         </View>
 
         <View style={styles.meteoItem}>
-          <Droplets size={14} color="#059669" />
+          <Droplets size={13} color="#059669" />
           <Text style={styles.meteoLabel}>Humedad:</Text>
           <Text style={styles.meteoVal}>
             {fwi?.humedad_relativa ? `${Math.round(fwi.humedad_relativa)}%` : '18%'}
@@ -215,160 +305,150 @@ export const MapScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* 2. LIENZO DEL MAPA DE PARINACOCHAS */}
-      <View style={styles.mapCanvasContainer}>
+      {/* 3. SELECTOR DE FILTRO: Incidentes del Día vs Ver Todos */}
+      <View style={styles.filterBar}>
+        <TouchableOpacity
+          style={[styles.filterPill, filtroSoloHoy && styles.filterPillActive]}
+          onPress={() => setFiltroSoloHoy(true)}
+        >
+          <Clock size={12} color={filtroSoloHoy ? '#ffffff' : COLORS.textSecondary} />
+          <Text style={[styles.filterPillText, filtroSoloHoy && styles.filterPillTextActive]}>
+            Solo de Hoy ({incidentesHoy.length})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterPill, !filtroSoloHoy && styles.filterPillActive]}
+          onPress={() => setFiltroSoloHoy(false)}
+        >
+          <Calendar size={12} color={!filtroSoloHoy ? '#ffffff' : COLORS.textSecondary} />
+          <Text style={[styles.filterPillText, !filtroSoloHoy && styles.filterPillTextActive]}>
+            Historial Completo ({todosIncidentes.length})
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 4. LIENZO CARTOGRÁFICO PROFESIONAL: MapLibre (Dev Build) + Fallback (Expo Go) */}
+      <View style={styles.mapArea}>
         {cargando ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator size="large" color={COLORS.firePrimary} />
-            <Text style={styles.loadingText}>Cargando satélites NASA FIRMS...</Text>
+            <Text style={styles.loadingText}>Cargando mapa e incidentes de Django...</Text>
           </View>
         ) : (
-          <Svg width="100%" height="100%" viewBox="0 0 100 100">
-            {/* Fondo cartográfico claro */}
-            <Rect width="100" height="100" fill="#f1f5f9" />
-
-            {/* Curvas de nivel / Relieve suave de la cordillera */}
-            <Path
-              d="M 0 30 Q 30 15 60 25 T 100 20 L 100 0 L 0 0 Z"
-              fill="#e2e8f0"
-              opacity={0.6}
-            />
-            <Path
-              d="M 0 50 Q 40 40 70 55 T 100 45 L 100 100 L 0 100 Z"
-              fill="#e2e8f0"
-              opacity={0.4}
-            />
-
-            {/* Quebradas / Ríos de referencia */}
-            <Path
-              d="M 20 0 Q 30 40 45 60 T 55 100"
-              fill="none"
-              stroke="#bae6fd"
-              strokeWidth="1.2"
-            />
-            <Path
-              d="M 60 0 Q 70 30 65 70 T 80 100"
-              fill="none"
-              stroke="#bae6fd"
-              strokeWidth="1"
-            />
-
-            {/* Etiquetas de Sectores */}
-            <SvgText x="48" y="52" fill="#334155" fontSize="3.2" fontWeight="bold">
-              Coracora
-            </SvgText>
-            <Circle cx="46" cy="51" r="1.2" fill="#0284c7" />
-
-            <SvgText x="56" y="38" fill="#475569" fontSize="2.8">
-              Huaccana
-            </SvgText>
-            <SvgText x="28" y="74" fill="#475569" fontSize="2.8">
-              Paucaray
-            </SvgText>
-            <SvgText x="70" y="24" fill="#475569" fontSize="2.8">
-              Chumpi
-            </SvgText>
-            <SvgText x="15" y="40" fill="#475569" fontSize="2.8">
-              Pullo
-            </SvgText>
-
-            {/* Mi Ubicación (Punto azul pulsante) */}
-            <Circle cx="46" cy="51" r="3.5" fill="rgba(2, 132, 199, 0.2)" />
-            <Circle cx="46" cy="51" r="1.8" fill="#0284c7" stroke="#ffffff" strokeWidth="0.5" />
-
-            {/* Focos Activos Satelitales */}
-            {focos.map((foco) => {
-              const isSelected = focoActivo?.id === foco.id;
-              const color =
-                foco.criticidad === 'critico'
-                  ? '#dc2626'
-                  : foco.criticidad === 'alto'
-                  ? '#ea580c'
-                  : '#d97706';
-
-              return (
-                <G key={foco.id} onPress={() => setFocoSeleccionado(foco)}>
-                  {/* Halo de fuego */}
-                  <Circle
-                    cx={foco.x}
-                    cy={foco.y}
-                    r={isSelected ? 6 : 4}
-                    fill={color}
-                    opacity={isSelected ? 0.35 : 0.2}
-                  />
-
-                  {/* Núcleo de llama */}
-                  <Circle
-                    cx={foco.x}
-                    cy={foco.y}
-                    r={isSelected ? 3 : 2.2}
-                    fill={color}
-                    stroke="#ffffff"
-                    strokeWidth={isSelected ? 0.8 : 0.5}
-                  />
-
-                  {/* Flecha de dirección de avance por viento */}
-                  <Line
-                    x1={foco.x}
-                    y1={foco.y}
-                    x2={foco.x + 4}
-                    y2={foco.y - 4}
-                    stroke="#dc2626"
-                    strokeWidth="0.8"
-                    strokeDasharray="1,1"
-                  />
-                </G>
-              );
-            })}
-          </Svg>
+          <MapLibreMap
+            incidentes={incidentesParaMostrar}
+            incidenteSeleccionado={incidenteSeleccionado}
+            onSelectIncidente={handleSelectIncidente}
+            tipoCapa={tipoCapa}
+            onChangeTipoCapa={setTipoCapa}
+          />
         )}
-
-        {/* Leyenda rápida flotante en esquina */}
-        <View style={styles.mapLegend}>
-          <View style={styles.legendRow}>
-            <View style={[styles.legendDot, { backgroundColor: '#0284c7' }]} />
-            <Text style={styles.legendText}>Tu Ubicación</Text>
-          </View>
-          <View style={styles.legendRow}>
-            <View style={[styles.legendDot, { backgroundColor: '#dc2626' }]} />
-            <Text style={styles.legendText}>Foco Activo</Text>
-          </View>
-        </View>
       </View>
 
-      {/* 3. TARJETA OPERATIVA INFERIOR (DETALLE DEL FOCO MÁS PRÓXIMO) */}
-      {focoActivo && (
-        <View style={styles.detailCard}>
-          <View style={styles.detailHeader}>
-            <View style={styles.detailTitleBox}>
-              <View style={styles.fireBadge}>
-                <Flame size={14} color="#ffffff" />
-                <Text style={styles.fireBadgeText}>{focoActivo.criticidad.toUpperCase()}</Text>
+      {/* 5. TARJETA OPERATIVA INFERIOR (DETALLE EXHAUSTIVO SEGÚN FASE 3) */}
+      {incidenteSeleccionado && (
+        <View style={styles.bottomCard}>
+          {/* Fila 1: Cabecera con Código, Estado y Botón Cerrar */}
+          <View style={styles.cardHeader}>
+            <View style={styles.cardHeaderLeft}>
+              <View style={[styles.statusBadge, { backgroundColor: estadoBadgeColor }]}>
+                <Flame size={12} color="#ffffff" />
+                <Text style={styles.statusBadgeText}>{estadoTexto.toUpperCase()}</Text>
               </View>
-              <Text style={styles.detailName}>{focoActivo.nombre}</Text>
+              <Text style={styles.cardCode}>{incidenteSeleccionado.codigo}</Text>
             </View>
 
-            <Text style={styles.detailDistance}>
-              A {focoActivo.distanciaKm} km
-            </Text>
+            <TouchableOpacity
+              onPress={() => setIncidenteSeleccionado(null)}
+              style={styles.cardCloseBtn}
+            >
+              <X size={18} color={COLORS.textSecondary} />
+            </TouchableOpacity>
           </View>
 
-          {/* Información práctica para pobladores y brigadistas */}
-          <View style={styles.detailGrid}>
-            <View style={styles.detailItem}>
-              <Compass size={14} color={COLORS.textSecondary} />
-              <Text style={styles.detailItemLabel}>Avance del Fuego:</Text>
-              <Text style={styles.detailItemValue}>{focoActivo.vientoDireccion}</Text>
+          {/* Fila 2: Título del Incidente */}
+          <Text style={styles.cardTitle} numberOfLines={2}>
+            {incidenteSeleccionado.titulo}
+          </Text>
+
+          {/* Fila 3: Grilla de Metadatos Obligatorios de Fase 3 */}
+          <View style={styles.metadataGrid}>
+            {/* 1. Tipo de Incidente */}
+            <View style={styles.metaRow}>
+              <View style={styles.metaLabelBox}>
+                <Trees size={13} color="#059669" />
+                <Text style={styles.metaLabel}>Tipo:</Text>
+              </View>
+              <Text style={styles.metaValue}>
+                {incidenteSeleccionado.tipo_incendio_display || incidenteSeleccionado.tipo_incendio || 'Pastizal / Pajonal'}
+              </Text>
             </View>
 
-            <View style={styles.detailItem}>
-              <MapPin size={14} color={COLORS.textSecondary} />
-              <Text style={styles.detailItemLabel}>Sensor Satelital:</Text>
-              <Text style={styles.detailItemValue}>{focoActivo.sensor} • {focoActivo.frp} MW</Text>
+            {/* 2. Fecha y Hora */}
+            <View style={styles.metaRowDual}>
+              <View style={[styles.metaRow, { flex: 1 }]}>
+                <View style={styles.metaLabelBox}>
+                  <Calendar size={13} color="#0284c7" />
+                  <Text style={styles.metaLabel}>Fecha:</Text>
+                </View>
+                <Text style={styles.metaValue}>{fechaHoraInfo.fecha}</Text>
+              </View>
+
+              <View style={[styles.metaRow, { flex: 1 }]}>
+                <View style={styles.metaLabelBox}>
+                  <Clock size={13} color="#0284c7" />
+                  <Text style={styles.metaLabel}>Hora:</Text>
+                </View>
+                <Text style={styles.metaValue}>{fechaHoraInfo.hora}</Text>
+              </View>
             </View>
+
+            {/* 3. Reportante */}
+            <View style={styles.metaRow}>
+              <View style={styles.metaLabelBox}>
+                <User size={13} color="#7c3aed" />
+                <Text style={styles.metaLabel}>Reportante:</Text>
+              </View>
+              <Text style={styles.metaValue} numberOfLines={1}>
+                {reportanteNombre}
+              </Text>
+            </View>
+
+            {/* 4. Descripción */}
+            <View style={styles.descBox}>
+              <View style={styles.metaLabelBox}>
+                <FileText size={13} color="#ea580c" />
+                <Text style={styles.metaLabel}>Descripción:</Text>
+              </View>
+              <Text style={styles.descText} numberOfLines={3}>
+                {descripcionTexto}
+              </Text>
+            </View>
+
+            {/* 5. Fotografía (cuando exista o placeholder oficial) */}
+            {fotografiaUrl ? (
+              <View style={styles.photoContainer}>
+                <Image
+                  source={{ uri: fotografiaUrl }}
+                  style={styles.photoImg}
+                  resizeMode="cover"
+                />
+                <Text style={styles.photoCaption}>
+                  Evidencia fotográfica registrada en el cierre / reporte del incidente
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.noPhotoBox}>
+                <Camera size={14} color="#94a3b8" />
+                <Text style={styles.noPhotoText}>
+                  Sin fotografía adjunta registrada en el reporte
+                </Text>
+              </View>
+            )}
           </View>
 
-          {/* Botón de Ruta Segura de Escape */}
+          {/* Botón de Ruta Segura de Escape Andino */}
           <TouchableOpacity
             style={styles.btnEscape}
             onPress={() => setModalEscapeVisible(true)}
@@ -380,7 +460,7 @@ export const MapScreen: React.FC = () => {
         </View>
       )}
 
-      {/* MODAL: GUÍA DE EVACUACIÓN Y ESCAPE ANDINO */}
+      {/* 6. MODAL: PROTOCOLO VITAL DE ESCAPE ANDINO (ESPAÑOL / QUECHUA) */}
       <Modal
         visible={modalEscapeVisible}
         transparent={true}
@@ -400,7 +480,6 @@ export const MapScreen: React.FC = () => {
             </View>
 
             <ScrollView style={{ maxHeight: 320 }}>
-              {/* Advertencia Vital en Quechua */}
               <View style={styles.warningQuechuaBox}>
                 <Text style={styles.warningQuechuaTitle}>
                   ¡Qata wichayman amapuni asuykuychu!
@@ -410,7 +489,6 @@ export const MapScreen: React.FC = () => {
                 </Text>
               </View>
 
-              {/* Reglas de Evacuación en Español */}
               <View style={styles.rulesList}>
                 <View style={styles.ruleItem}>
                   <CheckCircle2 size={16} color="#059669" />
@@ -429,7 +507,7 @@ export const MapScreen: React.FC = () => {
                 <View style={styles.ruleItem}>
                   <CheckCircle2 size={16} color="#059669" />
                   <Text style={styles.ruleText}>
-                    <Text style={{ fontWeight: '800' }}>Protege tus vías respiratorias:</Text> Usa pañuelo húmedo y camina agachado cerca al suelo si hay humo denso.
+                    <Text style={{ fontWeight: '800' }}>Protege tus vías respiratorias:</Text> Usa pañuelo húmedo y camina agachado si hay humo denso.
                   </Text>
                 </View>
               </View>
@@ -451,32 +529,33 @@ export const MapScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.bgPrimary
+    backgroundColor: '#ffffff'
   },
   headerBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: COLORS.borderSubtle
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: COLORS.textPrimary
   },
   headerSubtitle: {
     fontSize: 11,
-    color: COLORS.textSecondary
+    color: COLORS.textSecondary,
+    marginTop: 1
   },
   btnRefresh: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 10,
+    paddingHorizontal: 9,
     paddingVertical: 6,
     borderRadius: 8,
     backgroundColor: '#fee2e2'
@@ -489,8 +568,8 @@ const styles = StyleSheet.create({
   meteoBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    backgroundColor: '#ffffff',
-    paddingVertical: 8,
+    backgroundColor: '#f8fafc',
+    paddingVertical: 7,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.borderSubtle
   },
@@ -500,15 +579,47 @@ const styles = StyleSheet.create({
     gap: 4
   },
   meteoLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: COLORS.textSecondary
   },
   meteoVal: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '800',
     color: COLORS.textPrimary
   },
-  mapCanvasContainer: {
+  filterBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    backgroundColor: '#ffffff',
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderSubtle
+  },
+  filterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle
+  },
+  filterPillActive: {
+    backgroundColor: COLORS.firePrimary,
+    borderColor: COLORS.firePrimary
+  },
+  filterPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.textSecondary
+  },
+  filterPillTextActive: {
+    color: '#ffffff'
+  },
+  mapArea: {
     flex: 1,
     position: 'relative'
   },
@@ -523,120 +634,144 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontWeight: '600'
   },
-  mapLegend: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle,
-    gap: 4
-  },
-  legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4
-  },
-  legendText: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: COLORS.textPrimary
-  },
-  detailCard: {
+  bottomCard: {
     backgroundColor: '#ffffff',
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 4
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 6
   },
-  detailHeader: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10
+    marginBottom: 6
   },
-  detailTitleBox: {
+  cardHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    flex: 1
+    gap: 8
   },
-  fireBadge: {
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#dc2626',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
     borderRadius: 6
   },
-  fireBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
+  statusBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '900',
     color: '#ffffff'
   },
-  detailName: {
+  cardCode: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.textSecondary
+  },
+  cardCloseBtn: {
+    padding: 4
+  },
+  cardTitle: {
     fontSize: 14,
     fontWeight: '800',
     color: COLORS.textPrimary,
-    flex: 1
+    marginBottom: 8
   },
-  detailDistance: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#dc2626'
-  },
-  detailGrid: {
+  metadataGrid: {
     backgroundColor: '#f8fafc',
     borderRadius: 10,
     padding: 10,
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
     gap: 6,
-    marginBottom: 12
+    marginBottom: 10
   },
-  detailItem: {
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6
+    justifyContent: 'space-between'
   },
-  detailItemLabel: {
-    fontSize: 11.5,
+  metaRowDual: {
+    flexDirection: 'row',
+    gap: 12
+  },
+  metaLabelBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4
+  },
+  metaLabel: {
+    fontSize: 11,
     color: COLORS.textSecondary,
     fontWeight: '600'
   },
-  detailItemValue: {
+  metaValue: {
     fontSize: 11.5,
     fontWeight: '700',
+    color: COLORS.textPrimary
+  },
+  descBox: {
+    gap: 2,
+    marginTop: 2
+  },
+  descText: {
+    fontSize: 11,
     color: COLORS.textPrimary,
-    flex: 1
+    lineHeight: 15
+  },
+  photoContainer: {
+    marginTop: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle
+  },
+  photoImg: {
+    width: '100%',
+    height: 110
+  },
+  photoCaption: {
+    fontSize: 9.5,
+    color: COLORS.textSecondary,
+    padding: 4,
+    backgroundColor: '#ffffff'
+  },
+  noPhotoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 4,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderSubtle,
+    marginTop: 2
+  },
+  noPhotoText: {
+    fontSize: 10.5,
+    color: '#94a3b8',
+    fontStyle: 'italic'
   },
   btnEscape: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: '#dc2626',
     borderRadius: 10,
-    paddingVertical: 12
+    paddingVertical: 11
   },
   btnEscapeText: {
     color: '#ffffff',
-    fontSize: 12.5,
+    fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.3
   },
