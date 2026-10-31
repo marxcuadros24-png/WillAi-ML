@@ -19,17 +19,21 @@ Notifications.setNotificationHandler({
  */
 export async function configurarCanalNotificacionesAndroid(): Promise<void> {
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync(CANAL_NOTIFICACION_ID, {
-      name: NOMBRE_CANAL_NOTIFICACION,
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#ef4444',
-      sound: 'default',
-      bypassDnd: true, // Prioridad crítica para emergencias de incendio
-      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-      enableVibrate: true,
-      showBadge: true
-    });
+    try {
+      await Notifications.setNotificationChannelAsync(CANAL_NOTIFICACION_ID, {
+        name: NOMBRE_CANAL_NOTIFICACION,
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#ef4444',
+        sound: undefined,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        enableVibrate: true,
+        showBadge: true
+      });
+    } catch (e) {
+      // Ignorar de forma segura en Expo Go cliente de desarrollo
+      console.warn('Canal de notificación no soportado en Expo Go:', e);
+    }
   }
 }
 
