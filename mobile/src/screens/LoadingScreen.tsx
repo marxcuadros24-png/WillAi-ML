@@ -84,7 +84,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onFinish }) => {
             {idioma === 'qu' ? 'Satelitekuna tupanachisqa' : 'Satélites y Sensores Listos'}
           </Text>
         </View>
-        <Text style={styles.footerText}>COEP Parinacochas • Bomberos B-12</Text>
+        <Text style={styles.footerText}>COEP Parinacochas • Bomberos B-12 • v1.0.1 (Build 2)</Text>
       </View>
     </View>
   );
