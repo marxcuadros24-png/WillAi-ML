@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Flame, PlusCircle, Shield, MapPin, Eye, CheckCircle2, Filter, Clock } from 'lucide-react';
+import { Flame, PlusCircle, Shield, MapPin, Eye, CheckCircle2, Filter, Clock, Camera, XCircle } from 'lucide-react';
 import type { Incidente } from '../types';
 import { Pagination } from './Pagination';
 
@@ -10,6 +10,8 @@ interface IncidentesAdminProps {
   onOpenChangeStatus: (incidente: Incidente) => void;
   onOpenCloseIncident: (incidente: Incidente) => void;
   onViewOnMap: (incidente: Incidente) => void;
+  onAceptar?: (incidente: Incidente) => void;
+  onRechazar?: (incidente: Incidente) => void;
 }
 
 export const IncidentesAdmin: React.FC<IncidentesAdminProps> = ({
@@ -19,7 +21,10 @@ export const IncidentesAdmin: React.FC<IncidentesAdminProps> = ({
   onOpenChangeStatus,
   onOpenCloseIncident,
   onViewOnMap,
+  onAceptar,
+  onRechazar,
 }) => {
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [filterEstado, setFilterEstado] = useState<string>('todos');
   const [filterPrioridad, setFilterPrioridad] = useState<string>('todos');
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -221,6 +226,31 @@ export const IncidentesAdmin: React.FC<IncidentesAdminProps> = ({
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                       Iniciado: {inc.fecha_inicio} • Reportado por: {inc.reportado_por}
                     </div>
+                    {inc.fotografia_url && (
+                      <div style={{ marginTop: '5px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPhoto(inc.fotografia_url || null)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            border: '1px solid rgba(239, 68, 68, 0.4)',
+                            color: '#fca5a5',
+                            borderRadius: '4px',
+                            padding: '3px 8px',
+                            fontSize: '0.72rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                          title="Ver fotografía capturada por el ciudadano"
+                        >
+                          <Camera size={13} color="#f87171" />
+                          Evidencia Fotográfica
+                        </button>
+                      </div>
+                    )}
                     {inc.brigadas_asignadas && inc.brigadas_asignadas.length > 0 && (
                       <div style={{ fontSize: '0.73rem', color: '#38bdf8', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <Shield size={12} color="#38bdf8" /> <strong>Brigadas:</strong> {inc.brigadas_asignadas.join(', ')}
@@ -261,7 +291,34 @@ export const IncidentesAdmin: React.FC<IncidentesAdminProps> = ({
                         Mapa
                       </button>
 
-                      {inc.estado !== 'cerrado' && (
+                      {inc.estado === 'pendiente' && (
+                        <>
+                          {onAceptar && (
+                            <button
+                              className="btn-admin btn-admin-success"
+                              style={{ padding: '5px 9px', fontSize: '0.75rem', gap: '4px' }}
+                              title="Aceptar y confirmar incidente verificado"
+                              onClick={() => onAceptar(inc)}
+                            >
+                              <CheckCircle2 size={13} />
+                              Aceptar
+                            </button>
+                          )}
+                          {onRechazar && (
+                            <button
+                              className="btn-admin btn-admin-danger"
+                              style={{ padding: '5px 9px', fontSize: '0.75rem', gap: '4px' }}
+                              title="Rechazar y descartar (falsa alarma)"
+                              onClick={() => onRechazar(inc)}
+                            >
+                              <XCircle size={13} />
+                              Descartar
+                            </button>
+                          )}
+                        </>
+                      )}
+
+                      {inc.estado !== 'cerrado' && inc.estado !== 'pendiente' && (
                         <>
                           <button
                             className="btn-admin btn-admin-primary"
@@ -313,6 +370,33 @@ export const IncidentesAdmin: React.FC<IncidentesAdminProps> = ({
           />
         )}
       </div>
+      {/* Visor Modal de Fotografía de Evidencia */}
+      {selectedPhoto && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.85)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <div style={{ position: 'relative', maxWidth: '800px', width: '100%' }}>
+            <img
+              src={selectedPhoto.startsWith('http') ? selectedPhoto : `http://127.0.0.1:8000${selectedPhoto}`}
+              alt="Evidencia fotográfica ampliada"
+              style={{ width: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: '12px' }}
+            />
+            <div style={{ textAlign: 'center', marginTop: '10px', color: '#94a3b8', fontSize: '0.8rem' }}>
+              Clic en cualquier parte para cerrar
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

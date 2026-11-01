@@ -465,6 +465,29 @@ def cambiar_estado_incidente(request, id_incidente):
             nota=nota
         )
 
+        # Sincronización coherente de reportes vinculados (Requisito 5)
+        for rep in incidente.reportes_vinculados.all():
+            if estado_final in ['confirmado', 'en_combate', 'asignado']:
+                rep.estado = Reporte.EstadoReporte.VALIDADO
+                rep.save(update_fields=['estado'])
+                if user:
+                    ValidacionReporte.objects.create(
+                        reporte=rep,
+                        revisor=user,
+                        resultado='validado',
+                        comentario=nota or f"Validado al confirmar incidente {incidente.codigo}"
+                    )
+            elif estado_final in ['descartado', 'rechazado']:
+                rep.estado = Reporte.EstadoReporte.RECHAZADO
+                rep.save(update_fields=['estado'])
+                if user:
+                    ValidacionReporte.objects.create(
+                        reporte=rep,
+                        revisor=user,
+                        resultado='rechazado',
+                        comentario=nota or f"Rechazado al descartar incidente {incidente.codigo}"
+                    )
+
         AccionAtencion.objects.create(
             incidente=incidente,
             usuario=user,

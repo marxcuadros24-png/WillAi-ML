@@ -1,5 +1,16 @@
 import { API_BASE } from '../constants/config';
 
+async function fetchConTimeout(url: string, options: RequestInit = {}, timeoutMs = 3500): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+
 export interface UsuarioDto {
   id_usuario: number;
   uuid: string;
@@ -327,6 +338,38 @@ export async function fetchFwiActual(): Promise<FwiActualResponse | null> {
 /**
  * Consulta el buzón de alertas del usuario.
  */
+export interface AlertaPublicaItem {
+  id_alerta: number;
+  uuid: string;
+  incidente?: number | null;
+  incidente_codigo?: string | null;
+  tipo: string;
+  tipo_display?: string;
+  prioridad: 'critica' | 'muy_alta' | 'alta' | 'media' | 'baja' | 'informativa';
+  prioridad_display?: string;
+  titulo: string;
+  mensaje: string;
+  instrucciones?: string;
+  estado: string;
+  estado_display?: string;
+  emitida_en?: string;
+  creada_en: string;
+}
+
+/**
+ * Consulta todas las alertas comunitarias oficiales emitidas desde el Centro de Mando Web.
+ */
+export async function fetchAlertasComunitariasApi(): Promise<AlertaPublicaItem[]> {
+  try {
+    const res = await fetch(`${API_BASE}/alertas/alertas/`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.results || data || [];
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchAlertasUsuario(token?: string | null): Promise<AlertaItem[]> {
   try {
     const headers: Record<string, string> = {};
@@ -387,6 +430,7 @@ export async function enviarReporteApi(
     tipo_fuego: string;
     combustible: string;
     foto_uri?: string | null;
+    foto_base64?: string | null;
     fecha_captura: string;
   },
   token?: string | null
@@ -404,29 +448,58 @@ export async function enviarReporteApi(
       ? 'pastizal'
       : 'forestal';
 
-  const body = {
+  // Obtener cadena base64 si fue capturada por la cámara o cargada desde SQLite
+  let base64Img: string | null = null;
+  if (payload.foto_base64) {
+    base64Img = payload.foto_base64.startsWith('data:')
+      ? payload.foto_base64
+      : `data:image/jpeg;base64,${payload.foto_base64}`;
+  } else if (payload.foto_uri && payload.foto_uri.startsWith('data:image')) {
+    base64Img = payload.foto_uri;
+  }
+
+  // Payload JSON estándar (100% inmune a errores de FormDataPart de React Native)
+  const jsonBody: Record<string, any> = {
     tipo_incendio: tipoIncendioDjango,
     fecha_evento: payload.fecha_captura,
-    latitud: payload.latitud,
-    longitud: payload.longitud,
+    latitud: Number(Number(payload.latitud).toFixed(6)),
+    longitud: Number(Number(payload.longitud).toFixed(6)),
     precision_metros: payload.precision_m || 10.0,
     origen: 'movil',
     descripcion: `[WillAI Móvil] Tipo: ${payload.tipo_fuego} | Combustible: ${payload.combustible} | Azimut: ${payload.azimut ?? 'N/A'}° | UUID: ${payload.client_uuid}`,
     autoriza_publicacion: false
   };
 
-  const res = await fetch(`${API_BASE}/reportes/reportes/`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body)
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `HTTP ${res.status}`);
+  if (base64Img) {
+    jsonBody.fotografia = base64Img;
   }
 
-  return await res.json();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const res = await fetch(`${API_BASE}/reportes/reportes/`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(jsonBody),
+      signal: controller.signal
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      let msg = `HTTP ${res.status}`;
+      if (typeof err === 'object') {
+        const firstVal = Object.values(err)[0];
+        if (Array.isArray(firstVal)) msg = String(firstVal[0]);
+        else if (typeof firstVal === 'string') msg = String(firstVal);
+      }
+      throw new Error(msg);
+    }
+
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**

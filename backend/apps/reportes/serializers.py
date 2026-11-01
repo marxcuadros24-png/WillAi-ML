@@ -1,3 +1,6 @@
+import base64
+from django.core.files.base import ContentFile
+from django.db import transaction
 from rest_framework import serializers
 from django.utils import timezone
 from .models import Reporte, Evidencia, Sincronizacion, ValidacionReporte
@@ -81,11 +84,41 @@ class ReporteSerializer(serializers.ModelSerializer):
         read_only_fields = ['id_reporte', 'uuid', 'usuario', 'creado_en', 'sincronizado_en']
 
 
+class Base64OrFileImageField(serializers.ImageField):
+    """
+    Campo que admite archivos multipart estándar y cadenas codificadas en Base64
+    ('data:image/jpeg;base64,...' o base64 puro).
+    """
+    def to_internal_value(self, data):
+        if isinstance(data, str) and (data.startswith('data:image') or ';base64,' in data):
+            try:
+                header, base64_data = data.split(';base64,')
+                ext = header.split('/')[-1].split(';')[0]
+                if ext == 'jpeg':
+                    ext = 'jpg'
+                file_name = f"evidencia_{timezone.now().strftime('%Y%m%d_%H%M%S')}.{ext}"
+                decoded_file = base64.b64decode(base64_data)
+                return ContentFile(decoded_file, name=file_name)
+            except Exception as e:
+                raise serializers.ValidationError(f"Error decodificando imagen base64: {e}")
+        elif isinstance(data, str) and len(data) > 100 and not data.startswith('http'):
+            try:
+                decoded_file = base64.b64decode(data)
+                file_name = f"evidencia_{timezone.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+                return ContentFile(decoded_file, name=file_name)
+            except Exception:
+                pass
+        return super().to_internal_value(data)
+
+
 class CrearReporteSerializer(serializers.ModelSerializer):
     """
     Serializer para creación rápida desde la App Móvil con foto opcional.
+    Garantiza transacción atómica (Reporte -> Evidencia -> Incidente -> Vínculo).
     """
     fecha_evento = serializers.DateTimeField(required=False, default=timezone.now)
+    fotografia = Base64OrFileImageField(required=False, write_only=True)
+    fotografia_base64 = Base64OrFileImageField(required=False, write_only=True, source='fotografia')
     evidencias_archivos = serializers.ListField(
         child=serializers.FileField(max_length=100000, allow_empty_file=False),
         write_only=True,
@@ -107,36 +140,117 @@ class CrearReporteSerializer(serializers.ModelSerializer):
             'origen',
             'autoriza_publicacion',
             'comunidad',
+            'fotografia',
+            'fotografia_base64',
             'evidencias_archivos',
         ]
         read_only_fields = ['id_reporte', 'uuid']
 
+    def to_internal_value(self, data):
+        # Normalizar y redondear coordenadas a 6 decimales para evitar rechazo de validación GPS (max_digits=9, decimal_places=6)
+        mutable_data = data.copy() if hasattr(data, 'copy') else dict(data)
+        for campo in ('latitud', 'longitud'):
+            val = mutable_data.get(campo)
+            if val is not None:
+                try:
+                    mutable_data[campo] = f"{round(float(val), 6):.6f}"
+                except (ValueError, TypeError):
+                    pass
+        return super().to_internal_value(mutable_data)
+
     def create(self, validated_data):
+        from apps.incidentes.models import Incidente, ReporteIncidente, HistorialIncidente
+        from apps.geografia.models import Distrito
+
+        fotografia = validated_data.pop('fotografia', None)
         archivos = validated_data.pop('evidencias_archivos', [])
-        user = self.context['request'].user
+        request = self.context.get('request')
+        user = request.user if (request and request.user.is_authenticated) else None
 
         if 'fecha_evento' not in validated_data or not validated_data['fecha_evento']:
             validated_data['fecha_evento'] = timezone.now()
 
-        reporte = Reporte.objects.create(
-            usuario=user,
-            estado=Reporte.EstadoReporte.RECIBIDO,
-            **validated_data
-        )
-
-        # Crear evidencias asociadas si se enviaron archivos
-        for arch in archivos:
-            Evidencia.objects.create(
-                reporte=reporte,
-                archivo=arch,
-                uri_archivo=arch.name,
-                nombre_original=arch.name,
-                mime_type=getattr(arch, 'content_type', 'image/jpeg'),
-                tamano_bytes=arch.size,
-                capturada_en=timezone.now()
+        with transaction.atomic():
+            # 1. Crear el reporte ciudadano
+            reporte = Reporte.objects.create(
+                usuario=user,
+                estado=Reporte.EstadoReporte.RECIBIDO,
+                **validated_data
             )
 
-        return reporte
+            # 2. Registrar evidencia fotográfica si fue enviada
+            if fotografia:
+                Evidencia.objects.create(
+                    reporte=reporte,
+                    archivo=fotografia,
+                    uri_archivo=getattr(fotografia, 'name', 'evidencia.jpg'),
+                    nombre_original=getattr(fotografia, 'name', 'evidencia.jpg'),
+                    mime_type=getattr(fotografia, 'content_type', 'image/jpeg'),
+                    tamano_bytes=getattr(fotografia, 'size', None),
+                    capturada_en=timezone.now()
+                )
+
+            for arch in archivos:
+                Evidencia.objects.create(
+                    reporte=reporte,
+                    archivo=arch,
+                    uri_archivo=getattr(arch, 'name', 'evidencia.jpg'),
+                    nombre_original=getattr(arch, 'name', 'evidencia.jpg'),
+                    mime_type=getattr(arch, 'content_type', 'image/jpeg'),
+                    tamano_bytes=getattr(arch, 'size', None),
+                    capturada_en=timezone.now()
+                )
+
+            # 3. Evitar duplicar incidentes para el mismo reporte (Requisito 2)
+            if not ReporteIncidente.objects.filter(reporte=reporte).exists():
+                fecha_hoy = timezone.now().strftime('%Y%m%d')
+                conteo_hoy = Incidente.objects.filter(codigo__startswith=f"INC-{fecha_hoy}").count() + 1
+                codigo = f"INC-{fecha_hoy}-{conteo_hoy:03d}"
+                while Incidente.objects.filter(codigo=codigo).exists():
+                    conteo_hoy += 1
+                    codigo = f"INC-{fecha_hoy}-{conteo_hoy:03d}"
+
+                comunidad = reporte.comunidad
+                distrito = None
+                if comunidad and hasattr(comunidad, 'distrito'):
+                    distrito = comunidad.distrito
+                if not distrito:
+                    distrito = Distrito.objects.filter(nombre__icontains='Coracora').first()
+
+                nombre_lugar = comunidad.nombre if comunidad else (distrito.nombre if distrito else 'Coracora')
+                titulo = f"Incendio en {nombre_lugar} (Reporte #{reporte.id_reporte})"
+
+                incidente = Incidente.objects.create(
+                    codigo=codigo,
+                    titulo=titulo,
+                    tipo_incendio=reporte.tipo_incendio or Incidente.TipoIncendio.PASTIZAL,
+                    estado=Incidente.EstadoIncidente.NUEVO,
+                    prioridad=Incidente.Prioridad.ALTA,
+                    latitud_referencia=reporte.latitud,
+                    longitud_referencia=reporte.longitud,
+                    distrito=distrito,
+                    comunidad=comunidad,
+                    creado_por=user,
+                    detectado_en=reporte.fecha_evento or timezone.now(),
+                    resumen=reporte.descripcion or f"Reporte ciudadano #{reporte.id_reporte}"
+                )
+
+                ReporteIncidente.objects.create(
+                    incidente=incidente,
+                    reporte=reporte,
+                    tipo_vinculo=ReporteIncidente.TipoVinculo.ORIGEN,
+                    vinculado_por=user
+                )
+
+                HistorialIncidente.objects.create(
+                    incidente=incidente,
+                    usuario=user,
+                    estado_anterior=None,
+                    estado_nuevo=Incidente.EstadoIncidente.NUEVO,
+                    nota=f"Incidente registrado automáticamente a partir de reporte ciudadano #{reporte.id_reporte}"
+                )
+
+            return reporte
 
 
 class SincronizacionItemSerializer(serializers.Serializer):

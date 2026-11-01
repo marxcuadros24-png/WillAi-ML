@@ -33,6 +33,8 @@ export interface AppContextType {
   onOpenDispatch: (inc: Incidente) => void;
   onOpenChangeStatus: (inc: Incidente) => void;
   onOpenCloseIncident: (inc: Incidente) => void;
+  handleAceptarIncidente: (incidente: Incidente) => Promise<void>;
+  handleRechazarIncidente: (incidente: Incidente) => Promise<void>;
   handleValidarReporteAction: (reporte: ReporteCiudadano, resultado: 'validado' | 'rechazado' | 'observado') => Promise<void>;
   handleEliminarReporteAction: (reporte: ReporteCiudadano) => Promise<void>;
   handleConvertirReporteAIncidente: (reporte: ReporteCiudadano) => void;

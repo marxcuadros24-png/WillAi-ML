@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
-import { contarReportesPendientes, sincronizarColaOffline } from '../db/offlineQueue';
+import { contarReportesPendientes, sincronizarColaOffline, purgarReportesAntiguos } from '../db/offlineQueue';
 import { useAuthStore } from '../stores/authStore';
 
 export function useNetworkSync() {
@@ -9,33 +9,59 @@ export function useNetworkSync() {
   const [syncing, setSyncing] = useState<boolean>(false);
   const token = useAuthStore((s) => s.token);
   const wasOfflineRef = useRef<boolean>(false);
+  const isSyncingRef = useRef<boolean>(false);
 
   const refrescarContador = useCallback(() => {
-    const c = contarReportesPendientes();
-    setPendingCount(c);
+    try {
+      const c = contarReportesPendientes();
+      setPendingCount(c);
+      return c;
+    } catch {
+      return 0;
+    }
   }, []);
 
   const forzarSync = useCallback(async () => {
-    if (syncing) return;
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
     setSyncing(true);
     try {
       await sincronizarColaOffline(token);
+    } catch (e) {
+      console.warn('[useNetworkSync] Error durante sincronización:', e);
     } finally {
       refrescarContador();
+      isSyncingRef.current = false;
       setSyncing(false);
     }
-  }, [token, syncing, refrescarContador]);
+  }, [token, refrescarContador]);
 
   useEffect(() => {
-    // Inicializar contador
+    // 0. Purgar reportes antiguos completados o corruptos para no atascar la cola
+    purgarReportesAntiguos();
+
+    // 1. Inicializar contador
     refrescarContador();
 
-    // Suscribirse a cambios de red con NetInfo
+    // 2. Comprobar estado de red inicial al abrir la app y sincronizar cola pendiente
+    NetInfo.fetch().then((state) => {
+      const conectado = Boolean(state.isConnected);
+      setIsOnline(conectado);
+      if (conectado) {
+        const count = refrescarContador();
+        if (count > 0) {
+          forzarSync();
+        }
+      }
+      wasOfflineRef.current = !conectado;
+    });
+
+    // 3. Suscribirse a cambios continuos de red con NetInfo
     const unsubscribe = NetInfo.addEventListener((state: NetInfoState) => {
-      const conectado = Boolean(state.isConnected && state.isInternetReachable !== false);
+      const conectado = Boolean(state.isConnected);
       setIsOnline(conectado);
 
-      // Si antes estábamos offline y ahora hay señal, sincronizar automáticamente
+      // Si recuperamos señal, sincronizar automáticamente
       if (conectado && wasOfflineRef.current) {
         forzarSync();
       }
@@ -43,17 +69,36 @@ export function useNetworkSync() {
       wasOfflineRef.current = !conectado;
     });
 
+    // 4. Temporizador periódico de sincronización automática en segundo plano (cada 12s)
+    const timer = setInterval(() => {
+      const count = refrescarContador();
+      if (count > 0 && !isSyncingRef.current) {
+        NetInfo.fetch().then((state) => {
+          if (state.isConnected) {
+            console.log('[useNetworkSync] Auto-sincronizando reportes pendientes en segundo plano...');
+            forzarSync();
+          }
+        });
+      }
+    }, 12000);
+
     return () => {
       unsubscribe();
+      clearInterval(timer);
     };
   }, [refrescarContador, forzarSync]);
+
+  const limpiarCola = useCallback(() => {
+    purgarReportesAntiguos();
+    refrescarContador();
+  }, [refrescarContador]);
 
   return {
     isOnline,
     pendingCount,
     syncing,
     refrescarContador,
-    forzarSync
+    forzarSync,
+    limpiarCola
   };
 }
-

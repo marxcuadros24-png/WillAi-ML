@@ -15,7 +15,7 @@ Notifications.setNotificationHandler({
 });
 
 /**
- * Inicializa el canal de notificación Android de MÁXIMA PRIORIDAD.
+ * Inicializa el canal de notificación Android de MÁXIMA PRIORIDAD con sonido y vibración.
  */
 export async function configurarCanalNotificacionesAndroid(): Promise<void> {
   if (Platform.OS === 'android') {
@@ -23,17 +23,54 @@ export async function configurarCanalNotificacionesAndroid(): Promise<void> {
       await Notifications.setNotificationChannelAsync(CANAL_NOTIFICACION_ID, {
         name: NOMBRE_CANAL_NOTIFICACION,
         importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
+        vibrationPattern: [0, 500, 200, 500],
         lightColor: '#ef4444',
-        sound: undefined,
+        sound: 'default',
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
         enableVibrate: true,
+        enableLights: true,
         showBadge: true
       });
     } catch (e) {
       // Ignorar de forma segura en Expo Go cliente de desarrollo
       console.warn('Canal de notificación no soportado en Expo Go:', e);
     }
+  }
+}
+
+// Registro en memoria de alertas ya notificadas para evitar disparar sonido duplicado
+const alertasYaNotificadas = new Set<number>();
+
+/**
+ * Emite una notificación nativa con sonido y vibración si la alerta es de emergencia y no ha sonado antes.
+ */
+export async function notificarNuevaAlertaSiCorresponde(alerta: {
+  id_alerta: number;
+  titulo: string;
+  mensaje: string;
+  prioridad?: string;
+}): Promise<boolean> {
+  if (!alerta || !alerta.id_alerta) return false;
+  if (alertasYaNotificadas.has(alerta.id_alerta)) return false;
+
+  alertasYaNotificadas.add(alerta.id_alerta);
+
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `🚨 ALERTA: ${alerta.titulo}`,
+        body: alerta.mensaje,
+        sound: 'default',
+        priority: Notifications.AndroidNotificationPriority.MAX,
+        vibrate: [0, 500, 200, 500],
+        data: { id_alerta: alerta.id_alerta }
+      },
+      trigger: null
+    });
+    return true;
+  } catch (err) {
+    console.warn('Error emitiendo notificación nativa:', err);
+    return false;
   }
 }
 

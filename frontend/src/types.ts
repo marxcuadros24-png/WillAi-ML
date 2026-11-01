@@ -18,6 +18,8 @@ export interface Incidente {
   reportado_por: string;
   origen: 'ciudadano' | 'satelital' | 'verificador';
   tipo_incendio?: string;
+  fotografia_url?: string | null;
+  estado_original?: string;
 }
 
 export interface FocoCalor {

@@ -80,15 +80,17 @@ export async function fetchIncidentes(): Promise<Incidente[]> {
       titulo: item.titulo,
       descripcion: item.descripcion || '',
       severidad: (item.prioridad === 'critica' ? 'critica' : (item.prioridad === 'alta' ? 'alta' : (item.prioridad === 'baja' ? 'baja' : 'media'))),
-      estado: (item.estado === 'cerrado' ? 'cerrado' : (item.estado === 'en_atencion' || item.estado === 'confirmado' || item.estado === 'asignado' ? 'en_combate' : (item.estado === 'controlado' || item.estado === 'contenido' ? 'controlado' : (item.estado === 'extinguido' ? 'extinguido' : 'pendiente')))),
+      estado: (item.estado === 'cerrado' || item.estado === 'descartado' ? 'cerrado' : (item.estado === 'en_atencion' || item.estado === 'confirmado' || item.estado === 'asignado' ? 'en_combate' : (item.estado === 'controlado' || item.estado === 'contenido' ? 'controlado' : (item.estado === 'extinguido' ? 'extinguido' : 'pendiente')))),
+      estado_original: item.estado,
       latitud: parseFloat(item.latitud_referencia || -15.0189),
       longitud: parseFloat(item.longitud_referencia || -73.7806),
       comunidad: item.comunidad_nombre || 'Coracora',
       fecha_inicio: item.detectado_en || item.creado_en || 'Reciente',
       brigadas_asignadas: (item.brigadas_asignadas || []).map((b: any) => typeof b === 'string' ? b : b.nombre),
       viviendas_riesgo: item.viviendas_afectadas_conteo || 0,
-      reportado_por: item.origen || 'Sistema',
-      origen: 'satelital'
+      reportado_por: item.creado_por_nombre || item.origen || 'Ciudadano (App Móvil)',
+      fotografia_url: item.fotografia_url || null,
+      origen: item.creado_por_nombre ? 'ciudadano' : 'satelital'
     }));
   } catch (err) {
     console.warn('Error al consultar incidentes reales:', err);

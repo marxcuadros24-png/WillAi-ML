@@ -2,12 +2,10 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
   ScrollView,
   RefreshControl,
-  ActivityIndicator,
-  Platform
+  ActivityIndicator
 } from 'react-native';
 import Svg, {
   Path,
@@ -20,21 +18,15 @@ import Svg, {
 import {
   Flame,
   AlertTriangle,
-  Wifi,
-  WifiOff,
   CloudSun,
   Wind,
   Droplets,
   RotateCcw,
-  Navigation,
-  Bell,
-  Award,
   ArrowRight,
   MapPin,
-  Compass,
   Map as MapIcon,
-  ShieldAlert,
-  ChevronRight
+  ChevronRight,
+  CheckCircle2
 } from 'lucide-react-native';
 import { COLORS } from '../constants/config';
 import { useTranslation } from '../i18n/useTranslation';
@@ -44,12 +36,16 @@ import {
   fetchFwiActual,
   fetchIncidentesApi,
   fetchFocosFirmsApi,
+  fetchAlertasComunitariasApi,
   FwiActualResponse,
   IncidenteItem,
-  DeteccionFirmsItem
+  DeteccionFirmsItem,
+  AlertaPublicaItem
 } from '../services/api';
 import { WillAiLogo } from '../components/WillAiLogo';
-import { SatelliteSyncBadge } from '../components/SatelliteSyncBadge';
+import { notificarNuevaAlertaSiCorresponde } from '../services/notifications';
+import { esFechaDeHoyPeru } from '../utils/timePeru';
+import { styles } from './HomeScreen.styles';
 
 interface HomeScreenProps {
   onNavigateToReport: () => void;
@@ -66,7 +62,7 @@ interface PuntoIncidenteMap {
   estado: string;
   lat: number;
   lon: number;
-  x: number; // Porcentaje en lienzo SVG
+  x: number;
   y: number;
   distanciaKm: number;
   prioridad: string;
@@ -79,37 +75,63 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onNavigateToProfile
 }) => {
   const { t, idioma, setIdioma } = useTranslation();
-  const { usuario, token, rolActivo } = useAuthStore();
+  const { token } = useAuthStore();
   const { isOnline, pendingCount, syncing, forzarSync } = useNetworkSync();
 
   const [fwiData, setFwiData] = useState<FwiActualResponse | null>(null);
   const [incidentes, setIncidentes] = useState<IncidenteItem[]>([]);
   const [focosSatelite, setFocosSatelite] = useState<DeteccionFirmsItem[]>([]);
+  const [ultimaAlerta, setUltimaAlerta] = useState<AlertaPublicaItem | null>(null);
   const [puntosMapa, setPuntosMapa] = useState<PuntoIncidenteMap[]>([]);
-  const [cargando, setCargando] = useState<boolean>(true);
+  const [cargando, setCargando] = useState<boolean>(false);
   const [refrescando, setRefrescando] = useState<boolean>(false);
 
-  // Cargar datos desde el backend Django
+  // Cargar datos desde el backend Django (Estrictamente los fuegos de HOY)
   const cargarDatos = async () => {
-    setCargando(true);
     try {
-      const [fwi, incList, firmsList] = await Promise.all([
+      const [fwi, incList, firmsList, alertasList] = await Promise.all([
         fetchFwiActual(),
         fetchIncidentesApi(token),
-        fetchFocosFirmsApi(10)
+        fetchFocosFirmsApi(10),
+        fetchAlertasComunitariasApi()
       ]);
 
       if (fwi) setFwiData(fwi);
-      if (incList) setIncidentes(incList);
-      if (firmsList) setFocosSatelite(firmsList);
 
-      // Calcular puntos para el mapa interactivo de Parinacochas
+      // 1. Filtrar incidentes ÚNICAMENTE del día de hoy en Perú
+      const incidentesHoy = (incList || []).filter((inc) =>
+        esFechaDeHoyPeru(inc.detectado_en || inc.creado_en)
+      );
+      setIncidentes(incidentesHoy);
+
+      // 2. Filtrar focos térmicos del día de hoy
+      const focosHoy = (firmsList || []).filter((fir) =>
+        esFechaDeHoyPeru(fir.fecha_observacion)
+      );
+      setFocosSatelite(focosHoy);
+
+      // 3. Alerta comunitaria activa + emisión de sonido y notificación nativa
+      if (alertasList && alertasList.length > 0) {
+        const activa = alertasList.find(
+          (a) =>
+            ['critica', 'muy_alta', 'alta'].includes(a.prioridad) &&
+            ['emitida', 'enviada'].includes(a.estado)
+        ) || alertasList[0];
+
+        setUltimaAlerta(activa);
+
+        if (activa && ['critica', 'muy_alta', 'alta'].includes(activa.prioridad)) {
+          notificarNuevaAlertaSiCorresponde(activa);
+        }
+      }
+
+      // Calcular puntos para el mapa interactivo de Parinacochas (solo de hoy)
       const minLat = -15.20, maxLat = -14.90;
       const minLon = -73.95, maxLon = -73.65;
       const puntos: PuntoIncidenteMap[] = [];
 
-      // 1. Mapear incidentes reales de Django
-      (incList || []).forEach((inc, idx) => {
+      // Mapear incidentes de hoy con títulos amigables (cero códigos técnicos INC-)
+      incidentesHoy.forEach((inc, idx) => {
         const lat = typeof inc.latitud_referencia === 'string'
           ? parseFloat(inc.latitud_referencia)
           : Number(inc.latitud_referencia) || -15.0228;
@@ -121,11 +143,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         const normY = Math.max(15, Math.min(85, ((maxLat - lat) / (maxLat - minLat)) * 65));
         const dist = Math.round(Math.sqrt(Math.pow((lat - -15.0189) * 111, 2) + Math.pow((lon - -73.7806) * 107, 2)) * 10) / 10;
 
+        const nombreLugar = inc.comunidad_nombre || inc.distrito_nombre || 'Coracora';
+
         puntos.push({
           id: `inc-${inc.id_incidente}`,
           tipo: 'incidente',
-          titulo: inc.codigo || `Incidente #${idx + 1}`,
-          sector: inc.comunidad_nombre || inc.distrito_nombre || 'Coracora',
+          titulo: `Fuego en ${nombreLugar}`,
+          sector: `Sector ${nombreLugar}`,
           estado: inc.estado_display || inc.estado,
           lat,
           lon,
@@ -136,8 +160,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         });
       });
 
-      // 2. Mapear focos térmicos FIRMS de Django
-      (firmsList || []).slice(0, 4).forEach((fir, idx) => {
+      // Mapear focos térmicos de hoy sin nombres confidenciales de satélites
+      focosHoy.slice(0, 4).forEach((fir, idx) => {
         const lat = typeof fir.latitud === 'string' ? parseFloat(fir.latitud) : Number(fir.latitud);
         const lon = typeof fir.longitud === 'string' ? parseFloat(fir.longitud) : Number(fir.longitud);
 
@@ -148,9 +172,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         puntos.push({
           id: `fir-${fir.id_deteccion || idx}`,
           tipo: 'satelite',
-          titulo: `Foco Térmico ${fir.sensor}`,
-          sector: 'Pajonal Parinacochas',
-          estado: 'Detección Satelital',
+          titulo: 'Foco de calor detectado',
+          sector: 'Zona rural Parinacochas',
+          estado: 'Detección de calor hoy',
           lat,
           lon,
           x: normX,
@@ -159,23 +183,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           prioridad: 'alta'
         });
       });
-
-      // Si la BD no tuviese datos en ese momento, asegurar punto por defecto
-      if (puntos.length === 0) {
-        puntos.push({
-          id: 'def-1',
-          tipo: 'incidente',
-          titulo: 'INC-20261030-001',
-          sector: 'Sector Huaccana Alta',
-          estado: 'En Combate',
-          lat: -15.0228,
-          lon: -73.7653,
-          x: 58,
-          y: 35,
-          distanciaKm: 3.4,
-          prioridad: 'critica'
-        });
-      }
 
       setPuntosMapa(puntos);
     } finally {
@@ -248,25 +255,45 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </View>
       </View>
 
-      {/* 2. Barra de Estado Satelital y Conexión */}
-      <View style={styles.statusRow}>
-        <SatelliteSyncBadge />
-
-        <View style={styles.statusNetBadge}>
-          <View style={[styles.statusNetDot, { backgroundColor: isOnline ? '#059669' : '#d97706' }]} />
-          <Text style={[styles.statusNetText, { color: isOnline ? '#059669' : '#d97706' }]}>
-            {isOnline ? 'Online 4G/2G' : 'Offline SQLite'}
-          </Text>
-        </View>
-      </View>
-
       {/* Banner de Sincronización si hay reportes en cola */}
       {pendingCount > 0 && (
         <TouchableOpacity style={styles.pendingBanner} onPress={forzarSync} activeOpacity={0.75}>
           <RotateCcw size={14} color="#ffffff" />
           <Text style={styles.pendingBannerText}>
-            {syncing ? t('syncing_now') : t('pending_reports_counter', { count: pendingCount })} (Toca para sincronizar)
+            {syncing ? t('syncing_now') : t('pending_reports_counter', { count: pendingCount })} (Toca para enviar)
           </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* BANNER DE ALERTA COMUNITARIA ACTIVA DESDE LA CENTRAL */}
+      {ultimaAlerta && (
+        <TouchableOpacity
+          style={{
+            backgroundColor: '#fee2e2',
+            borderColor: '#ef4444',
+            borderWidth: 1.5,
+            borderRadius: 12,
+            padding: 12,
+            marginBottom: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10
+          }}
+          onPress={onNavigateToAlerts}
+          activeOpacity={0.8}
+        >
+          <View style={{ backgroundColor: '#ef4444', padding: 6, borderRadius: 8 }}>
+            <AlertTriangle size={18} color="#ffffff" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#991b1b' }}>
+              🚨 ALERTA: {ultimaAlerta.titulo}
+            </Text>
+            <Text style={{ fontSize: 11.5, color: '#b91c1c', marginTop: 2 }} numberOfLines={1}>
+              {ultimaAlerta.mensaje}
+            </Text>
+          </View>
+          <ChevronRight size={16} color="#ef4444" />
         </TouchableOpacity>
       )}
 
@@ -279,27 +306,31 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <View style={{ flex: 1 }}>
             <Text style={styles.emergencyTitle}>{t('btn_report_fire')}</Text>
             <Text style={styles.emergencySubtitle}>
-              {idioma === 'qu' ? 'GPS hinaspa fotowan willay' : 'Envío urgente con cámara y GPS a la central'}
+              {idioma === 'qu' ? 'Cámarawan hinaspa GPS-wan willay' : 'Toca aquí con cámara y GPS para pedir ayuda'}
             </Text>
           </View>
           <ArrowRight size={20} color="#ffffff" />
         </View>
       </TouchableOpacity>
 
-      {/* 4. MAPA DE INCIDENTES EN VIVO (CONSUMIDO DIRECTAMENTE DESDE EL BACKEND DJANGO) */}
+      {/* 4. MAPA DE INCIDENTES EN VIVO */}
       <View style={styles.mapIncidentCard}>
         <View style={styles.mapCardHeader}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <MapIcon size={18} color={COLORS.firePrimary} />
-            <Text style={styles.mapCardTitle}>Mapa de Incidentes en Vivo</Text>
+            <Text style={styles.mapCardTitle}>
+              {idioma === 'qu' ? '¿Maypim nina kachkan?' : '¿Dónde hay fuego ahora?'}
+            </Text>
           </View>
 
-          <View style={styles.activePill}>
-            <View style={styles.redPulseDot} />
-            <Text style={styles.activePillText}>
+          <View style={[styles.activePill, puntosMapa.length === 0 && { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' }]}>
+            <View style={[styles.redPulseDot, puntosMapa.length === 0 && { backgroundColor: '#059669' }]} />
+            <Text style={[styles.activePillText, puntosMapa.length === 0 && { color: '#065f46' }]}>
               {incidentesActivos.length > 0
-                ? `${incidentesActivos.length} en combate`
-                : `${puntosMapa.length} focos detectados`}
+                ? `${incidentesActivos.length} ${idioma === 'qu' ? 'wañuchichkanku' : 'apagando hoy'}`
+                : puntosMapa.length > 0
+                ? `${puntosMapa.length} ${idioma === 'qu' ? 'nina rikusqa' : 'fuegos hoy'}`
+                : (idioma === 'qu' ? 'Mana ninachu kunan' : 'Sin fuegos hoy')}
             </Text>
           </View>
         </View>
@@ -313,7 +344,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           {cargando ? (
             <View style={styles.loadingMapBox}>
               <ActivityIndicator size="small" color={COLORS.firePrimary} />
-              <Text style={styles.loadingMapText}>Cargando incidentes desde el servidor...</Text>
+              <Text style={styles.loadingMapText}>
+                {idioma === 'qu' ? 'Suyay... ninakunata maskachkan' : 'Buscando fuegos cerca...'}
+              </Text>
             </View>
           ) : (
             <Svg width="100%" height={170} viewBox="0 0 100 65">
@@ -338,7 +371,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <Circle cx="44" cy="33" r="3.2" fill="rgba(2, 132, 199, 0.2)" />
               <Circle cx="44" cy="33" r="1.6" fill="#0284c7" stroke="#ffffff" strokeWidth="0.5" />
 
-              {/* Puntos de Incidentes y Focos Térmicos del Backend */}
+              {/* Puntos de Incidentes y Focos Térmicos */}
               {puntosMapa.map((p) => {
                 const color = p.prioridad === 'critica' ? '#dc2626' : '#ea580c';
                 return (
@@ -347,7 +380,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     <Circle cx={p.x} cy={p.y} r={4.5} fill={color} opacity={0.25} />
                     {/* Núcleo de llama */}
                     <Circle cx={p.x} cy={p.y} r={2.2} fill={color} stroke="#ffffff" strokeWidth="0.6" />
-                    {/* Vector de viento hacia el Noreste */}
+                    {/* Flecha de viento hacia el Noreste */}
                     <Line x1={p.x} y1={p.y} x2={p.x + 3.5} y2={p.y - 3.5} stroke="#dc2626" strokeWidth="0.7" strokeDasharray="1,1" />
                   </G>
                 );
@@ -359,52 +392,65 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <View style={styles.floatingLegend}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#0284c7' }]} />
-              <Text style={styles.legendLabel}>Tú</Text>
+              <Text style={styles.legendLabel}>{idioma === 'qu' ? 'Qam' : 'Tú'}</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#dc2626' }]} />
-              <Text style={styles.legendLabel}>Fuego</Text>
+              <Text style={styles.legendLabel}>{idioma === 'qu' ? 'Nina' : 'Fuego'}</Text>
             </View>
           </View>
         </TouchableOpacity>
 
-        {/* Tarjeta del Incidente Más Próximo */}
+        {/* Foco más cercano al poblador */}
         {focoMasCercano && (
           <View style={styles.nearestIncidentBox}>
             <View style={styles.nearestTopRow}>
-              <View style={{ flex: 1 }}>
+              <View>
                 <Text style={styles.nearestSectorText}>{focoMasCercano.sector}</Text>
-                <Text style={styles.nearestTitleText}>
-                  {focoMasCercano.titulo} • <Text style={{ color: '#dc2626' }}>{focoMasCercano.estado}</Text>
-                </Text>
+                <Text style={styles.nearestTitleText}>{focoMasCercano.titulo}</Text>
               </View>
-
               <View style={styles.distBadge}>
-                <Text style={styles.distBadgeText}>A {focoMasCercano.distanciaKm} km</Text>
+                <Text style={styles.distBadgeText}>{focoMasCercano.distanciaKm} km de ti</Text>
               </View>
             </View>
 
             <View style={styles.windRow}>
-              <Compass size={13} color={COLORS.textSecondary} />
+              <Wind size={12} color="#0284c7" />
               <Text style={styles.windText}>
-                Viento {fwiData?.velocidad_viento ? `${Math.round(fwiData.velocidad_viento)} km/h` : '24 km/h'} empuja hacia quebrada alta
+                {idioma === 'qu'
+                  ? 'Wayra Huaccana mayuman phawachkan (24 km/h)'
+                  : 'El viento sopla hacia Huaccana (24 km/h)'}
               </Text>
             </View>
 
-            {/* Botón para ver mapa completo */}
-            <TouchableOpacity
-              style={styles.btnExpandMap}
-              onPress={onNavigateToMap}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.btnExpandMapText}>AMPLIAR MAPA Y VER RUTA DE ESCAPE</Text>
-              <ChevronRight size={16} color={COLORS.firePrimary} />
+            <TouchableOpacity style={styles.btnExpandMap} onPress={onNavigateToMap} activeOpacity={0.8}>
+              <Text style={styles.btnExpandMapText}>
+                {idioma === 'qu' ? 'Hatun saywitita qaway' : 'Tocar para ver el mapa completo'}
+              </Text>
+              <ChevronRight size={14} color={COLORS.firePrimary} />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {!focoMasCercano && (
+          <View style={[styles.nearestIncidentBox, { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <CheckCircle2 size={18} color="#059669" />
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#166534' }}>
+                {idioma === 'qu' ? 'Hawka kawsay: Mana ninachu rikurin kunan' : 'Todo en calma: Sin fuegos reportados hoy'}
+              </Text>
+            </View>
+            <TouchableOpacity style={styles.btnExpandMap} onPress={onNavigateToMap} activeOpacity={0.8}>
+              <Text style={[styles.btnExpandMapText, { color: '#059669' }]}>
+                {idioma === 'qu' ? 'Saywitita qaway' : 'Ver mapa en vivo'}
+              </Text>
+              <ChevronRight size={14} color="#059669" />
             </TouchableOpacity>
           </View>
         )}
       </View>
 
-      {/* 5. NORMA DE SEGURIDAD ANDINA */}
+      {/* 5. NORMA VITAL DE SEGURIDAD ANDINA */}
       <View style={styles.safetyCard}>
         <View style={styles.safetyHeader}>
           <AlertTriangle size={18} color="#dc2626" />
@@ -414,7 +460,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <Text style={styles.safetyDesc}>{t('do_not_climb_desc')}</Text>
       </View>
 
-      {/* 6. TARJETA DE PELIGRO METEOROLÓGICO FWI */}
+      {/* 6. TARJETA DE PELIGRO DE FUEGO HOY */}
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -430,9 +476,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <>
             <View style={[styles.fwiBadge, { borderColor: peligroColor, backgroundColor: `${peligroColor}15` }]}>
               <Text style={[styles.fwiNivelText, { color: peligroColor }]}>
-                {fwiData?.nivel_peligro || 'CRÍTICO / EXTREMO'}
+                {fwiData?.nivel_peligro === 'CRITICO'
+                  ? (idioma === 'qu' ? '¡PELIGRO MÁXIMO! AMA NINATA CHURAYCHU' : '¡PELIGRO MÁXIMO! NO PRENDER FUEGO')
+                  : fwiData?.nivel_peligro === 'ALTO'
+                  ? (idioma === 'qu' ? 'LLUMPAY PELIGRO' : 'MUY PELIGROSO')
+                  : (idioma === 'qu' ? 'CHAWPI PELIGRO' : 'CUIDADO (PELIGRO MEDIO)')}
               </Text>
-              <Text style={styles.fwiScoreText}>FWI {fwiData?.fwi?.toFixed(1) ?? '68.4'} • Pajonal Altoandino</Text>
+              <Text style={styles.fwiScoreText}>
+                {idioma === 'qu' ? 'Pasto ancha chaki kachkan' : 'Pasto e ichu muy secos en las laderas'}
+              </Text>
             </View>
 
             <View style={styles.meteoGrid}>
@@ -463,382 +515,3 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.bgPrimary
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12
-  },
-  headerBrand: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: COLORS.textPrimary
-  },
-  headerSubtitle: {
-    fontSize: 10.5,
-    color: COLORS.textSecondary,
-    fontWeight: '600'
-  },
-  langSelector: {
-    flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle,
-    overflow: 'hidden'
-  },
-  langBtn: {
-    paddingVertical: 5,
-    paddingHorizontal: 9
-  },
-  langBtnActive: {
-    backgroundColor: COLORS.firePrimary
-  },
-  langBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.textSecondary
-  },
-  langBtnTextActive: {
-    color: '#ffffff'
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14
-  },
-  statusNetBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle
-  },
-  statusNetDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5
-  },
-  statusNetText: {
-    fontSize: 11,
-    fontWeight: '700'
-  },
-  pendingBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#d97706',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 14
-  },
-  pendingBannerText: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#ffffff'
-  },
-  btnEmergency: {
-    backgroundColor: '#dc2626',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 14,
-    elevation: 3,
-    shadowColor: '#dc2626',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5
-  },
-  emergencyInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12
-  },
-  emergencyIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  emergencyTitle: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#ffffff',
-    letterSpacing: 0.4
-  },
-  emergencySubtitle: {
-    fontSize: 11,
-    color: '#fee2e2',
-    marginTop: 1
-  },
-  // Tarjeta de Mapa en Inicio
-  mapIncidentCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
-    marginBottom: 14
-  },
-  mapCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10
-  },
-  mapCardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: COLORS.textPrimary
-  },
-  activePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#fee2e2',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12
-  },
-  redPulseDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#dc2626'
-  },
-  activePillText: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: '#dc2626'
-  },
-  canvasWrapper: {
-    borderRadius: 10,
-    overflow: 'hidden',
-    position: 'relative',
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle
-  },
-  loadingMapBox: {
-    height: 170,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#f8fafc'
-  },
-  loadingMapText: {
-    fontSize: 11.5,
-    color: COLORS.textSecondary
-  },
-  floatingLegend: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    flexDirection: 'row',
-    gap: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4
-  },
-  legendDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3
-  },
-  legendLabel: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: COLORS.textPrimary
-  },
-  nearestIncidentBox: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.borderSubtle
-  },
-  nearestTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 4
-  },
-  nearestSectorText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: COLORS.textPrimary
-  },
-  nearestTitleText: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    fontWeight: '600'
-  },
-  distBadge: {
-    backgroundColor: '#fee2e2',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6
-  },
-  distBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#dc2626'
-  },
-  windRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginVertical: 4
-  },
-  windText: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    fontWeight: '600'
-  },
-  btnExpandMap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    backgroundColor: '#fef2f2',
-    paddingVertical: 9,
-    borderRadius: 8,
-    marginTop: 6,
-    borderWidth: 1,
-    borderColor: '#fca5a5'
-  },
-  btnExpandMapText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: COLORS.firePrimary
-  },
-  safetyCard: {
-    backgroundColor: '#fef2f2',
-    borderWidth: 1,
-    borderColor: '#fca5a5',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 14
-  },
-  safetyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4
-  },
-  safetyTitle: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#dc2626',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5
-  },
-  safetyHighlight: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#991b1b',
-    marginVertical: 4
-  },
-  safetyDesc: {
-    fontSize: 11.5,
-    color: '#7f1d1d',
-    lineHeight: 16
-  },
-  card: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1
-  },
-  cardHeader: {
-    marginBottom: 12
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: COLORS.textPrimary
-  },
-  cardHeaderSubtitle: {
-    fontSize: 10.5,
-    color: COLORS.textSecondary,
-    marginTop: 2
-  },
-  fwiBadge: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    alignItems: 'center',
-    marginBottom: 12
-  },
-  fwiNivelText: {
-    fontSize: 20,
-    fontWeight: '900',
-    letterSpacing: 0.8
-  },
-  fwiScoreText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: COLORS.textSecondary,
-    marginTop: 2
-  },
-  meteoGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: COLORS.borderSubtle,
-    paddingTop: 10
-  },
-  meteoItem: {
-    alignItems: 'center'
-  },
-  meteoLabel: {
-    fontSize: 10,
-    color: COLORS.textMuted,
-    marginBottom: 2
-  },
-  meteoValue: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: COLORS.textPrimary
-  }
-});
