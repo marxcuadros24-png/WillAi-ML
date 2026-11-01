@@ -122,8 +122,8 @@ export interface MapLibreMapProps {
   incidentes: IncidenteItem[];
   incidenteSeleccionado: IncidenteItem | null;
   onSelectIncidente: (incidente: IncidenteItem) => void;
-  tipoCapa: 'topo' | 'sat';
-  onChangeTipoCapa: (capa: 'topo' | 'sat') => void;
+  tipoCapa?: 'topo' | 'sat';
+  onChangeTipoCapa?: (capa: 'topo' | 'sat') => void;
 }
 
 export const MapLibreMap: React.FC<MapLibreMapProps> = ({
@@ -208,8 +208,8 @@ export const MapLibreMap: React.FC<MapLibreMapProps> = ({
     }
   };
 
-  // Configuración de estilo actual
-  const currentStyleJSON = tipoCapa === 'sat' ? ESRI_SAT_STYLE : ESRI_TOPO_STYLE;
+  // Configuración de estilo satelital permanente (100% Satelital ESRI)
+  const currentStyleJSON = ESRI_SAT_STYLE;
 
   // Icono y color táctico según estado y tipo de incidente
   const getIncidenteVisual = (inc: IncidenteItem) => {
@@ -313,10 +313,10 @@ export const MapLibreMap: React.FC<MapLibreMapProps> = ({
                     )}
                   </View>
 
-                  {/* Etiqueta de código */}
+                  {/* Etiqueta amigable de sector (sin códigos técnicos INC-) */}
                   <View style={[styles.markerTag, isSelected && styles.markerTagSelected]}>
                     <Text style={styles.markerTagText}>
-                      {inc.codigo ? inc.codigo.replace('INC-', '') : `#${inc.id_incidente}`}
+                      {inc.comunidad_nombre ? inc.comunidad_nombre.slice(0, 10) : (inc.distrito_nombre || 'Fuego')}
                     </Text>
                   </View>
 
@@ -330,29 +330,26 @@ export const MapLibreMap: React.FC<MapLibreMapProps> = ({
       ) : (
         /* Fallback Cartográfico Profesional para entorno Expo Go */
         <View style={styles.expoGoFallbackContainer}>
-          {/* Banner de aviso Development Build */}
+          {/* Banner de vista satelital */}
           <View style={styles.devBuildBanner}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Compass size={14} color="#0284c7" />
               <Text style={styles.devBuildBannerTitle}>
-                Vista Cartográfica Topográfica (Ayacucho)
+                Vista Cartográfica Satelital (Ayacucho)
               </Text>
             </View>
             <Text style={styles.devBuildBannerSubtitle}>
-              MapLibre Native C++ se activará en Android Dev Build:
-              <Text style={{ fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontWeight: '700' }}>
-                {' '}npx expo run:android
-              </Text>
+              Capa satelital ESRI de alta resolución
             </Text>
           </View>
 
           {/* Lienzo cartográfico interactivo con coordenadas reales de Coracora */}
           <Svg width="100%" height="100%" viewBox="0 0 100 100">
-            {/* Fondo topográfico o satelital según capa seleccionada */}
+            {/* Fondo satelital oscuro */}
             <Rect
               width="100"
               height="100"
-              fill={tipoCapa === 'sat' ? '#1e293b' : '#f8fafc'}
+              fill="#1e293b"
             />
 
             {/* Curvas de nivel topográficas y relieve montañoso de la Cordillera de Parinacochas */}
@@ -484,7 +481,7 @@ export const MapLibreMap: React.FC<MapLibreMapProps> = ({
                     fontWeight="800"
                     textAnchor="middle"
                   >
-                    {inc.codigo ? inc.codigo.replace('INC-2026', '') : `#${inc.id_incidente}`}
+                    {inc.comunidad_nombre ? inc.comunidad_nombre.slice(0, 8) : 'Fuego'}
                   </SvgText>
                 </G>
               );
@@ -493,32 +490,6 @@ export const MapLibreMap: React.FC<MapLibreMapProps> = ({
         </View>
       )}
 
-      {/* 2. CONTROLES FLOTANTES SUPERIORES: Conmutador de Capas Topográfico / Satelital */}
-      <View style={styles.topControls}>
-        <View style={styles.layerSelector}>
-          <TouchableOpacity
-            style={[styles.layerBtn, tipoCapa === 'topo' && styles.layerBtnActive]}
-            onPress={() => onChangeTipoCapa('topo')}
-            activeOpacity={0.8}
-          >
-            <Compass size={13} color={tipoCapa === 'topo' ? '#ffffff' : COLORS.textSecondary} />
-            <Text style={[styles.layerBtnText, tipoCapa === 'topo' && styles.layerBtnTextActive]}>
-              Topográfico (IGN)
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.layerBtn, tipoCapa === 'sat' && styles.layerBtnActive]}
-            onPress={() => onChangeTipoCapa('sat')}
-            activeOpacity={0.8}
-          >
-            <Layers size={13} color={tipoCapa === 'sat' ? '#ffffff' : COLORS.textSecondary} />
-            <Text style={[styles.layerBtnText, tipoCapa === 'sat' && styles.layerBtnTextActive]}>
-              Satelital (ESRI)
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
 
       {/* 3. BARRA LATERAL DE HERRAMIENTAS GIS: Centrado, GPS, Zoom In/Out, Brújula */}
       <View style={styles.sideControls}>

@@ -20,19 +20,9 @@ import {
 import { COLORS } from '../constants/config';
 import { useTranslation } from '../i18n/useTranslation';
 import { fetchAlertasComunitariasApi, AlertaPublicaItem } from '../services/api';
+import { notificarNuevaAlertaSiCorresponde } from '../services/notifications';
+import { formatoTiempoRelativo, formatearHora12Peru } from '../utils/timePeru';
 import { styles } from './AlertsScreen.styles';
-
-function formatoTiempo(fechaIso?: string): string {
-  if (!fechaIso) return 'Reciente';
-  const fecha = new Date(fechaIso);
-  const ahora = new Date();
-  const diffMin = Math.round((ahora.getTime() - fecha.getTime()) / 60000);
-  if (diffMin < 2) return 'Justo ahora';
-  if (diffMin < 60) return `Hace ${diffMin} min`;
-  const diffHoras = Math.round(diffMin / 60);
-  if (diffHoras < 24) return `Hace ${diffHoras} h`;
-  return `Hace ${Math.round(diffHoras / 24)} d`;
-}
 
 export const AlertsScreen: React.FC = () => {
   const { t, idioma } = useTranslation();
@@ -46,6 +36,16 @@ export const AlertsScreen: React.FC = () => {
       const data = await fetchAlertasComunitariasApi();
       if (Array.isArray(data)) {
         setAlertas(data);
+
+        // Disparar sonido y notificación nativa para alertas críticas o activas de hoy
+        const alertaUrgente = data.find(
+          (a) =>
+            ['critica', 'muy_alta', 'alta'].includes(a.prioridad) &&
+            ['emitida', 'enviada'].includes(a.estado)
+        );
+        if (alertaUrgente) {
+          notificarNuevaAlertaSiCorresponde(alertaUrgente);
+        }
       }
     } finally {
       setCargando(false);
@@ -169,6 +169,9 @@ export const AlertsScreen: React.FC = () => {
               ? '#ea580c'
               : '#0284c7';
 
+          const horaEmitida = formatearHora12Peru(alerta.emitida_en || alerta.creada_en);
+          const tiempoRelativo = formatoTiempoRelativo(alerta.emitida_en || alerta.creada_en);
+
           return (
             <View key={alerta.id_alerta} style={styles.alertCard}>
               <View style={styles.alertCardHeader}>
@@ -190,7 +193,7 @@ export const AlertsScreen: React.FC = () => {
                 <View style={styles.alertTimeRow}>
                   <Clock size={11} color={COLORS.textMuted} />
                   <Text style={styles.alertTime}>
-                    {formatoTiempo(alerta.emitida_en || alerta.creada_en)}
+                    {horaEmitida ? `${horaEmitida} (${tiempoRelativo})` : tiempoRelativo}
                   </Text>
                 </View>
               </View>
@@ -207,9 +210,7 @@ export const AlertsScreen: React.FC = () => {
                 <View style={styles.alertSectorRow}>
                   <MapPin size={12} color={COLORS.textMuted} />
                   <Text style={styles.alertSectorText}>
-                    {alerta.incidente_codigo
-                      ? `Incidente ${alerta.incidente_codigo} · Coracora`
-                      : 'Distrito Coracora · Parinacochas'}
+                    Sector en Alerta · Parinacochas
                   </Text>
                 </View>
 

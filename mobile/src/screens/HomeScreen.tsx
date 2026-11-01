@@ -25,7 +25,8 @@ import {
   ArrowRight,
   MapPin,
   Map as MapIcon,
-  ChevronRight
+  ChevronRight,
+  CheckCircle2
 } from 'lucide-react-native';
 import { COLORS } from '../constants/config';
 import { useTranslation } from '../i18n/useTranslation';
@@ -42,7 +43,8 @@ import {
   AlertaPublicaItem
 } from '../services/api';
 import { WillAiLogo } from '../components/WillAiLogo';
-import { SatelliteSyncBadge } from '../components/SatelliteSyncBadge';
+import { notificarNuevaAlertaSiCorresponde } from '../services/notifications';
+import { esFechaDeHoyPeru } from '../utils/timePeru';
 import { styles } from './HomeScreen.styles';
 
 interface HomeScreenProps {
@@ -80,25 +82,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [incidentes, setIncidentes] = useState<IncidenteItem[]>([]);
   const [focosSatelite, setFocosSatelite] = useState<DeteccionFirmsItem[]>([]);
   const [ultimaAlerta, setUltimaAlerta] = useState<AlertaPublicaItem | null>(null);
-  const [puntosMapa, setPuntosMapa] = useState<PuntoIncidenteMap[]>([
-    {
-      id: 'def-1',
-      tipo: 'incidente',
-      titulo: 'INC-20261030-001',
-      sector: 'Sector Huaccana Alta',
-      estado: 'En Combate',
-      lat: -15.0228,
-      lon: -73.7653,
-      x: 58,
-      y: 35,
-      distanciaKm: 3.4,
-      prioridad: 'critica'
-    }
-  ]);
+  const [puntosMapa, setPuntosMapa] = useState<PuntoIncidenteMap[]>([]);
   const [cargando, setCargando] = useState<boolean>(false);
   const [refrescando, setRefrescando] = useState<boolean>(false);
 
-  // Cargar datos desde el backend Django
+  // Cargar datos desde el backend Django (Estrictamente los fuegos de HOY)
   const cargarDatos = async () => {
     try {
       const [fwi, incList, firmsList, alertasList] = await Promise.all([
@@ -109,20 +97,41 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       ]);
 
       if (fwi) setFwiData(fwi);
-      if (incList) setIncidentes(incList);
-      if (firmsList) setFocosSatelite(firmsList);
+
+      // 1. Filtrar incidentes ÚNICAMENTE del día de hoy en Perú
+      const incidentesHoy = (incList || []).filter((inc) =>
+        esFechaDeHoyPeru(inc.detectado_en || inc.creado_en)
+      );
+      setIncidentes(incidentesHoy);
+
+      // 2. Filtrar focos térmicos del día de hoy
+      const focosHoy = (firmsList || []).filter((fir) =>
+        esFechaDeHoyPeru(fir.fecha_observacion)
+      );
+      setFocosSatelite(focosHoy);
+
+      // 3. Alerta comunitaria activa + emisión de sonido y notificación nativa
       if (alertasList && alertasList.length > 0) {
-        const activa = alertasList.find(a => ['critica', 'muy_alta', 'alta'].includes(a.prioridad) && ['emitida', 'enviada'].includes(a.estado)) || alertasList[0];
+        const activa = alertasList.find(
+          (a) =>
+            ['critica', 'muy_alta', 'alta'].includes(a.prioridad) &&
+            ['emitida', 'enviada'].includes(a.estado)
+        ) || alertasList[0];
+
         setUltimaAlerta(activa);
+
+        if (activa && ['critica', 'muy_alta', 'alta'].includes(activa.prioridad)) {
+          notificarNuevaAlertaSiCorresponde(activa);
+        }
       }
 
-      // Calcular puntos para el mapa interactivo de Parinacochas
+      // Calcular puntos para el mapa interactivo de Parinacochas (solo de hoy)
       const minLat = -15.20, maxLat = -14.90;
       const minLon = -73.95, maxLon = -73.65;
       const puntos: PuntoIncidenteMap[] = [];
 
-      // 1. Mapear incidentes reales de Django
-      (incList || []).forEach((inc, idx) => {
+      // Mapear incidentes de hoy con títulos amigables (cero códigos técnicos INC-)
+      incidentesHoy.forEach((inc, idx) => {
         const lat = typeof inc.latitud_referencia === 'string'
           ? parseFloat(inc.latitud_referencia)
           : Number(inc.latitud_referencia) || -15.0228;
@@ -134,11 +143,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         const normY = Math.max(15, Math.min(85, ((maxLat - lat) / (maxLat - minLat)) * 65));
         const dist = Math.round(Math.sqrt(Math.pow((lat - -15.0189) * 111, 2) + Math.pow((lon - -73.7806) * 107, 2)) * 10) / 10;
 
+        const nombreLugar = inc.comunidad_nombre || inc.distrito_nombre || 'Coracora';
+
         puntos.push({
           id: `inc-${inc.id_incidente}`,
           tipo: 'incidente',
-          titulo: inc.codigo || `Incidente #${idx + 1}`,
-          sector: inc.comunidad_nombre || inc.distrito_nombre || 'Coracora',
+          titulo: `Fuego en ${nombreLugar}`,
+          sector: `Sector ${nombreLugar}`,
           estado: inc.estado_display || inc.estado,
           lat,
           lon,
@@ -149,8 +160,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         });
       });
 
-      // 2. Mapear focos térmicos satelitales
-      (firmsList || []).slice(0, 4).forEach((fir, idx) => {
+      // Mapear focos térmicos de hoy sin nombres confidenciales de satélites
+      focosHoy.slice(0, 4).forEach((fir, idx) => {
         const lat = typeof fir.latitud === 'string' ? parseFloat(fir.latitud) : Number(fir.latitud);
         const lon = typeof fir.longitud === 'string' ? parseFloat(fir.longitud) : Number(fir.longitud);
 
@@ -161,9 +172,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         puntos.push({
           id: `fir-${fir.id_deteccion || idx}`,
           tipo: 'satelite',
-          titulo: `Foco Satelital ${fir.sensor}`,
-          sector: 'Pajonal Parinacochas',
-          estado: 'Visto por satélite',
+          titulo: 'Foco de calor detectado',
+          sector: 'Zona rural Parinacochas',
+          estado: 'Detección de calor hoy',
           lat,
           lon,
           x: normX,
@@ -172,23 +183,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           prioridad: 'alta'
         });
       });
-
-      // Si la BD no tuviese datos en ese momento, asegurar punto por defecto
-      if (puntos.length === 0) {
-        puntos.push({
-          id: 'def-1',
-          tipo: 'incidente',
-          titulo: 'INC-20261030-001',
-          sector: 'Sector Huaccana Alta',
-          estado: 'En Combate',
-          lat: -15.0228,
-          lon: -73.7653,
-          x: 58,
-          y: 35,
-          distanciaKm: 3.4,
-          prioridad: 'critica'
-        });
-      }
 
       setPuntosMapa(puntos);
     } finally {
@@ -261,20 +255,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </View>
       </View>
 
-      {/* 2. Barra de Estado Satelital y Conexión */}
-      <View style={styles.statusRow}>
-        <SatelliteSyncBadge />
-
-        <View style={styles.statusNetBadge}>
-          <View style={[styles.statusNetDot, { backgroundColor: isOnline ? '#059669' : '#d97706' }]} />
-          <Text style={[styles.statusNetText, { color: isOnline ? '#059669' : '#d97706' }]}>
-            {isOnline
-              ? (idioma === 'qu' ? '🟢 Signal kachkan' : '🟢 Hay señal')
-              : (idioma === 'qu' ? '🟠 Mana signalchu (celularpi)' : '🟠 Sin señal (se guarda aquí)')}
-          </Text>
-        </View>
-      </View>
-
       {/* Banner de Sincronización si hay reportes en cola */}
       {pendingCount > 0 && (
         <TouchableOpacity style={styles.pendingBanner} onPress={forzarSync} activeOpacity={0.75}>
@@ -343,12 +323,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </Text>
           </View>
 
-          <View style={styles.activePill}>
-            <View style={styles.redPulseDot} />
-            <Text style={styles.activePillText}>
+          <View style={[styles.activePill, puntosMapa.length === 0 && { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' }]}>
+            <View style={[styles.redPulseDot, puntosMapa.length === 0 && { backgroundColor: '#059669' }]} />
+            <Text style={[styles.activePillText, puntosMapa.length === 0 && { color: '#065f46' }]}>
               {incidentesActivos.length > 0
-                ? `${incidentesActivos.length} ${idioma === 'qu' ? 'wañuchichkanku' : 'apagando ahora'}`
-                : `${puntosMapa.length} ${idioma === 'qu' ? 'nina rikusqa' : 'fuegos vistos'}`}
+                ? `${incidentesActivos.length} ${idioma === 'qu' ? 'wañuchichkanku' : 'apagando hoy'}`
+                : puntosMapa.length > 0
+                ? `${puntosMapa.length} ${idioma === 'qu' ? 'nina rikusqa' : 'fuegos hoy'}`
+                : (idioma === 'qu' ? 'Mana ninachu kunan' : 'Sin fuegos hoy')}
             </Text>
           </View>
         </View>
@@ -446,6 +428,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 {idioma === 'qu' ? 'Hatun saywitita qaway' : 'Tocar para ver el mapa completo'}
               </Text>
               <ChevronRight size={14} color={COLORS.firePrimary} />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {!focoMasCercano && (
+          <View style={[styles.nearestIncidentBox, { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <CheckCircle2 size={18} color="#059669" />
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#166534' }}>
+                {idioma === 'qu' ? 'Hawka kawsay: Mana ninachu rikurin kunan' : 'Todo en calma: Sin fuegos reportados hoy'}
+              </Text>
+            </View>
+            <TouchableOpacity style={styles.btnExpandMap} onPress={onNavigateToMap} activeOpacity={0.8}>
+              <Text style={[styles.btnExpandMapText, { color: '#059669' }]}>
+                {idioma === 'qu' ? 'Saywitita qaway' : 'Ver mapa en vivo'}
+              </Text>
+              <ChevronRight size={14} color="#059669" />
             </TouchableOpacity>
           </View>
         )}

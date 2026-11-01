@@ -154,9 +154,9 @@ export async function sincronizarColaOffline(token?: string | null): Promise<{
     const latitudRedondeada = Number(Number(item.latitud).toFixed(6));
     const longitudRedondeada = Number(Number(item.longitud).toFixed(6));
 
-    // Preservar la imagen Base64 (data:image) o enviar null si no hay imagen válida
+    // Preservar la imagen Base64 (data:image o base64 codificado)
     const fotoLimpia =
-      item.foto_uri && item.foto_uri.startsWith('data:image')
+      item.foto_uri && (item.foto_uri.startsWith('data:image') || item.foto_uri.length > 200)
         ? item.foto_uri
         : null;
 
@@ -171,6 +171,7 @@ export async function sincronizarColaOffline(token?: string | null): Promise<{
           tipo_fuego: item.tipo_fuego,
           combustible: item.combustible,
           foto_uri: fotoLimpia,
+          foto_base64: fotoLimpia,
           fecha_captura: item.fecha_captura
         },
         token

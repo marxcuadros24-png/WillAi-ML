@@ -244,15 +244,6 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
             {idioma === 'qu' ? 'Kutipariy' : 'Volver'}
           </Text>
         </TouchableOpacity>
-
-        <View style={styles.statusBadge}>
-          <View style={[styles.statusDot, { backgroundColor: isOnline ? '#059669' : '#d97706' }]} />
-          <Text style={styles.statusText}>
-            {isOnline
-              ? (idioma === 'qu' ? '🟢 Signal kachkan' : '🟢 Hay señal')
-              : (idioma === 'qu' ? '🟠 Mana signalchu (celularpi)' : '🟠 Sin señal (se guarda aquí)')}
-          </Text>
-        </View>
       </View>
 
       {/* Pantalla de Confirmación de Envío */}

@@ -40,84 +40,15 @@ import {
   IncidenteDetail
 } from '../services/api';
 import { MapLibreMap } from '../components/MapLibreMap';
+import {
+  esFechaDeHoyPeru,
+  getFechaHoyPeru,
+  formatearHora12Peru,
+  formatearFechaHoraLegible
+} from '../utils/timePeru';
 import { styles } from './MapScreen.styles';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-/**
- * Obtiene la fecha actual en Perú (America/Lima, UTC-5).
- * Formato devuelto: YYYY-MM-DD
- */
-export function getFechaHoyPeru(): string {
-  try {
-    const formatter = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Lima',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    });
-    return formatter.format(new Date());
-  } catch {
-    const ahora = new Date();
-    const lima = new Date(ahora.getTime() - 5 * 3600000);
-    return lima.toISOString().slice(0, 10);
-  }
-}
-
-/**
- * Formatea fecha y hora en formato legible de Perú.
- */
-export function formatearFechaHoraPeru(isoString?: string): { fecha: string; hora: string } {
-  if (!isoString) {
-    const hoy = getFechaHoyPeru().split('-');
-    return {
-      fecha: `${hoy[2]}/${hoy[1]}/${hoy[0]}`,
-      hora: 'En atención'
-    };
-  }
-  try {
-    const d = new Date(isoString);
-    const fecha = d.toLocaleDateString('es-PE', {
-      timeZone: 'America/Lima',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-    const hora = d.toLocaleTimeString('es-PE', {
-      timeZone: 'America/Lima',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    }) + ' hrs';
-    return { fecha, hora };
-  } catch {
-    const p = isoString.slice(0, 10).split('-');
-    return {
-      fecha: p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : isoString.slice(0, 10),
-      hora: (isoString.slice(11, 16) || '12:00') + ' hrs'
-    };
-  }
-}
-
-const INCIDENTE_DEFECTO: IncidenteItem = {
-  id_incidente: 1,
-  codigo: 'INC-20261030-001',
-  titulo: 'Fuego en Pastizal Altoandino',
-  tipo_incendio: 'cobertura_vegetal',
-  tipo_incendio_display: 'Pasto seco / Ichu altoandino',
-  estado: 'en_combate',
-  estado_display: 'En combate activo',
-  prioridad: 'critica',
-  prioridad_display: 'Crítica',
-  latitud_referencia: -15.0228,
-  longitud_referencia: -73.7653,
-  distrito_nombre: 'Coracora',
-  comunidad_nombre: 'Sector Huaccana Alta',
-  detectado_en: '2026-10-30T10:15:00Z',
-  creado_en: '2026-10-30T10:15:00Z',
-  resumen: 'Fuego activo avanzando en pajonal altoandino con viento hacia el Noreste. Brigada comunal y bomberos en zona.',
-  reportante_nombre: 'Comunidad de Huaccana'
-};
 
 export const MapScreen: React.FC = () => {
   const { t, idioma } = useTranslation();
@@ -131,19 +62,19 @@ export const MapScreen: React.FC = () => {
     velocidad_viento: 24,
     direccion_viento: 'NE'
   });
-  const [incidentesHoy, setIncidentesHoy] = useState<IncidenteItem[]>([INCIDENTE_DEFECTO]);
-  const [todosIncidentes, setTodosIncidentes] = useState<IncidenteItem[]>([INCIDENTE_DEFECTO]);
-  const [filtroSoloHoy, setFiltroSoloHoy] = useState<boolean>(true);
-  const [tipoCapa, setTipoCapa] = useState<'topo' | 'sat'>('topo');
-  const [cargando, setCargando] = useState<boolean>(false);
+  const [incidentesHoy, setIncidentesHoy] = useState<IncidenteItem[]>([]);
+  const [cargando, setCargando] = useState<boolean>(true);
   const [refrescandoSilencioso, setRefrescandoSilencioso] = useState<boolean>(false);
-  const [incidenteSeleccionado, setIncidenteSeleccionado] = useState<IncidenteItem | null>(INCIDENTE_DEFECTO);
+  const [incidenteSeleccionado, setIncidenteSeleccionado] = useState<IncidenteItem | null>(null);
   const [detalleIncidente, setDetalleIncidente] = useState<IncidenteDetail | null>(null);
   const [cargandoDetalle, setCargandoDetalle] = useState<boolean>(false);
   const [modalEscapeVisible, setModalEscapeVisible] = useState<boolean>(false);
 
+  // Capa 100% Satelital permanente (sin topográfico)
+  const tipoCapa = 'sat';
+
   /**
-   * Carga y filtra los incidentes desde la API de Django.
+   * Carga y filtra únicamente los incidentes del día de hoy en Perú.
    */
   const cargarDatos = useCallback(async (silencioso = false) => {
     if (silencioso) setRefrescandoSilencioso(true);
@@ -156,20 +87,10 @@ export const MapScreen: React.FC = () => {
 
       if (fwiData) setFwi(fwiData);
 
-      const hoyPeru = getFechaHoyPeru();
-      const hoyPeruSinGuiones = hoyPeru.replace(/-/g, '');
-
-      // Filtrar estrictamente por fecha de hoy en Perú
-      const incidentesDeHoy = (incList || []).filter((inc) => {
-        const fechaDet = inc.detectado_en ? inc.detectado_en.slice(0, 10) : '';
-        const fechaCre = inc.creado_en ? inc.creado_en.slice(0, 10) : '';
-        const codigoNum = inc.codigo ? inc.codigo.replace(/[^0-9]/g, '').slice(0, 8) : '';
-        return (
-          fechaDet === hoyPeru ||
-          fechaCre === hoyPeru ||
-          codigoNum === hoyPeruSinGuiones
-        );
-      });
+      // Filtrar estrictamente por fecha de HOY en horario oficial de Perú
+      const incidentesDeHoy = (incList || []).filter((inc) =>
+        esFechaDeHoyPeru(inc.detectado_en || inc.creado_en)
+      );
 
       // Deduplicar marcadores por id_incidente
       const mapUnicosHoy = new Map<number, IncidenteItem>();
@@ -180,25 +101,16 @@ export const MapScreen: React.FC = () => {
       });
       const unicosHoy = Array.from(mapUnicosHoy.values());
 
-      const mapUnicosTodos = new Map<number, IncidenteItem>();
-      (incList || []).forEach((item) => {
-        if (!mapUnicosTodos.has(item.id_incidente)) {
-          mapUnicosTodos.set(item.id_incidente, item);
-        }
-      });
-      const unicosTodos = Array.from(mapUnicosTodos.values());
+      setIncidentesHoy(unicosHoy);
 
-      if (unicosTodos.length > 0) {
-        setTodosIncidentes(unicosTodos);
-        if (unicosHoy.length > 0) {
-          setIncidentesHoy(unicosHoy);
-          setIncidenteSeleccionado((prev) => prev || unicosHoy[0]);
-        } else {
-          // Si hoy no hay nuevos registros, mostrar los existentes de la base de datos
-          setIncidentesHoy(unicosTodos);
-          setFiltroSoloHoy(false);
-          setIncidenteSeleccionado((prev) => prev || unicosTodos[0]);
-        }
+      if (unicosHoy.length > 0) {
+        setIncidenteSeleccionado((prev) =>
+          prev && unicosHoy.some((u) => u.id_incidente === prev.id_incidente)
+            ? prev
+            : unicosHoy[0]
+        );
+      } else {
+        setIncidenteSeleccionado(null);
       }
     } catch (err) {
       // Manejo silencioso de desconexión
@@ -206,7 +118,7 @@ export const MapScreen: React.FC = () => {
       setCargando(false);
       setRefrescandoSilencioso(false);
     }
-  }, [incidenteSeleccionado]);
+  }, []);
 
   useEffect(() => {
     cargarDatos(false);
@@ -214,7 +126,7 @@ export const MapScreen: React.FC = () => {
       cargarDatos(true);
     }, 25000);
     return () => clearInterval(interval);
-  }, []);
+  }, [cargarDatos]);
 
   const handleSelectIncidente = async (inc: IncidenteItem) => {
     setIncidenteSeleccionado(inc);
@@ -233,15 +145,16 @@ export const MapScreen: React.FC = () => {
     }
   };
 
-  const incidentesParaMostrar = filtroSoloHoy ? incidentesHoy : todosIncidentes;
   const hoyPeruStr = getFechaHoyPeru();
 
-  const fechaHoraInfo = formatearFechaHoraPeru(
+  const fechaIsoEvento =
     detalleIncidente?.detectado_en ||
     incidenteSeleccionado?.detectado_en ||
     detalleIncidente?.creado_en ||
-    incidenteSeleccionado?.creado_en
-  );
+    incidenteSeleccionado?.creado_en;
+
+  const horaLegible = formatearHora12Peru(fechaIsoEvento) || 'En atención';
+  const fechaLegible = formatearFechaHoraLegible(fechaIsoEvento);
 
   const reportanteNombre =
     detalleIncidente?.cierre?.cerrado_por_nombre ||
@@ -274,16 +187,14 @@ export const MapScreen: React.FC = () => {
       <View style={styles.headerBar}>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>
-            {idioma === 'qu' ? 'Coracora Nina Mapa' : 'Mapa de Fuegos de Coracora'}
+            {idioma === 'qu' ? 'Coracora Nina Mapa' : 'Mapa Satelital de Fuegos'}
           </Text>
           <Text style={styles.headerSubtitle}>
-            {filtroSoloHoy
-              ? (idioma === 'qu'
-                  ? `Kunan punchaw ${incidentesHoy.length} nina rikusqa (${hoyPeruStr})`
-                  : `${incidentesHoy.length} ${incidentesHoy.length === 1 ? 'fuego reportado hoy' : 'fuegos reportados hoy'} (${hoyPeruStr})`)
-              : (idioma === 'qu'
-                  ? `${todosIncidentes.length} llapan ninakuna`
-                  : `${todosIncidentes.length} fuegos en total`)}
+            {idioma === 'qu'
+              ? `Kunan punchaw ${incidentesHoy.length} nina rikusqa (${hoyPeruStr})`
+              : incidentesHoy.length === 0
+              ? `Sin fuegos reportados hoy (${hoyPeruStr})`
+              : `${incidentesHoy.length} ${incidentesHoy.length === 1 ? 'fuego reportado hoy' : 'fuegos reportados hoy'} (${hoyPeruStr})`}
           </Text>
         </View>
 
@@ -330,47 +241,47 @@ export const MapScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* 3. SELECTOR DE FILTRO: Incidentes del Día vs Ver Todos */}
-      <View style={styles.filterBar}>
-        <TouchableOpacity
-          style={[styles.filterPill, filtroSoloHoy && styles.filterPillActive]}
-          onPress={() => setFiltroSoloHoy(true)}
-          activeOpacity={0.8}
+      {/* 3. AVISO DE ESTADO CUANDO NO HAY FUEGOS HOY */}
+      {incidentesHoy.length === 0 && !cargando && (
+        <View
+          style={{
+            backgroundColor: '#ecfdf5',
+            borderColor: '#a7f3d0',
+            borderWidth: 1,
+            borderRadius: 10,
+            marginHorizontal: 12,
+            marginBottom: 8,
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8
+          }}
         >
-          <Clock size={12} color={filtroSoloHoy ? '#ffffff' : COLORS.textSecondary} />
-          <Text style={[styles.filterPillText, filtroSoloHoy && styles.filterPillTextActive]}>
-            {idioma === 'qu' ? `Kunan punchaw (${incidentesHoy.length})` : `Fuegos de Hoy (${incidentesHoy.length})`}
+          <CheckCircle2 size={16} color="#059669" />
+          <Text style={{ fontSize: 12, color: '#065f46', fontWeight: '700', flex: 1 }}>
+            {idioma === 'qu'
+              ? 'Kunan punchawqa mana ninachu kachkan. Hawkam kachkanchik.'
+              : 'Todo en calma: No se registran incendios hoy en Parinacochas.'}
           </Text>
-        </TouchableOpacity>
+        </View>
+      )}
 
-        <TouchableOpacity
-          style={[styles.filterPill, !filtroSoloHoy && styles.filterPillActive]}
-          onPress={() => setFiltroSoloHoy(false)}
-          activeOpacity={0.8}
-        >
-          <Calendar size={12} color={!filtroSoloHoy ? '#ffffff' : COLORS.textSecondary} />
-          <Text style={[styles.filterPillText, !filtroSoloHoy && styles.filterPillTextActive]}>
-            {idioma === 'qu' ? `Ñawpaq ninakuna (${todosIncidentes.length})` : `Fuegos Anteriores (${todosIncidentes.length})`}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* 4. LIENZO CARTOGRÁFICO */}
+      {/* 4. LIENZO CARTOGRÁFICO SATELITAL */}
       <View style={styles.mapArea}>
         {cargando ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator size="large" color={COLORS.firePrimary} />
             <Text style={styles.loadingText}>
-              {idioma === 'qu' ? 'Mapata kichachkan...' : 'Cargando mapa e incidentes...'}
+              {idioma === 'qu' ? 'Mapata kichachkan...' : 'Cargando mapa satelital...'}
             </Text>
           </View>
         ) : (
           <MapLibreMap
-            incidentes={incidentesParaMostrar}
+            incidentes={incidentesHoy}
             incidenteSeleccionado={incidenteSeleccionado}
             onSelectIncidente={handleSelectIncidente}
             tipoCapa={tipoCapa}
-            onChangeTipoCapa={setTipoCapa}
           />
         )}
       </View>
@@ -390,7 +301,9 @@ export const MapScreen: React.FC = () => {
                     : (idioma === 'qu' ? 'NINA RIKUSQA' : 'FUEGO REPORTADO')}
                 </Text>
               </View>
-              <Text style={styles.cardCode}>{incidenteSeleccionado.codigo}</Text>
+              <Text style={styles.cardCode}>
+                {incidenteSeleccionado.comunidad_nombre || 'Sector Coracora'}
+              </Text>
             </View>
 
             <TouchableOpacity
@@ -426,7 +339,7 @@ export const MapScreen: React.FC = () => {
                     {idioma === 'qu' ? 'Punchaw:' : 'Día:'}
                   </Text>
                 </View>
-                <Text style={styles.metaValue}>{fechaHoraInfo.fecha}</Text>
+                <Text style={styles.metaValue}>{hoyPeruStr}</Text>
               </View>
 
               <View style={[styles.metaRow, { flex: 1 }]}>
@@ -436,7 +349,7 @@ export const MapScreen: React.FC = () => {
                     {idioma === 'qu' ? 'Hora:' : 'Hora:'}
                   </Text>
                 </View>
-                <Text style={styles.metaValue}>{fechaHoraInfo.hora}</Text>
+                <Text style={styles.metaValue}>{horaLegible}</Text>
               </View>
             </View>
 
