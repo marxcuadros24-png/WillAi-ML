@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CheckCircle2, XCircle, Flame, MapPin, User, Calendar, Image as ImageIcon, Trash2, AlertTriangle, Clock } from 'lucide-react';
 import type { ReporteCiudadano } from '../types';
 import { Pagination } from './Pagination';
+import { getMediaUrl } from '../services/api';
 
 interface ReportesAdminProps {
   reportes: ReporteCiudadano[];
@@ -154,7 +155,7 @@ export const ReportesAdmin: React.FC<ReportesAdminProps> = ({
               {rep.evidencia_url ? (
                 <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => setSelectedPhoto(rep.evidencia_url || null)}>
                   <img
-                    src={rep.evidencia_url.startsWith('http') ? rep.evidencia_url : `http://127.0.0.1:8000${rep.evidencia_url}`}
+                    src={getMediaUrl(rep.evidencia_url)}
                     alt="Evidencia fotográfica"
                     className="report-card-img"
                   />
@@ -331,7 +332,7 @@ export const ReportesAdmin: React.FC<ReportesAdminProps> = ({
         >
           <div style={{ position: 'relative', maxWidth: '800px', width: '100%' }}>
             <img
-              src={selectedPhoto.startsWith('http') ? selectedPhoto : `http://127.0.0.1:8000${selectedPhoto}`}
+              src={getMediaUrl(selectedPhoto)}
               alt="Evidencia ampliada"
               style={{ width: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: '12px' }}
             />

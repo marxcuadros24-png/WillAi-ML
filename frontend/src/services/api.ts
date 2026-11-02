@@ -20,7 +20,23 @@ import type {
   FiltrosPublicos
 } from '../types';
 
-const API_BASE = 'http://127.0.0.1:8000/api/v1';
+const isLocalVite = typeof window !== 'undefined' && (window.location.port === '5173' || window.location.port === '3000');
+const defaultBackend = isLocalVite ? `${window.location.protocol}//${window.location.hostname}:8000` : '';
+export const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL !== undefined)
+  ? import.meta.env.VITE_BACKEND_URL
+  : defaultBackend;
+export const API_BASE = `${BACKEND_URL}/api/v1`;
+export const PANEL_BASE = `${BACKEND_URL}/panel/api`;
+
+/**
+ * Resuelve URLs de archivos multimedia (evidencia fotográfica, fotos de reporte)
+ * de forma portable tanto en desarrollo local como en producción Dockerizada.
+ */
+export function getMediaUrl(path?: string | null): string {
+  if (!path) return '';
+  if (path.startsWith('http')) return path;
+  return `${BACKEND_URL}${path}`;
+}
 
 // Estados iniciales limpios (vacíos) - CERO DATOS SINTÉTICOS O FALSOS
 export const INITIAL_INCIDENTES: Incidente[] = [];
@@ -269,7 +285,7 @@ export async function fetchFWI(forzarRefresco: boolean = false): Promise<Metrica
 export async function fetchBrigadas(): Promise<Brigada[]> {
   try {
     // Primero intentar desde el endpoint del Centro de Mando Táctico que incluye los integrantes
-    const resPanel = await fetch('http://127.0.0.1:8000/panel/api/brigadas/', { cache: 'no-store' });
+    const resPanel = await fetch(`${PANEL_BASE}/brigadas/`, { cache: 'no-store' });
     if (resPanel.ok) {
       const data = await resPanel.json();
       if (data.success && Array.isArray(data.brigadas)) {
@@ -390,7 +406,7 @@ export async function fetchDashboardCompleto(): Promise<{
   lotes_satelitales: any[];
 }> {
   try {
-    const res = await fetch('http://127.0.0.1:8000/panel/api/datos/', { cache: 'no-store' });
+    const res = await fetch(`${PANEL_BASE}/datos/`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
@@ -418,7 +434,7 @@ export async function fetchDashboardCompleto(): Promise<{
  * Valida un reporte ciudadano (confirmado / rechazado / observado).
  */
 export async function validarReporte(idReporte: number, resultado: 'validado' | 'rechazado' | 'observado', comentario: string) {
-  const res = await fetch(`http://127.0.0.1:8000/panel/api/reportes/${idReporte}/validar/`, {
+  const res = await fetch(`${PANEL_BASE}/reportes/${idReporte}/validar/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ resultado, comentario })
@@ -431,7 +447,7 @@ export async function validarReporte(idReporte: number, resultado: 'validado' | 
  * Elimina físicamente un reporte falso, descartado o duplicado de la base de datos.
  */
 export async function eliminarReporte(idReporte: number) {
-  const res = await fetch(`http://127.0.0.1:8000/panel/api/reportes/${idReporte}/eliminar/`, {
+  const res = await fetch(`${PANEL_BASE}/reportes/${idReporte}/eliminar/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
   });
@@ -471,7 +487,7 @@ export async function crearIncidente(datos: {
   id_comunidad?: number;
   comunidad_nombre?: string;
 }) {
-  const res = await fetch('http://127.0.0.1:8000/panel/api/incidentes/crear/', {
+  const res = await fetch(`${PANEL_BASE}/incidentes/crear/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(datos)
@@ -484,7 +500,7 @@ export async function crearIncidente(datos: {
  * Actualiza el estado operativo de un incidente.
  */
 export async function cambiarEstadoIncidente(idIncidente: number, estado: string, nota: string) {
-  const res = await fetch(`http://127.0.0.1:8000/panel/api/incidentes/${idIncidente}/cambiar-estado/`, {
+  const res = await fetch(`${PANEL_BASE}/incidentes/${idIncidente}/cambiar-estado/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ estado, nota })
@@ -497,7 +513,7 @@ export async function cambiarEstadoIncidente(idIncidente: number, estado: string
  * Despacha una brigada al incidente de manera inmediata.
  */
 export async function asignarBrigada(idIncidente: number, idBrigada: number, rolOperativo: string = 'combate_directo') {
-  const res = await fetch(`http://127.0.0.1:8000/panel/api/incidentes/${idIncidente}/asignar-brigada/`, {
+  const res = await fetch(`${PANEL_BASE}/incidentes/${idIncidente}/asignar-brigada/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id_brigada: idBrigada, rol_operativo: rolOperativo })
@@ -510,7 +526,7 @@ export async function asignarBrigada(idIncidente: number, idBrigada: number, rol
  * Cierra formalmente un incidente con acta final y libera brigadas asignadas.
  */
 export async function cerrarIncidente(idIncidente: number, motivo: string, evidenciaUri: string = '') {
-  const res = await fetch(`http://127.0.0.1:8000/panel/api/incidentes/${idIncidente}/cerrar/`, {
+  const res = await fetch(`${PANEL_BASE}/incidentes/${idIncidente}/cerrar/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ motivo, evidencia_uri: evidenciaUri })
@@ -530,7 +546,7 @@ export async function emitirAlerta(datos: {
   tipo: string;
   id_incidente?: number;
 }) {
-  const res = await fetch('http://127.0.0.1:8000/panel/api/alertas/emitir/', {
+  const res = await fetch(`${PANEL_BASE}/alertas/emitir/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(datos)
@@ -543,7 +559,7 @@ export async function emitirAlerta(datos: {
  * Modera una donación solidaria comunitaria (aprobar / rechazar).
  */
 export async function moderarDonacion(idOferta: number, accion: 'aprobar' | 'rechazar', comentario: string = '') {
-  const res = await fetch(`http://127.0.0.1:8000/panel/api/donaciones/${idOferta}/moderar/`, {
+  const res = await fetch(`${PANEL_BASE}/donaciones/${idOferta}/moderar/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ accion, comentario })
@@ -556,7 +572,7 @@ export async function moderarDonacion(idOferta: number, accion: 'aprobar' | 'rec
  * Dispara una sincronización manual en vivo de FIRMS, Open-Meteo o cálculo FWI.
  */
 export async function dispararSincronizacion(tipo: 'firms' | 'meteo' | 'fwi') {
-  const res = await fetch('http://127.0.0.1:8000/panel/api/sincronizar/', {
+  const res = await fetch(`${PANEL_BASE}/sincronizar/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ tipo })
@@ -570,7 +586,7 @@ export async function dispararSincronizacion(tipo: 'firms' | 'meteo' | 'fwi') {
  */
 export async function fetchUsuarios(): Promise<{ usuarios: UsuarioSistema[]; roles: RolSistema[] }> {
   try {
-    const res = await fetch('http://127.0.0.1:8000/panel/api/usuarios/', { cache: 'no-store' });
+    const res = await fetch(`${PANEL_BASE}/usuarios/`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
@@ -580,7 +596,7 @@ export async function fetchUsuarios(): Promise<{ usuarios: UsuarioSistema[]; rol
 }
 
 export async function cambiarEstadoUsuario(idUsuario: number, estado: string): Promise<any> {
-  const res = await fetch(`http://127.0.0.1:8000/panel/api/usuarios/${idUsuario}/cambiar-estado/`, {
+  const res = await fetch(`${PANEL_BASE}/usuarios/${idUsuario}/cambiar-estado/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ estado })
@@ -590,7 +606,7 @@ export async function cambiarEstadoUsuario(idUsuario: number, estado: string): P
 }
 
 export async function asignarRolUsuario(idUsuario: number, codigoRol: string, accion: 'asignar' | 'remover'): Promise<any> {
-  const res = await fetch(`http://127.0.0.1:8000/panel/api/usuarios/${idUsuario}/asignar-rol/`, {
+  const res = await fetch(`${PANEL_BASE}/usuarios/${idUsuario}/asignar-rol/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ codigo_rol: codigoRol, accion })
@@ -607,7 +623,7 @@ export async function crearUsuarioOperativo(payload: {
   telefono?: string;
   codigo_rol?: string;
 }): Promise<any> {
-  const res = await fetch('http://127.0.0.1:8000/panel/api/usuarios/crear/', {
+  const res = await fetch(`${PANEL_BASE}/usuarios/crear/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -620,7 +636,7 @@ export async function crearUsuarioOperativo(payload: {
  * Autenticación de Operadores y Administradores en el Centro de Mando Táctico.
  */
 export async function loginApi(username: string, password: string): Promise<any> {
-  const res = await fetch('http://127.0.0.1:8000/panel/api/login/', {
+  const res = await fetch(`${PANEL_BASE}/login/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password })
@@ -634,7 +650,7 @@ export async function loginApi(username: string, password: string): Promise<any>
 
 export async function logoutApi(): Promise<any> {
   try {
-    const res = await fetch('http://127.0.0.1:8000/panel/api/logout/', {
+    const res = await fetch(`${PANEL_BASE}/logout/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });
@@ -648,7 +664,7 @@ export async function logoutApi(): Promise<any> {
  * Crea una nueva brigada de respuesta y asigna los usuarios existentes como dotación.
  */
 export async function crearBrigada(payload: CrearBrigadaPayload): Promise<{ success: boolean; id_brigada?: number; error?: string; mensaje?: string }> {
-  const res = await fetch('http://127.0.0.1:8000/panel/api/brigadas/crear/', {
+  const res = await fetch(`${PANEL_BASE}/brigadas/crear/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -664,7 +680,7 @@ export async function crearBrigada(payload: CrearBrigadaPayload): Promise<{ succ
  * Cambia el estado operacional de una brigada (disponible, ocupada, inactiva).
  */
 export async function cambiarEstadoBrigada(idBrigada: number, nuevoEstado: string): Promise<{ success: boolean; nuevo_estado?: string }> {
-  const res = await fetch(`http://127.0.0.1:8000/panel/api/brigadas/${idBrigada}/cambiar-estado/`, {
+  const res = await fetch(`${PANEL_BASE}/brigadas/${idBrigada}/cambiar-estado/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ estado: nuevoEstado })
@@ -680,7 +696,7 @@ export async function cambiarEstadoBrigada(idBrigada: number, nuevoEstado: strin
  * Actualiza la dotación de miembros de una brigada existente con usuarios del sistema.
  */
 export async function asignarMiembrosBrigada(idBrigada: number, miembros: { usuario_id: number; funcion: string }[]): Promise<{ success: boolean; mensaje?: string }> {
-  const res = await fetch(`http://127.0.0.1:8000/panel/api/brigadas/${idBrigada}/asignar-miembros/`, {
+  const res = await fetch(`${PANEL_BASE}/brigadas/${idBrigada}/asignar-miembros/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ miembros })
@@ -696,7 +712,7 @@ export async function asignarMiembrosBrigada(idBrigada: number, miembros: { usua
  * Elimina una brigada del sistema.
  */
 export async function eliminarBrigada(idBrigada: number): Promise<{ success: boolean; mensaje?: string }> {
-  const res = await fetch(`http://127.0.0.1:8000/panel/api/brigadas/${idBrigada}/eliminar/`, {
+  const res = await fetch(`${PANEL_BASE}/brigadas/${idBrigada}/eliminar/`, {
     method: 'POST'
   });
   const data = await res.json();
@@ -711,7 +727,7 @@ export async function eliminarBrigada(idBrigada: number): Promise<{ success: boo
  */
 export async function fetchViviendas(): Promise<ViviendaRural[]> {
   try {
-    const res = await fetch('http://127.0.0.1:8000/panel/api/viviendas/', { cache: 'no-store' });
+    const res = await fetch(`${PANEL_BASE}/viviendas/`, { cache: 'no-store' });
     if (!res.ok) return [];
     const data = await res.json();
     return data.viviendas || [];
@@ -725,7 +741,7 @@ export async function fetchViviendas(): Promise<ViviendaRural[]> {
  * Registra una nueva vivienda rural manualmente desde el Centro de Mando o Mapa Táctico.
  */
 export async function crearVivienda(payload: CrearViviendaPayload): Promise<{ success: boolean; id_vivienda?: number; codigo?: string; error?: string; mensaje?: string }> {
-  const res = await fetch('http://127.0.0.1:8000/panel/api/viviendas/crear/', {
+  const res = await fetch(`${PANEL_BASE}/viviendas/crear/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -741,7 +757,7 @@ export async function crearVivienda(payload: CrearViviendaPayload): Promise<{ su
  * Edita los datos de una vivienda rural registrada.
  */
 export async function editarVivienda(idVivienda: number, payload: Partial<CrearViviendaPayload>): Promise<{ success: boolean; mensaje?: string }> {
-  const res = await fetch(`http://127.0.0.1:8000/panel/api/viviendas/${idVivienda}/editar/`, {
+  const res = await fetch(`${PANEL_BASE}/viviendas/${idVivienda}/editar/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -757,7 +773,7 @@ export async function editarVivienda(idVivienda: number, payload: Partial<CrearV
  * Elimina una vivienda rural del padrón.
  */
 export async function eliminarVivienda(idVivienda: number): Promise<{ success: boolean; mensaje?: string }> {
-  const res = await fetch(`http://127.0.0.1:8000/panel/api/viviendas/${idVivienda}/eliminar/`, {
+  const res = await fetch(`${PANEL_BASE}/viviendas/${idVivienda}/eliminar/`, {
     method: 'POST'
   });
   const data = await res.json();

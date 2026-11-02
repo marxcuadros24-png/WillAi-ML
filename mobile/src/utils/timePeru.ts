@@ -106,3 +106,4 @@ export function formatoTiempoRelativo(fechaIso?: string | null): string {
     return 'Reciente';
   }
 }
+

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Flame, PlusCircle, Shield, MapPin, Eye, CheckCircle2, Filter, Clock, Camera, XCircle } from 'lucide-react';
 import type { Incidente } from '../types';
 import { Pagination } from './Pagination';
+import { getMediaUrl } from '../services/api';
 
 interface IncidentesAdminProps {
   incidentes: Incidente[];
@@ -387,7 +388,7 @@ export const IncidentesAdmin: React.FC<IncidentesAdminProps> = ({
         >
           <div style={{ position: 'relative', maxWidth: '800px', width: '100%' }}>
             <img
-              src={selectedPhoto.startsWith('http') ? selectedPhoto : `http://127.0.0.1:8000${selectedPhoto}`}
+              src={getMediaUrl(selectedPhoto)}
               alt="Evidencia fotográfica ampliada"
               style={{ width: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: '12px' }}
             />

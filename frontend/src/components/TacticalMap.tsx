@@ -20,6 +20,7 @@ import {
   X
 } from 'lucide-react';
 import type { Incidente, FocoCalor, Brigada, ViviendaRural, GrillaRiesgoOcurrenciaData } from '../types';
+import { getMediaUrl } from '../services/api';
 import {
   LIMITE_PROVINCIAL_PARINACOCHAS,
   LIMITES_DISTRITALES_PARINACOCHAS,
@@ -808,7 +809,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           <p style="font-size: 11px; color: #cbd5e1; margin-bottom: 8px;">${inc.descripcion}</p>
           ${inc.fotografia_url ? `
             <div style="margin-top: 6px; margin-bottom: 8px;">
-              <img src="${inc.fotografia_url.startsWith('http') ? inc.fotografia_url : 'http://127.0.0.1:8000' + inc.fotografia_url}" style="width: 100%; max-height: 120px; object-fit: cover; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2);" alt="Evidencia fotográfica"/>
+              <img src="${getMediaUrl(inc.fotografia_url)}" style="width: 100%; max-height: 120px; object-fit: cover; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2);" alt="Evidencia fotográfica"/>
             </div>
           ` : ''}
           <div style="font-size: 11px; color: #94a3b8; display: flex; flex-direction: column; gap: 2px;">
