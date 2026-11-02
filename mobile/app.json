@@ -2,7 +2,7 @@
   "expo": {
     "name": "WillAI Coracora",
     "slug": "willai-coracora",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "pe.willai.coracora",
-      "versionCode": 3,
+      "versionCode": 4,
       "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#080c14"
