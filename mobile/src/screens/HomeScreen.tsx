@@ -335,70 +335,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
         </View>
 
-        {/* Lienzo del Mapa Visual de Parinacochas */}
+        {/* Acceso Directo al Mapa Satelital en Pantalla Completa */}
         <TouchableOpacity
-          style={styles.canvasWrapper}
+          style={styles.mapDirectBanner}
           onPress={onNavigateToMap}
-          activeOpacity={0.9}
+          activeOpacity={0.85}
         >
-          {cargando ? (
-            <View style={styles.loadingMapBox}>
-              <ActivityIndicator size="small" color={COLORS.firePrimary} />
-              <Text style={styles.loadingMapText}>
-                {idioma === 'qu' ? 'Suyay... ninakunata maskachkan' : 'Buscando fuegos cerca...'}
-              </Text>
-            </View>
-          ) : (
-            <Svg width="100%" height={170} viewBox="0 0 100 65">
-              {/* Fondo cartográfico andino claro */}
-              <Rect width="100" height="65" fill="#f1f5f9" rx="8" />
-
-              {/* Cordillera y quebradas suaves */}
-              <Path d="M 0 20 Q 25 10 50 18 T 100 12 L 100 0 L 0 0 Z" fill="#e2e8f0" opacity={0.7} />
-              <Path d="M 0 35 Q 35 25 65 38 T 100 30 L 100 65 L 0 65 Z" fill="#e2e8f0" opacity={0.5} />
-              <Path d="M 30 0 Q 38 25 45 42 T 55 65" fill="none" stroke="#bae6fd" strokeWidth="1" />
-
-              {/* Localidades principales de Parinacochas */}
-              <SvgText x="46" y="34" fill="#334155" fontSize="2.8" fontWeight="bold">Coracora</SvgText>
-              <Circle cx="44" cy="33" r="1.2" fill="#0284c7" />
-
-              <SvgText x="58" y="24" fill="#64748b" fontSize="2.4">Huaccana</SvgText>
-              <SvgText x="25" y="48" fill="#64748b" fontSize="2.4">Paucaray</SvgText>
-              <SvgText x="72" y="16" fill="#64748b" fontSize="2.4">Chumpi</SvgText>
-              <SvgText x="12" y="26" fill="#64748b" fontSize="2.4">Pullo</SvgText>
-
-              {/* Mi Ubicación (Punto azul) */}
-              <Circle cx="44" cy="33" r="3.2" fill="rgba(2, 132, 199, 0.2)" />
-              <Circle cx="44" cy="33" r="1.6" fill="#0284c7" stroke="#ffffff" strokeWidth="0.5" />
-
-              {/* Puntos de Incidentes y Focos Térmicos */}
-              {puntosMapa.map((p) => {
-                const color = p.prioridad === 'critica' ? '#dc2626' : '#ea580c';
-                return (
-                  <G key={p.id}>
-                    {/* Halo de fuego */}
-                    <Circle cx={p.x} cy={p.y} r={4.5} fill={color} opacity={0.25} />
-                    {/* Núcleo de llama */}
-                    <Circle cx={p.x} cy={p.y} r={2.2} fill={color} stroke="#ffffff" strokeWidth="0.6" />
-                    {/* Flecha de viento hacia el Noreste */}
-                    <Line x1={p.x} y1={p.y} x2={p.x + 3.5} y2={p.y - 3.5} stroke="#dc2626" strokeWidth="0.7" strokeDasharray="1,1" />
-                  </G>
-                );
-              })}
-            </Svg>
-          )}
-
-          {/* Leyenda flotante en la esquina del mapa */}
-          <View style={styles.floatingLegend}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#0284c7' }]} />
-              <Text style={styles.legendLabel}>{idioma === 'qu' ? 'Qam' : 'Tú'}</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#dc2626' }]} />
-              <Text style={styles.legendLabel}>{idioma === 'qu' ? 'Nina' : 'Fuego'}</Text>
-            </View>
+          <View style={styles.mapDirectIconBox}>
+            <MapIcon size={24} color="#0284c7" />
           </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.mapDirectTitle}>
+              {idioma === 'qu' ? 'Satelital Saywiti qaway' : 'Abrir Mapa Satelital de Fuegos'}
+            </Text>
+            <Text style={styles.mapDirectSubtitle}>
+              {puntosMapa.length > 0
+                ? (idioma === 'qu' ? `${puntosMapa.length} nina rikusqa Saywitipi` : `${puntosMapa.length} fuegos ubicados en Parinacochas`)
+                : (idioma === 'qu' ? 'Saywitipi qaway maypi kasqanta' : 'Ver ortofoto satelital ESRI en pantalla completa')}
+            </Text>
+          </View>
+          <ChevronRight size={20} color="#0284c7" />
         </TouchableOpacity>
 
         {/* Foco más cercano al poblador */}

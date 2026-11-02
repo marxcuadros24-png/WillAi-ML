@@ -17,6 +17,22 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 16
   },
+  btnBack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle
+  },
+  btnBackText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.textPrimary
+  },
   langSelector: {
     flexDirection: 'row',
     backgroundColor: '#ffffff',

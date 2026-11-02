@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, SafeAreaView, TouchableOpacity, Text, Platform } from 'react-native';
+import { View, StyleSheet, SafeAreaView, TouchableOpacity, Text, Platform, BackHandler } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Home, Flame, User, Bell, Map as MapIcon } from 'lucide-react-native';
 
@@ -39,6 +39,39 @@ export default function App() {
     // 3. Configurar canal Android de alta prioridad
     configurarCanalNotificacionesAndroid();
   }, []);
+
+  // Manejo del botón físico/gesto Atrás de Android
+  useEffect(() => {
+    const onBackPress = () => {
+      if (currentScreen === 'register') {
+        setCurrentScreen('login');
+        return true;
+      }
+      if (currentScreen === 'report') {
+        setCurrentScreen('home');
+        return true;
+      }
+      if (['map', 'alerts', 'profile'].includes(currentScreen)) {
+        setCurrentScreen('home');
+        return true;
+      }
+      if (currentScreen === 'login') {
+        if (isAuthenticated) {
+          setCurrentScreen('home');
+          return true;
+        }
+        return false;
+      }
+      if (currentScreen === 'home') {
+        return false;
+      }
+      return false;
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [currentScreen, isAuthenticated]);
+
 
   const handleFinishLoading = () => {
     // Al terminar la pantalla de carga, dirigir a login si no hay sesión, o directo a inicio

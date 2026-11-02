@@ -64,7 +64,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       setUsername('brigada_b12');
       setPassword('coracora2026');
     } else {
-      setUsername('comunero_huaccana');
+      setUsername('poblador_coracora');
       setPassword('coracora2026');
     }
   };
@@ -219,7 +219,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           >
             <Shield size={16} color={rolSeleccionado === 'brigadista' ? COLORS.firePrimary : COLORS.textMuted} />
             <Text style={[styles.roleTabText, rolSeleccionado === 'brigadista' && styles.roleTabTextActive]}>
-              {idioma === 'qu' ? 'Bombero kani' : 'Soy Bombero'}
+              {idioma === 'qu' ? 'Brigadista kani' : 'Soy Brigadista'}
             </Text>
           </TouchableOpacity>
 
@@ -230,7 +230,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           >
             <User size={16} color={rolSeleccionado === 'poblador' ? COLORS.firePrimary : COLORS.textMuted} />
             <Text style={[styles.roleTabText, rolSeleccionado === 'poblador' && styles.roleTabTextActive]}>
-              {idioma === 'qu' ? 'Comunero kani' : 'Soy Comunero'}
+              {idioma === 'qu' ? 'Poblador kani' : 'Soy Poblador'}
             </Text>
           </TouchableOpacity>
         </View>

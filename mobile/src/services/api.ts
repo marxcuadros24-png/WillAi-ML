@@ -1,10 +1,23 @@
 import { API_BASE } from '../constants/config';
 
+const DEFAULT_HEADERS: Record<string, string> = {
+  'bypass-tunnel-reminder': 'true',
+  'Accept': 'application/json'
+};
+
+async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const mergedHeaders: Record<string, string> = {
+    ...DEFAULT_HEADERS,
+    ...(options.headers as Record<string, string> || {})
+  };
+  return fetch(url, { ...options, headers: mergedHeaders });
+}
+
 async function fetchConTimeout(url: string, options: RequestInit = {}, timeoutMs = 3500): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { ...options, signal: controller.signal });
+    return await apiFetch(url, { ...options, signal: controller.signal });
   } finally {
     clearTimeout(timer);
   }
@@ -114,7 +127,7 @@ export interface AlertaItem {
  * Registro de nuevo poblador o brigadista en Django.
  */
 export async function registroCiudadanoApi(payload: RegistroPayload): Promise<LoginResponse> {
-  const res = await fetch(`${API_BASE}/usuarios/registro/`, {
+  const res = await apiFetch(`${API_BASE}/usuarios/registro/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -140,7 +153,7 @@ export async function registroCiudadanoApi(payload: RegistroPayload): Promise<Lo
  * Iniciar sesión con Token DRF.
  */
 export async function loginApi(username: string, password: string): Promise<LoginResponse> {
-  const res = await fetch(`${API_BASE}/usuarios/login/`, {
+  const res = await apiFetch(`${API_BASE}/usuarios/login/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password })
@@ -158,7 +171,7 @@ export async function loginApi(username: string, password: string): Promise<Logi
  * Consulta el perfil del usuario autenticado.
  */
 export async function fetchPerfilUsuarioApi(token: string): Promise<UsuarioDto> {
-  const res = await fetch(`${API_BASE}/usuarios/usuarios/me/`, {
+  const res = await apiFetch(`${API_BASE}/usuarios/usuarios/me/`, {
     headers: {
       Authorization: `Token ${token}`
     }
@@ -178,7 +191,7 @@ export async function actualizarPerfilUsuarioApi(
   token: string,
   payload: ActualizarPerfilPayload
 ): Promise<UsuarioDto> {
-  const res = await fetch(`${API_BASE}/usuarios/usuarios/me/`, {
+  const res = await apiFetch(`${API_BASE}/usuarios/usuarios/me/`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -208,7 +221,7 @@ export async function actualizarPerfilUsuarioApi(
  */
 export async function fetchInsigniasCatalogoApi(): Promise<InsigniaItem[]> {
   try {
-    const res = await fetch(`${API_BASE}/gamificacion/insignias/`);
+    const res = await apiFetch(`${API_BASE}/gamificacion/insignias/`);
     if (!res.ok) return [];
     const data = await res.json();
     return data.results || data || [];
@@ -222,7 +235,7 @@ export async function fetchInsigniasCatalogoApi(): Promise<InsigniaItem[]> {
  */
 export async function fetchCuadroHonorApi(): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE}/gamificacion/insignias/cuadro-honor/`);
+    const res = await apiFetch(`${API_BASE}/gamificacion/insignias/cuadro-honor/`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -286,7 +299,7 @@ export async function fetchIncidentesApi(token?: string | null): Promise<Inciden
   try {
     const headers: Record<string, string> = {};
     if (token) headers['Authorization'] = `Token ${token}`;
-    const res = await fetch(`${API_BASE}/incidentes/incidentes/`, { headers });
+    const res = await apiFetch(`${API_BASE}/incidentes/incidentes/`, { headers });
     if (!res.ok) return [];
     const data = await res.json();
     return data.results || data || [];
@@ -300,7 +313,7 @@ export async function fetchIncidentesApi(token?: string | null): Promise<Inciden
  */
 export async function fetchIncidenteDetalleApi(id: number): Promise<IncidenteDetail | null> {
   try {
-    const res = await fetch(`${API_BASE}/incidentes/incidentes/${id}/`);
+    const res = await apiFetch(`${API_BASE}/incidentes/incidentes/${id}/`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -313,7 +326,7 @@ export async function fetchIncidenteDetalleApi(id: number): Promise<IncidenteDet
  */
 export async function fetchFocosFirmsApi(pageSize = 25): Promise<DeteccionFirmsItem[]> {
   try {
-    const res = await fetch(`${API_BASE}/firms/detecciones/?page_size=${pageSize}`);
+    const res = await apiFetch(`${API_BASE}/firms/detecciones/?page_size=${pageSize}`);
     if (!res.ok) return [];
     const data = await res.json();
     return data.results || data || [];
@@ -327,7 +340,7 @@ export async function fetchFocosFirmsApi(pageSize = 25): Promise<DeteccionFirmsI
  */
 export async function fetchFwiActual(): Promise<FwiActualResponse | null> {
   try {
-    const res = await fetch(`${API_BASE}/predicciones/predicciones/actual/`);
+    const res = await apiFetch(`${API_BASE}/predicciones/predicciones/actual/`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -361,7 +374,7 @@ export interface AlertaPublicaItem {
  */
 export async function fetchAlertasComunitariasApi(): Promise<AlertaPublicaItem[]> {
   try {
-    const res = await fetch(`${API_BASE}/alertas/alertas/`);
+    const res = await apiFetch(`${API_BASE}/alertas/alertas/`);
     if (!res.ok) return [];
     const data = await res.json();
     return data.results || data || [];
@@ -375,10 +388,10 @@ export async function fetchAlertasUsuario(token?: string | null): Promise<Alerta
     const headers: Record<string, string> = {};
     if (token) headers['Authorization'] = `Token ${token}`;
 
-    const res = await fetch(`${API_BASE}/alertas/alertas/mis_alertas/`, { headers });
+    const res = await apiFetch(`${API_BASE}/alertas/alertas/mis_alertas/`, { headers });
     if (!res.ok) {
       // Fallback a alertas públicas del portal si no hay auth
-      const publicRes = await fetch(`${API_BASE}/alertas/alertas/`);
+      const publicRes = await apiFetch(`${API_BASE}/alertas/alertas/`);
       if (!publicRes.ok) return [];
       const list = await publicRes.json();
       return (list.results || list || []).map((a: any) => ({
@@ -404,7 +417,7 @@ export async function fetchAlertasUsuario(token?: string | null): Promise<Alerta
 export async function confirmarAlertaApi(alertaId: number, token?: string | null): Promise<boolean> {
   if (!token) return false;
   try {
-    const res = await fetch(`${API_BASE}/alertas/alertas/${alertaId}/confirmar/`, {
+    const res = await apiFetch(`${API_BASE}/alertas/alertas/${alertaId}/confirmar/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -478,7 +491,7 @@ export async function enviarReporteApi(
   const timer = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const res = await fetch(`${API_BASE}/reportes/reportes/`, {
+    const res = await apiFetch(`${API_BASE}/reportes/reportes/`, {
       method: 'POST',
       headers,
       body: JSON.stringify(jsonBody),
@@ -507,7 +520,7 @@ export async function enviarReporteApi(
  */
 export async function registrarTokenPushApi(expoPushToken: string, token: string): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE}/alertas/preferencias/registrar-token/`, {
+    const res = await apiFetch(`${API_BASE}/alertas/preferencias/registrar-token/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

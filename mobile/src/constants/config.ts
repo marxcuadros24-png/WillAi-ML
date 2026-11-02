@@ -4,13 +4,13 @@ import { Platform } from 'react-native';
  * Configuración central de la App Móvil WillAI Coracora.
  */
 
-// IP local de la computadora en la red LAN para pruebas con Expo Go en celular físico
-const DEV_LAN_IP = '192.168.1.7';
+// URL pública segura vía Cloudflare Tunnel HTTPS (sin bloqueos de Firewall ni Wi-Fi institucional)
+export const CLOUDFLARE_TUNNEL_URL = 'https://layout-shopping-occasion-mice.trycloudflare.com/api/v1';
 
-export const API_BASE = Platform.select({
-  web: 'http://127.0.0.1:8000/api/v1',
-  default: `http://${DEV_LAN_IP}:8000/api/v1`
-});
+// IP local de respaldo
+const DEV_LAN_IP = '192.168.16.124';
+
+export const API_BASE = CLOUDFLARE_TUNNEL_URL;
 
 export const CANAL_NOTIFICACION_ID = 'alertas-incendios';
 export const NOMBRE_CANAL_NOTIFICACION = 'Alertas de Incendios Forestales (Máxima Prioridad)';
@@ -40,4 +40,3 @@ export const COLORS = {
   dangerHigh: '#ea580c',
   dangerCritical: '#dc2626'
 };
-

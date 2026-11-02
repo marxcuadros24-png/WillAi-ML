@@ -16,6 +16,7 @@ import {
   Lock,
   MapPin,
   Shield,
+  ArrowLeft,
   ArrowRight,
   Flame,
   CheckCircle2,
@@ -36,15 +37,18 @@ interface RegisterScreenProps {
 
 const COMUNIDADES_PARINACOCHAS = [
   'Coracora Centro',
-  'Huaccana',
+  'Secce',
+  'Huallhua',
+  'Muchapampa',
   'Paucaray',
   'Chumpi',
   'Pullo',
-  'Puyusca',
-  'Upahuacho',
-  'Ravacayco',
+  'Incuyo (Puyusca)',
   'Pacapausa',
-  'Secce'
+  'San Francisco de Ravacayco',
+  'Upahuacho',
+  'Coronel Castañeda (Aniso)',
+  'Relave'
 ];
 
 export const RegisterScreen: React.FC<RegisterScreenProps> = ({
@@ -128,8 +132,15 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        {/* Cabecera con selector ES/QU */}
+        {/* Cabecera con botón Volver y selector ES/QU */}
         <View style={styles.headerRow}>
+          <TouchableOpacity style={styles.btnBack} onPress={onGoToLogin} activeOpacity={0.7}>
+            <ArrowLeft size={18} color={COLORS.textPrimary} />
+            <Text style={styles.btnBackText}>
+              {idioma === 'qu' ? 'Kutipariy' : 'Volver'}
+            </Text>
+          </TouchableOpacity>
+
           <WillAiLogo size={36} showText={true} />
 
           <View style={styles.langSelector}>

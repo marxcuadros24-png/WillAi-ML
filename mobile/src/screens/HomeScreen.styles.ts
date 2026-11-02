@@ -174,6 +174,37 @@ export const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#dc2626'
   },
+  mapDirectBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#f0f9ff',
+    borderWidth: 1.5,
+    borderColor: '#bae6fd',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 8
+  },
+  mapDirectIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#e0f2fe',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#7dd3fc'
+  },
+  mapDirectTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#0369a1'
+  },
+  mapDirectSubtitle: {
+    fontSize: 11.5,
+    color: '#0284c7',
+    marginTop: 2
+  },
   canvasWrapper: {
     borderRadius: 10,
     overflow: 'hidden',

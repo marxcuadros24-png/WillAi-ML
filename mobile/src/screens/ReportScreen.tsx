@@ -59,6 +59,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
   const [precisionM, setPrecisionM] = useState<number>(3.0);
   const [altitudM, setAltitudM] = useState<number>(3180);
   const [capturandoGps, setCapturandoGps] = useState<boolean>(true);
+  const [nombreLugar, setNombreLugar] = useState<string>('Coracora, Parinacochas');
 
   // Estados de envío
   const [enviando, setEnviando] = useState<boolean>(false);
@@ -82,6 +83,27 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
       setPrecisionM(loc.coords.accuracy ? Math.round(loc.coords.accuracy * 10) / 10 : 3.0);
       if (loc.coords.altitude) {
         setAltitudM(Math.round(loc.coords.altitude));
+      }
+
+      // Geocodificación inversa para obtener el nombre real del sector/lugar
+      try {
+        const geoList = await Location.reverseGeocodeAsync({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude
+        });
+        if (geoList && geoList.length > 0) {
+          const g = geoList[0];
+          const partes = [
+            g.name || g.street,
+            g.district || g.subregion || g.city || 'Parinacochas',
+            g.region || 'Ayacucho'
+          ].filter(Boolean);
+          if (partes.length > 0) {
+            setNombreLugar(partes.join(', '));
+          }
+        }
+      } catch {
+        setNombreLugar('Coracora, Parinacochas, Ayacucho');
       }
     } catch (e) {
       console.warn('GPS capture fallback:', e);
@@ -349,11 +371,11 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
             )}
           </View>
 
-          {/* 2. SECCIÓN: UBICACIÓN GPS EN EL CERRO */}
+          {/* 2. SECCIÓN: TU UBICACIÓN */}
           <View style={styles.card}>
             <View style={styles.cardTitleRow}>
               <Text style={styles.cardTitle}>
-                {idioma === 'qu' ? '2. Maypi kasqayki (GPS)' : '2. Tu Ubicación en el Cerro (GPS)'}
+                {idioma === 'qu' ? '2. Maypi kasqayki' : '2. Tu Ubicación'}
               </Text>
               <TouchableOpacity
                 style={styles.btnRefreshGps}
@@ -374,25 +396,18 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.gpsGrid}>
-              <View style={styles.gpsItem}>
-                <Text style={styles.gpsLabel}>Latitud</Text>
-                <Text style={styles.gpsValue}>{latitud.toFixed(4)}° S</Text>
-              </View>
-
-              <View style={styles.gpsItem}>
-                <Text style={styles.gpsLabel}>Longitud</Text>
-                <Text style={styles.gpsValue}>{longitud.toFixed(4)}° W</Text>
-              </View>
-
-              <View style={styles.gpsItem}>
-                <Text style={styles.gpsLabel}>Precisión</Text>
-                <Text style={[styles.gpsValue, { color: '#059669' }]}>±{precisionM} m</Text>
-              </View>
-
-              <View style={styles.gpsItem}>
-                <Text style={styles.gpsLabel}>Altitud</Text>
-                <Text style={styles.gpsValue}>{altitudM} msnm</Text>
+            {/* Nombre real del lugar y coordenadas */}
+            <View style={styles.lugarReferenciaBox}>
+              <MapPin size={22} color={COLORS.firePrimary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.lugarNombreText}>
+                  {capturandoGps
+                    ? (idioma === 'qu' ? 'Maypi kasqaykita maskachkan...' : 'Detectando lugar exacto...')
+                    : nombreLugar}
+                </Text>
+                <Text style={styles.lugarCoordsText}>
+                  {latitud.toFixed(4)}° S, {longitud.toFixed(4)}° W • ±{precisionM} m • {altitudM} msnm
+                </Text>
               </View>
             </View>
           </View>
@@ -487,8 +502,8 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
                 </Text>
                 <Text style={styles.switchSub}>
                   {idioma === 'qu'
-                    ? 'Wasikuna pichqa cuadra qayllapi'
-                    : 'A menos de 5 cuadras del fuego'}
+                    ? 'Wasikuna 500 metro qayllapi'
+                    : 'A menos de 500 metros del fuego'}
                 </Text>
               </View>
 

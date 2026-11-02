@@ -179,6 +179,26 @@ export const styles = StyleSheet.create({
     fontWeight: '800',
     color: COLORS.firePrimary
   },
+  lugarReferenciaBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle
+  },
+  lugarNombreText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.textPrimary
+  },
+  lugarCoordsText: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginTop: 2
+  },
   gpsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',

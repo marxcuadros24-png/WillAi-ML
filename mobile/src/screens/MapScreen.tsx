@@ -63,7 +63,7 @@ export const MapScreen: React.FC = () => {
     direccion_viento: 'NE'
   });
   const [incidentesHoy, setIncidentesHoy] = useState<IncidenteItem[]>([]);
-  const [cargando, setCargando] = useState<boolean>(true);
+  const [cargando, setCargando] = useState<boolean>(false);
   const [refrescandoSilencioso, setRefrescandoSilencioso] = useState<boolean>(false);
   const [incidenteSeleccionado, setIncidenteSeleccionado] = useState<IncidenteItem | null>(null);
   const [detalleIncidente, setDetalleIncidente] = useState<IncidenteDetail | null>(null);
@@ -267,23 +267,14 @@ export const MapScreen: React.FC = () => {
         </View>
       )}
 
-      {/* 4. LIENZO CARTOGRÁFICO SATELITAL */}
+      {/* 4. LIENZO CARTOGRÁFICO SATELITAL (Carga instantánea) */}
       <View style={styles.mapArea}>
-        {cargando ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color={COLORS.firePrimary} />
-            <Text style={styles.loadingText}>
-              {idioma === 'qu' ? 'Mapata kichachkan...' : 'Cargando mapa satelital...'}
-            </Text>
-          </View>
-        ) : (
-          <MapLibreMap
-            incidentes={incidentesHoy}
-            incidenteSeleccionado={incidenteSeleccionado}
-            onSelectIncidente={handleSelectIncidente}
-            tipoCapa={tipoCapa}
-          />
-        )}
+        <MapLibreMap
+          incidentes={incidentesHoy}
+          incidenteSeleccionado={incidenteSeleccionado}
+          onSelectIncidente={handleSelectIncidente}
+          tipoCapa={tipoCapa}
+        />
       </View>
 
       {/* 5. TARJETA OPERATIVA INFERIOR */}
