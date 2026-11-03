@@ -17,6 +17,22 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16
   },
+  btnServerConfig: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+    backgroundColor: '#f0f9ff'
+  },
+  btnServerConfigText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0284c7'
+  },
   langSelector: {
     flexDirection: 'row',
     borderRadius: 8,
@@ -257,29 +273,128 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0369a1'
   },
-  btnGoogle: {
+
+  // Modal de Conexión del Servidor
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: COLORS.textPrimary
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginBottom: 14,
+    lineHeight: 17
+  },
+  serverInputWrapper: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12
+  },
+  serverTextInput: {
+    fontSize: 12.5,
+    color: COLORS.textPrimary
+  },
+  testResultBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 14,
+    borderWidth: 1
   },
-  googleCircle: {
-    width: 20,
-    height: 20,
+  testResultSuccess: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#a7f3d0'
+  },
+  testResultError: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca'
+  },
+  testResultText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700'
+  },
+  testResultTextSuccess: {
+    color: '#059669'
+  },
+  testResultTextError: {
+    color: '#dc2626'
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12
+  },
+  btnTestServer: {
+    flex: 1,
+    paddingVertical: 11,
     borderRadius: 10,
-    backgroundColor: '#fee2e2',
+    backgroundColor: '#f0f9ff',
+    borderWidth: 1,
+    borderColor: '#bae6fd',
     alignItems: 'center',
     justifyContent: 'center'
   },
-  btnGoogleText: {
+  btnTestServerText: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: COLORS.textPrimary
+    color: '#0284c7'
+  },
+  btnSaveServer: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 10,
+    backgroundColor: COLORS.firePrimary,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  btnSaveServerText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#ffffff'
+  },
+  btnResetServer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8
+  },
+  btnResetServerText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: COLORS.textMuted
   }
 });
-

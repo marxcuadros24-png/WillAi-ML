@@ -1,0 +1,15 @@
+backend/
+frontend/
+.venv/
+**/__pycache__/
+**/.venv/
+*.py
+*.pyc
+*.md
+docker-compose*.yml
+Dockerfile*
+.git/
+node_modules/
+mobile/node_modules/
+mobile/.expo/
+

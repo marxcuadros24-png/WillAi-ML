@@ -1,4 +1,4 @@
-import { API_BASE } from '../constants/config';
+import { API_BASE, getApiBase } from '../constants/config';
 
 const DEFAULT_HEADERS: Record<string, string> = {
   'bypass-tunnel-reminder': 'true',
@@ -23,6 +23,26 @@ async function fetchConTimeout(url: string, options: RequestInit = {}, timeoutMs
   }
 }
 
+
+/**
+ * Prueba la conectividad con el servidor WillAI.
+ */
+export async function probarConexionApi(customUrl?: string): Promise<{ ok: boolean; mensaje: string; datos?: any }> {
+  let base = (customUrl || getApiBase()).trim().replace(/\/+$/, '');
+  if (!base.endsWith('/api/v1') && !base.includes('/api/')) {
+    base = `${base}/api/v1`;
+  }
+  try {
+    const res = await fetchConTimeout(`${base}/publico/estadisticas/`, { method: 'GET' }, 6000);
+    if (res.ok) {
+      const data = await res.json();
+      return { ok: true, mensaje: '¡Servidor conectado exitosamente!', datos: data };
+    }
+    return { ok: false, mensaje: `Servidor respondió: HTTP ${res.status}` };
+  } catch (err: any) {
+    return { ok: false, mensaje: err.message || 'No se pudo conectar al servidor' };
+  }
+}
 
 export interface UsuarioDto {
   id_usuario: number;
@@ -127,7 +147,7 @@ export interface AlertaItem {
  * Registro de nuevo poblador o brigadista en Django.
  */
 export async function registroCiudadanoApi(payload: RegistroPayload): Promise<LoginResponse> {
-  const res = await apiFetch(`${API_BASE}/usuarios/registro/`, {
+  const res = await apiFetch(`${getApiBase()}/usuarios/registro/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -153,7 +173,7 @@ export async function registroCiudadanoApi(payload: RegistroPayload): Promise<Lo
  * Iniciar sesión con Token DRF.
  */
 export async function loginApi(username: string, password: string): Promise<LoginResponse> {
-  const res = await apiFetch(`${API_BASE}/usuarios/login/`, {
+  const res = await apiFetch(`${getApiBase()}/usuarios/login/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password })
@@ -171,7 +191,7 @@ export async function loginApi(username: string, password: string): Promise<Logi
  * Consulta el perfil del usuario autenticado.
  */
 export async function fetchPerfilUsuarioApi(token: string): Promise<UsuarioDto> {
-  const res = await apiFetch(`${API_BASE}/usuarios/usuarios/me/`, {
+  const res = await apiFetch(`${getApiBase()}/usuarios/usuarios/me/`, {
     headers: {
       Authorization: `Token ${token}`
     }
@@ -191,7 +211,7 @@ export async function actualizarPerfilUsuarioApi(
   token: string,
   payload: ActualizarPerfilPayload
 ): Promise<UsuarioDto> {
-  const res = await apiFetch(`${API_BASE}/usuarios/usuarios/me/`, {
+  const res = await apiFetch(`${getApiBase()}/usuarios/usuarios/me/`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -221,7 +241,7 @@ export async function actualizarPerfilUsuarioApi(
  */
 export async function fetchInsigniasCatalogoApi(): Promise<InsigniaItem[]> {
   try {
-    const res = await apiFetch(`${API_BASE}/gamificacion/insignias/`);
+    const res = await apiFetch(`${getApiBase()}/gamificacion/insignias/`);
     if (!res.ok) return [];
     const data = await res.json();
     return data.results || data || [];
@@ -235,7 +255,7 @@ export async function fetchInsigniasCatalogoApi(): Promise<InsigniaItem[]> {
  */
 export async function fetchCuadroHonorApi(): Promise<any> {
   try {
-    const res = await apiFetch(`${API_BASE}/gamificacion/insignias/cuadro-honor/`);
+    const res = await apiFetch(`${getApiBase()}/gamificacion/insignias/cuadro-honor/`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -299,7 +319,7 @@ export async function fetchIncidentesApi(token?: string | null): Promise<Inciden
   try {
     const headers: Record<string, string> = {};
     if (token) headers['Authorization'] = `Token ${token}`;
-    const res = await apiFetch(`${API_BASE}/incidentes/incidentes/`, { headers });
+    const res = await apiFetch(`${getApiBase()}/incidentes/incidentes/`, { headers });
     if (!res.ok) return [];
     const data = await res.json();
     return data.results || data || [];
@@ -313,7 +333,7 @@ export async function fetchIncidentesApi(token?: string | null): Promise<Inciden
  */
 export async function fetchIncidenteDetalleApi(id: number): Promise<IncidenteDetail | null> {
   try {
-    const res = await apiFetch(`${API_BASE}/incidentes/incidentes/${id}/`);
+    const res = await apiFetch(`${getApiBase()}/incidentes/incidentes/${id}/`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -326,7 +346,7 @@ export async function fetchIncidenteDetalleApi(id: number): Promise<IncidenteDet
  */
 export async function fetchFocosFirmsApi(pageSize = 25): Promise<DeteccionFirmsItem[]> {
   try {
-    const res = await apiFetch(`${API_BASE}/firms/detecciones/?page_size=${pageSize}`);
+    const res = await apiFetch(`${getApiBase()}/firms/detecciones/?page_size=${pageSize}`);
     if (!res.ok) return [];
     const data = await res.json();
     return data.results || data || [];
@@ -340,7 +360,7 @@ export async function fetchFocosFirmsApi(pageSize = 25): Promise<DeteccionFirmsI
  */
 export async function fetchFwiActual(): Promise<FwiActualResponse | null> {
   try {
-    const res = await apiFetch(`${API_BASE}/predicciones/predicciones/actual/`);
+    const res = await apiFetch(`${getApiBase()}/predicciones/predicciones/actual/`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -374,7 +394,7 @@ export interface AlertaPublicaItem {
  */
 export async function fetchAlertasComunitariasApi(): Promise<AlertaPublicaItem[]> {
   try {
-    const res = await apiFetch(`${API_BASE}/alertas/alertas/`);
+    const res = await apiFetch(`${getApiBase()}/alertas/alertas/`);
     if (!res.ok) return [];
     const data = await res.json();
     return data.results || data || [];
@@ -388,10 +408,10 @@ export async function fetchAlertasUsuario(token?: string | null): Promise<Alerta
     const headers: Record<string, string> = {};
     if (token) headers['Authorization'] = `Token ${token}`;
 
-    const res = await apiFetch(`${API_BASE}/alertas/alertas/mis_alertas/`, { headers });
+    const res = await apiFetch(`${getApiBase()}/alertas/alertas/mis_alertas/`, { headers });
     if (!res.ok) {
       // Fallback a alertas públicas del portal si no hay auth
-      const publicRes = await apiFetch(`${API_BASE}/alertas/alertas/`);
+      const publicRes = await apiFetch(`${getApiBase()}/alertas/alertas/`);
       if (!publicRes.ok) return [];
       const list = await publicRes.json();
       return (list.results || list || []).map((a: any) => ({
@@ -417,7 +437,7 @@ export async function fetchAlertasUsuario(token?: string | null): Promise<Alerta
 export async function confirmarAlertaApi(alertaId: number, token?: string | null): Promise<boolean> {
   if (!token) return false;
   try {
-    const res = await apiFetch(`${API_BASE}/alertas/alertas/${alertaId}/confirmar/`, {
+    const res = await apiFetch(`${getApiBase()}/alertas/alertas/${alertaId}/confirmar/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -491,7 +511,7 @@ export async function enviarReporteApi(
   const timer = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const res = await apiFetch(`${API_BASE}/reportes/reportes/`, {
+    const res = await apiFetch(`${getApiBase()}/reportes/reportes/`, {
       method: 'POST',
       headers,
       body: JSON.stringify(jsonBody),
@@ -520,7 +540,7 @@ export async function enviarReporteApi(
  */
 export async function registrarTokenPushApi(expoPushToken: string, token: string): Promise<boolean> {
   try {
-    const res = await apiFetch(`${API_BASE}/alertas/preferencias/registrar-token/`, {
+    const res = await apiFetch(`${getApiBase()}/alertas/preferencias/registrar-token/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

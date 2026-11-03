@@ -1,16 +1,56 @@
-import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 
 /**
  * Configuración central de la App Móvil WillAI Coracora.
  */
 
-// URL pública segura vía Cloudflare Tunnel HTTPS (sin bloqueos de Firewall ni Wi-Fi institucional)
-export const CLOUDFLARE_TUNNEL_URL = 'https://layout-shopping-occasion-mice.trycloudflare.com/api/v1';
+// URL pública activa vía Cloudflare Tunnel HTTPS
+export const DEFAULT_SERVER_URL = 'https://cups-twice-economic-christmas.trycloudflare.com/api/v1';
 
-// IP local de respaldo
-const DEV_LAN_IP = '192.168.16.124';
+let currentServerUrl = DEFAULT_SERVER_URL;
 
-export const API_BASE = CLOUDFLARE_TUNNEL_URL;
+export const getApiBase = (): string => currentServerUrl;
+
+export const setApiBase = async (newUrl: string): Promise<string> => {
+  let cleaned = newUrl.trim().replace(/\/+$/, '');
+  if (!cleaned.endsWith('/api/v1') && !cleaned.includes('/api/')) {
+    cleaned = `${cleaned}/api/v1`;
+  }
+  currentServerUrl = cleaned;
+  try {
+    await SecureStore.setItemAsync('willai_custom_api_base', cleaned);
+  } catch (e) {
+    console.warn('Error al guardar URL de servidor en SecureStore:', e);
+  }
+  return currentServerUrl;
+};
+
+export const loadStoredApiBase = async (): Promise<string> => {
+  try {
+    const saved = await SecureStore.getItemAsync('willai_custom_api_base');
+    if (saved && saved.startsWith('http')) {
+      currentServerUrl = saved.trim().replace(/\/+$/, '');
+      return currentServerUrl;
+    }
+  } catch (e) {
+    console.warn('Error al cargar URL de servidor desde SecureStore:', e);
+  }
+  currentServerUrl = DEFAULT_SERVER_URL;
+  return DEFAULT_SERVER_URL;
+};
+
+export const resetApiBase = async (): Promise<string> => {
+  currentServerUrl = DEFAULT_SERVER_URL;
+  try {
+    await SecureStore.deleteItemAsync('willai_custom_api_base');
+  } catch (e) {
+    // ignorar
+  }
+  return DEFAULT_SERVER_URL;
+};
+
+// Compatibilidad hacia atrás
+export const API_BASE = DEFAULT_SERVER_URL;
 
 export const CANAL_NOTIFICACION_ID = 'alertas-incendios';
 export const NOMBRE_CANAL_NOTIFICACION = 'Alertas de Incendios Forestales (Máxima Prioridad)';

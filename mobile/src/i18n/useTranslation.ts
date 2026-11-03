@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { DICCIONARIO, Idioma, Translations } from './translations';
-import { API_BASE } from '../constants/config';
+import { API_BASE, getApiBase } from '../constants/config';
 
 const STORAGE_KEY_LANG = 'willai_lang_pref';
 
@@ -37,7 +37,7 @@ export const useTranslation = create<TranslationState>((set, get) => ({
     // Sincronizar en segundo plano con el backend Django si hay token
     if (token) {
       try {
-        fetch(`${API_BASE}/usuarios/usuarios/me/`, {
+        fetch(`${getApiBase()}/usuarios/usuarios/me/`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',

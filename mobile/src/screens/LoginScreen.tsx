@@ -8,7 +8,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert
+  Alert,
+  Modal
 } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import {
@@ -16,13 +17,18 @@ import {
   Lock,
   User,
   Fingerprint,
-  Shield,
   ArrowRight,
-  Map as MapIcon
+  Map as MapIcon,
+  Server,
+  X,
+  CheckCircle2,
+  AlertTriangle,
+  RotateCcw
 } from 'lucide-react-native';
-import { COLORS } from '../constants/config';
+import { COLORS, getApiBase, setApiBase, resetApiBase, DEFAULT_SERVER_URL } from '../constants/config';
 import { useTranslation } from '../i18n/useTranslation';
 import { useAuthStore } from '../stores/authStore';
+import { probarConexionApi } from '../services/api';
 import { WillAiLogo } from '../components/WillAiLogo';
 import { SatelliteSyncBadge } from '../components/SatelliteSyncBadge';
 import { styles } from './LoginScreen.styles';
@@ -41,12 +47,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const { t, idioma, setIdioma } = useTranslation();
   const login = useAuthStore((s) => s.login);
 
-  const [rolSeleccionado, setRolSeleccionado] = useState<'brigadista' | 'poblador'>('brigadista');
-  const [username, setUsername] = useState<string>('brigada_b12');
-  const [password, setPassword] = useState<string>('coracora2026');
+  // Campos de login sin pre-llenado fijo
+  const [username, setUsername] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
   const [cargando, setCargando] = useState<boolean>(false);
   const [biometricAvailable, setBiometricAvailable] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Estado del modal de configuración de servidor
+  const [showServerModal, setShowServerModal] = useState<boolean>(false);
+  const [serverUrlInput, setServerUrlInput] = useState<string>(getApiBase());
+  const [testingServer, setTestingServer] = useState<boolean>(false);
+  const [serverTestResult, setServerTestResult] = useState<{ ok: boolean; mensaje: string } | null>(null);
 
   useEffect(() => {
     LocalAuthentication.hasHardwareAsync().then((hasHardware) => {
@@ -56,18 +68,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         });
       }
     });
+    setServerUrlInput(getApiBase());
   }, []);
-
-  const handleSelectRol = (rol: 'brigadista' | 'poblador') => {
-    setRolSeleccionado(rol);
-    if (rol === 'brigadista') {
-      setUsername('brigada_b12');
-      setPassword('coracora2026');
-    } else {
-      setUsername('poblador_coracora');
-      setPassword('coracora2026');
-    }
-  };
 
   const handleLogin = async () => {
     if (!username.trim() || !password) {
@@ -111,8 +113,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       });
 
       if (result.success) {
+        if (!username.trim() || !password) {
+          Alert.alert(
+            'Huella reconocida',
+            'Por favor ingresa tus credenciales una vez para vincular la sesión biométrica.'
+          );
+          return;
+        }
         setCargando(true);
-        await login('brigada_b12', 'coracora2026');
+        await login(username.trim(), password);
         onSuccess();
       }
     } catch {
@@ -122,13 +131,36 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
   };
 
-  const handleGoogleAuth = () => {
-    Alert.alert(
-      'Google',
-      idioma === 'qu'
-        ? 'Googlewan yaykuyqa allinllañam kachkan.'
-        : 'Acceso con cuenta de Google disponible.'
-    );
+  const handleTestServer = async () => {
+    setTestingServer(true);
+    setServerTestResult(null);
+    try {
+      const res = await probarConexionApi(serverUrlInput);
+      setServerTestResult({ ok: res.ok, mensaje: res.mensaje });
+    } catch (err: any) {
+      setServerTestResult({ ok: false, mensaje: err.message || 'Error de conexión' });
+    } finally {
+      setTestingServer(false);
+    }
+  };
+
+  const handleSaveServer = async () => {
+    if (!serverUrlInput.trim()) {
+      Alert.alert('Error', 'La URL no puede estar vacía');
+      return;
+    }
+    const finalUrl = await setApiBase(serverUrlInput);
+    setServerUrlInput(finalUrl);
+    setServerTestResult({ ok: true, mensaje: '¡URL de servidor guardada!' });
+    setTimeout(() => {
+      setShowServerModal(false);
+    }, 900);
+  };
+
+  const handleResetServer = async () => {
+    const defaultUrl = await resetApiBase();
+    setServerUrlInput(defaultUrl);
+    setServerTestResult({ ok: true, mensaje: 'Restablecido al servidor por defecto.' });
   };
 
   return (
@@ -137,24 +169,40 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        {/* Barra Superior con Selector Idioma */}
+        {/* Barra Superior con Selector Idioma y Config Servidor */}
         <View style={styles.topBar}>
           <SatelliteSyncBadge />
 
-          <View style={styles.langSelector}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {/* Botón Acceso Rápido a Config Servidor */}
             <TouchableOpacity
-              style={[styles.langBtn, idioma === 'es' && styles.langBtnActive]}
-              onPress={() => setIdioma('es')}
+              style={styles.btnServerConfig}
+              onPress={() => {
+                setServerUrlInput(getApiBase());
+                setServerTestResult(null);
+                setShowServerModal(true);
+              }}
+              activeOpacity={0.75}
             >
-              <Text style={[styles.langBtnText, idioma === 'es' && styles.langBtnTextActive]}>ES</Text>
+              <Server size={14} color="#0284c7" />
+              <Text style={styles.btnServerConfigText}>Servidor</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.langBtn, idioma === 'qu' && styles.langBtnActive]}
-              onPress={() => setIdioma('qu')}
-            >
-              <Text style={[styles.langBtnText, idioma === 'qu' && styles.langBtnTextActive]}>QU</Text>
-            </TouchableOpacity>
+            <View style={styles.langSelector}>
+              <TouchableOpacity
+                style={[styles.langBtn, idioma === 'es' && styles.langBtnActive]}
+                onPress={() => setIdioma('es')}
+              >
+                <Text style={[styles.langBtnText, idioma === 'es' && styles.langBtnTextActive]}>ES</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.langBtn, idioma === 'qu' && styles.langBtnActive]}
+                onPress={() => setIdioma('qu')}
+              >
+                <Text style={[styles.langBtnText, idioma === 'qu' && styles.langBtnTextActive]}>QU</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -210,32 +258,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           <View style={styles.dividerLine} />
         </View>
 
-        {/* 3. Selector de Rol */}
-        <View style={styles.roleSelectorBox}>
-          <TouchableOpacity
-            style={[styles.roleTab, rolSeleccionado === 'brigadista' && styles.roleTabActive]}
-            onPress={() => handleSelectRol('brigadista')}
-            activeOpacity={0.8}
-          >
-            <Shield size={16} color={rolSeleccionado === 'brigadista' ? COLORS.firePrimary : COLORS.textMuted} />
-            <Text style={[styles.roleTabText, rolSeleccionado === 'brigadista' && styles.roleTabTextActive]}>
-              {idioma === 'qu' ? 'Brigadista kani' : 'Soy Brigadista'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.roleTab, rolSeleccionado === 'poblador' && styles.roleTabActive]}
-            onPress={() => handleSelectRol('poblador')}
-            activeOpacity={0.8}
-          >
-            <User size={16} color={rolSeleccionado === 'poblador' ? COLORS.firePrimary : COLORS.textMuted} />
-            <Text style={[styles.roleTabText, rolSeleccionado === 'poblador' && styles.roleTabTextActive]}>
-              {idioma === 'qu' ? 'Poblador kani' : 'Soy Poblador'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* 4. Formulario de Inicio de Sesión */}
+        {/* 3. Formulario de Inicio de Sesión Directo */}
         <View style={styles.cardForm}>
           {errorMsg && (
             <View style={styles.errorBox}>
@@ -251,7 +274,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <User size={16} color={COLORS.textMuted} />
               <TextInput
                 style={styles.textInput}
-                placeholder="Ej: brigada_b12"
+                placeholder={idioma === 'qu' ? 'Sutiykita churay' : 'Tu usuario o número de celular'}
                 placeholderTextColor={COLORS.textMuted}
                 value={username}
                 onChangeText={setUsername}
@@ -306,7 +329,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* 5. Acceso con Huella Digital o Google */}
+        {/* 4. Acceso con Huella Digital */}
         <View style={styles.socialButtonsContainer}>
           <TouchableOpacity
             style={styles.btnBiometric}
@@ -320,6 +343,102 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Modal de Configuración y Diagnóstico del Servidor */}
+      <Modal
+        visible={showServerModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowServerModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Server size={20} color={COLORS.cyan} />
+                <Text style={styles.modalTitle}>Servidor de WillAI</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowServerModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <X size={20} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSubtitle}>
+              Dirección de conexión con el backend de WillAI (Cloudflare Tunnel o IP local):
+            </Text>
+
+            <View style={styles.serverInputWrapper}>
+              <TextInput
+                style={styles.serverTextInput}
+                value={serverUrlInput}
+                onChangeText={setServerUrlInput}
+                placeholder="https://...trycloudflare.com/api/v1"
+                placeholderTextColor={COLORS.textMuted}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+
+            {serverTestResult && (
+              <View
+                style={[
+                  styles.testResultBox,
+                  serverTestResult.ok ? styles.testResultSuccess : styles.testResultError
+                ]}
+              >
+                {serverTestResult.ok ? (
+                  <CheckCircle2 size={16} color="#059669" />
+                ) : (
+                  <AlertTriangle size={16} color="#dc2626" />
+                )}
+                <Text
+                  style={[
+                    styles.testResultText,
+                    serverTestResult.ok ? styles.testResultTextSuccess : styles.testResultTextError
+                  ]}
+                >
+                  {serverTestResult.mensaje}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.btnTestServer}
+                onPress={handleTestServer}
+                disabled={testingServer}
+                activeOpacity={0.8}
+              >
+                {testingServer ? (
+                  <ActivityIndicator size="small" color="#0284c7" />
+                ) : (
+                  <Text style={styles.btnTestServerText}>Probar Conexión</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.btnSaveServer}
+                onPress={handleSaveServer}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.btnSaveServerText}>Guardar</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.btnResetServer}
+              onPress={handleResetServer}
+              activeOpacity={0.7}
+            >
+              <RotateCcw size={14} color={COLORS.textMuted} />
+              <Text style={styles.btnResetServerText}>Restablecer Servidor Oficial</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };

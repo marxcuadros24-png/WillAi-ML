@@ -3,7 +3,7 @@ import { View, StyleSheet, SafeAreaView, TouchableOpacity, Text, Platform, BackH
 import { StatusBar } from 'expo-status-bar';
 import { Home, Flame, User, Bell, Map as MapIcon } from 'lucide-react-native';
 
-import { COLORS } from './src/constants/config';
+import { COLORS, loadStoredApiBase } from './src/constants/config';
 import { initDatabase } from './src/db/database';
 import { useTranslation } from './src/i18n/useTranslation';
 import { useAuthStore } from './src/stores/authStore';
@@ -30,6 +30,7 @@ export default function App() {
 
   useEffect(() => {
     // 1. Inicializar base de datos local SQLite
+    loadStoredApiBase();
     initDatabase();
 
     // 2. Cargar idioma y sesión guardados en SecureStore
