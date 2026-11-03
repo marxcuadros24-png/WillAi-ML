@@ -10,7 +10,8 @@ import type {
   LoteSatelital,
   MetricasKPI,
   ViviendaRural,
-  GrillaRiesgoOcurrenciaData
+  GrillaRiesgoOcurrenciaData,
+  HistorialFirmsResponse
 } from '../types';
 
 export interface AppContextType {
@@ -20,6 +21,7 @@ export interface AppContextType {
   focos: FocoCalor[];
   brigadas: Brigada[];
   viviendas: ViviendaRural[];
+  historialFirms: HistorialFirmsResponse;
   alertas: AlertaComunitaria[];
   grillaOcurrencia: GrillaRiesgoOcurrenciaData | null;
   reportes: ReporteCiudadano[];

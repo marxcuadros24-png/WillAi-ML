@@ -18,7 +18,8 @@ import {
   Layers,
   CheckCircle,
   Info,
-  RotateCcw
+  RotateCcw,
+  Calendar
 } from 'lucide-react';
 import { TacticalMap } from '../components/TacticalMap';
 import { useAppContext } from '../context/AppContext';
@@ -28,6 +29,7 @@ export const MapaPage: React.FC = () => {
   const {
     incidentes,
     focos,
+    historialFirms,
     brigadas,
     viviendas,
     selectedIncidente,
@@ -406,6 +408,47 @@ export const MapaPage: React.FC = () => {
                   <div style={{ fontSize: '20px', fontWeight: 800, color: '#ffffff', marginTop: '2px' }}>{focosViirsCount}</div>
                 </div>
               </div>
+
+              {/* Desglose de Actividad Histórica Mensual NASA FIRMS */}
+              {historialFirms?.historial_mensual && historialFirms.historial_mensual.length > 0 && (
+                <div style={{ background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(251, 146, 60, 0.3)', borderRadius: '8px', padding: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#fb923c', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Calendar size={13} color="#fb923c" /> ACTIVIDAD HISTÓRICA ({historialFirms.total_detecciones} FOCOS)
+                    </span>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Últimos 6 meses</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    {historialFirms.historial_mensual.map((item) => (
+                      <div
+                        key={item.mes}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '6px 8px',
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          borderRadius: '5px',
+                          fontSize: '11px',
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => {
+                          const [y, m] = item.mes.split('-');
+                          const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+                          handleApplyCustomDates(`${item.mes}-01`, `${item.mes}-${lastDay}`);
+                        }}
+                        title={`Filtrar mapa satelital para el mes ${item.mes}`}
+                      >
+                        <span style={{ fontWeight: 700, color: '#f8fafc', fontFamily: 'var(--font-mono)' }}>{item.mes}</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>
+                          VIIRS: <strong style={{ color: '#fbbf24' }}>{item.viirs}</strong> • MODIS: <strong style={{ color: '#f87171' }}>{item.modis}</strong>
+                        </span>
+                        <span style={{ fontWeight: 800, color: '#fb923c' }}>{item.total} focos</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                 Focos SERFOR Perú: <strong style={{ color: '#10b981' }}>{focosSerforCount}</strong>

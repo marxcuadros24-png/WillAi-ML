@@ -70,7 +70,7 @@ def importar_firms_task(sensor="VIIRS_NOAA20_NRT", bbox=BBOX_CORACORA, days=1, d
         api_days = max(1, min(int(days), 5))
         url = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{map_key}/{sensor}/{bbox}/{api_days}/{date}"
     else:
-        api_days = max(1, min(int(days), 10))
+        api_days = max(1, min(int(days), 5))
         url = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{map_key}/{sensor}/{bbox}/{api_days}"
 
     try:

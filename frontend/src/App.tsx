@@ -75,7 +75,7 @@ export const App: React.FC = () => {
   const [brigadas, setBrigadas] = useState<Brigada[]>(INITIAL_BRIGADAS);
   const [viviendas, setViviendas] = useState<ViviendaRural[]>([]);
   const [alertas, setAlertas] = useState<AlertaComunitaria[]>(INITIAL_ALERTAS);
-  const [, setHistorialFirms] = useState<HistorialFirmsResponse>(INITIAL_HISTORIAL_FIRMS);
+  const [historialFirms, setHistorialFirms] = useState<HistorialFirmsResponse>(INITIAL_HISTORIAL_FIRMS);
 
   // Administrative Data State
   const [reportes, setReportes] = useState<ReporteCiudadano[]>([]);
@@ -113,7 +113,7 @@ export const App: React.FC = () => {
   const [simulacionGeojson, setSimulacionGeojson] = useState<any | null>(null);
 
   // Timeline & Historical filters
-  const [timeRange, setTimeRange] = useState<'today' | '24h' | '7d' | '30d' | '3m' | '6m' | 'custom'>('today');
+  const [timeRange, setTimeRange] = useState<'today' | '24h' | '7d' | '30d' | '3m' | '6m' | 'custom'>('30d');
   const [customDesde, setCustomDesde] = useState<string>('2026-05-01');
   const [customHasta, setCustomHasta] = useState<string>('2026-10-22');
 
@@ -174,7 +174,7 @@ export const App: React.FC = () => {
     try {
       const results = await Promise.allSettled([
         fetchIncidentes(),
-        fetchFocosFirms(1),
+        fetchFocosFirms(30),
         fetchHistorialFirms(6),
         fetchFWI(),
         fetchBrigadas(),
@@ -739,6 +739,7 @@ export const App: React.FC = () => {
     focos,
     brigadas,
     viviendas,
+    historialFirms,
     alertas,
     grillaOcurrencia,
     reportes,
