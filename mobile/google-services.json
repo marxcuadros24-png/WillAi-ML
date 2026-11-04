@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "861195461049",
+    "project_id": "willai-5d36b",
+    "storage_bucket": "willai-5d36b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:861195461049:android:9552a07e5c6e3c201bd668",
+        "android_client_info": {
+          "package_name": "pe.willai.coracora"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB8S-E06qakGeBw38qXPu0lV-3jWirx3BM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

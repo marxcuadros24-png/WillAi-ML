@@ -1,0 +1,49 @@
+﻿{
+  "id": "731f0964-6f37-4a68-8d3b-f7c134152e5b",
+  "status": "ERRORED",
+  "platform": "ANDROID",
+  "error": {
+    "errorCode": "EAS_BUILD_UNKNOWN_GRADLE_ERROR",
+    "message": "Gradle build failed with unknown error. See logs for the \"Run gradlew\" phase for more information."
+  },
+  "artifacts": {},
+  "fingerprint": {
+    "id": "01a1a453-6eee-70cc-b0ad-0364e5496cfa",
+    "hash": "863777d78e0c557ae3d5bedcfa9acadf78b5c215"
+  },
+  "initiatingActor": {
+    "id": "4ae7207c-f668-4f83-a0f6-6ad3582c6775",
+    "displayName": "rodrigo_retamozo"
+  },
+  "logFiles": [
+    "https://storage.googleapis.com/eas-workflows-production/logs/dc8b7900-4631-43bc-b5c8-6df274c898eb/731f0964-6f37-4a68-8d3b-f7c134152e5b/2026-11-04T02%3A11%3A36Z-681561c0-8197-4d62-acff-fe5149921031.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20261104%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20261104T022451Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=8474651b2be7446c31121a686f8cd12628133eedffdbb36439d5d2e5e3dfc8c4b2b53a109a6d27e9657fb430c6532f54def10723661f372106f401261aa75711fe8922f6d73438b77faea41cc6416933ea60738643534973914aeb2cd2fb1bea280b48311b56f734e74eb09f82204b14ca2868c138ba247290852319beee390dc3599bb5afbb7219d9b522eb4547a16608e2fe32f21c6158f92735008c88652d21fbb95efa0bb9e2e8b3c76cb417054b315e95d793770af76cbb3c97252a42220c0c217b818cee164b732867d116e2ac2d5b6de6bb3b7e6f827fb0dea5bdd97755e2c3c3c870aa807f3f0acbda4700fd1598949a242a8e5defa81fac7a0876a0"
+  ],
+  "app": {
+    "id": "dc8b7900-4631-43bc-b5c8-6df274c898eb",
+    "name": "willai-coracora",
+    "slug": "willai-coracora",
+    "ownerAccount": {
+      "id": "c1a68ba3-8590-47ef-acca-22737eea25ce",
+      "name": "rodrigo_retamozo"
+    }
+  },
+  "distribution": "INTERNAL",
+  "buildProfile": "preview",
+  "appIdentifier": "pe.willai.coracora",
+  "sdkVersion": "58.0.0",
+  "appVersion": "1.0.7",
+  "appBuildVersion": "8",
+  "gitCommitHash": "27d4f5fb8585018a317598804f092cbf92bbab45",
+  "gitCommitMessage": "feat(frontend): restaurar consumo y visualizaci├│n de actividad hist├│rica en /mapa",
+  "priority": "NORMAL",
+  "createdAt": "2026-11-04T02:11:33.691Z",
+  "updatedAt": "2026-11-04T02:20:37.662Z",
+  "completedAt": "2026-11-04T02:20:37.375Z",
+  "expirationDate": "2026-11-18T02:11:33.732Z",
+  "isForIosSimulator": false,
+  "metrics": {
+    "buildWaitTime": 2608,
+    "buildQueueTime": 4688,
+    "buildDuration": 536388
+  }
+}

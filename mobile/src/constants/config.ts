@@ -5,7 +5,7 @@ import * as SecureStore from 'expo-secure-store';
  */
 
 // URL pública activa vía Cloudflare Tunnel HTTPS
-export const DEFAULT_SERVER_URL = 'https://cups-twice-economic-christmas.trycloudflare.com/api/v1';
+export const DEFAULT_SERVER_URL = 'https://marked-thanks-objectives-until.trycloudflare.com/api/v1';
 
 let currentServerUrl = DEFAULT_SERVER_URL;
 
@@ -52,7 +52,7 @@ export const resetApiBase = async (): Promise<string> => {
 // Compatibilidad hacia atrás
 export const API_BASE = DEFAULT_SERVER_URL;
 
-export const CANAL_NOTIFICACION_ID = 'alertas-incendios';
+export const CANAL_NOTIFICACION_ID = 'alertas-incendios-v2';
 export const NOMBRE_CANAL_NOTIFICACION = 'Alertas de Incendios Forestales (Máxima Prioridad)';
 
 export const COLORS = {

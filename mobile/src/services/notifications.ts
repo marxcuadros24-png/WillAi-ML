@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import { CANAL_NOTIFICACION_ID, NOMBRE_CANAL_NOTIFICACION } from '../constants/config';
 import { registrarTokenPushApi } from './api';
 
-// Configurar cómo se comportan las notificaciones cuando la app está abierta
+// Configurar cómo se comportan las notificaciones cuando la app está abierta o en primer plano
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -15,7 +15,8 @@ Notifications.setNotificationHandler({
 });
 
 /**
- * Inicializa el canal de notificación Android de MÁXIMA PRIORIDAD con sonido y vibración.
+ * Inicializa el canal de notificación Android de MÁXIMA PRIORIDAD con sonido personalizado y vibración.
+ * Android Doze Mode: canal con AndroidImportance.MAX, sonido raw 'alerta' y visibilidad PUBLIC.
  */
 export async function configurarCanalNotificacionesAndroid(): Promise<void> {
   if (Platform.OS === 'android') {
@@ -25,14 +26,18 @@ export async function configurarCanalNotificacionesAndroid(): Promise<void> {
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 500, 200, 500],
         lightColor: '#ef4444',
-        sound: 'default',
+        sound: 'alerta', // Identificador raw sin extensión (.wav/.mp3) en res/raw/
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        bypassDnd: true, // Ignorar modo No Molestar en emergencias críticas
         enableVibrate: true,
         enableLights: true,
-        showBadge: true
+        showBadge: true,
+        audioAttributes: {
+          usage: Notifications.AndroidAudioUsage.ALARM,
+          contentType: Notifications.AndroidAudioContentType.SONIFICATION,
+        }
       });
     } catch (e) {
-      // Ignorar de forma segura en Expo Go cliente de desarrollo
       console.warn('Canal de notificación no soportado en Expo Go:', e);
     }
   }
@@ -56,16 +61,20 @@ export async function notificarNuevaAlertaSiCorresponde(alerta: {
   alertasYaNotificadas.add(alerta.id_alerta);
 
   try {
+    await configurarCanalNotificacionesAndroid();
+
     await Notifications.scheduleNotificationAsync({
       content: {
         title: `🚨 ALERTA: ${alerta.titulo}`,
         body: alerta.mensaje,
-        sound: 'default',
+        sound: 'alerta', // Sonido nativo en res/raw/alerta
         priority: Notifications.AndroidNotificationPriority.MAX,
         vibrate: [0, 500, 200, 500],
-        data: { id_alerta: alerta.id_alerta }
+        data: { id_alerta: alerta.id_alerta },
       },
-      trigger: null
+      trigger: {
+        channelId: CANAL_NOTIFICACION_ID,
+      } as any
     });
     return true;
   } catch (err) {
@@ -75,7 +84,8 @@ export async function notificarNuevaAlertaSiCorresponde(alerta: {
 }
 
 /**
- * Solicita permisos de notificación y obtiene el token Expo Push para registrarlo en Django.
+ * Solicita permisos de notificación y obtiene el Device Token nativo de FCM (Firebase Cloud Messaging)
+ * para registrarlo en el backend Django.
  */
 export async function registrarNotificacionesPush(authToken?: string | null): Promise<string | null> {
   try {
@@ -94,17 +104,18 @@ export async function registrarNotificacionesPush(authToken?: string | null): Pr
       return null;
     }
 
-    // Obtener token Expo Push
-    const tokenResponse = await Notifications.getExpoPushTokenAsync().catch(() => null);
-    const pushToken = tokenResponse?.data || null;
+    // Obtener Device Token nativo de Google FCM
+    const deviceToken = await Notifications.getDevicePushTokenAsync();
+    const pushToken = typeof deviceToken?.data === 'string' ? deviceToken.data : null;
 
     if (pushToken && authToken) {
       await registrarTokenPushApi(pushToken, authToken);
+      console.log('Token FCM nativo registrado exitosamente:', pushToken.substring(0, 15) + '...');
     }
 
     return pushToken;
   } catch (error) {
-    console.warn('Error al registrar notificaciones push:', error);
+    console.warn('Error al registrar token FCM nativo:', error);
     return null;
   }
 }
@@ -140,7 +151,7 @@ export async function emitirNotificacionAlertaLocal(
     // Vista técnica para brigadistas forestales
     cuerpoMensaje = `${certezaTexto} ${alerta.mensaje}\n📍 Coords: (${alerta.latitud?.toFixed(4) ?? '-15.01'}, ${alerta.longitud?.toFixed(4) ?? '-73.78'}) | Viento: ${alerta.viento_kmh ?? 15} km/h ${alerta.direccion_viento ?? 'SO'}`;
   } else {
-    // Vista preventiva para comuneros con norma de seguridad andina en Quechua/Español
+    // Vista preventiva para pobladores con norma de seguridad andina en Quechua/Español
     const advertenciaLadera =
       idioma === 'qu'
         ? '\n⚠️ ¡Qata wichayman amapuni asuykuychu! Ayllu plazaman qispiykuychik.'
@@ -148,6 +159,8 @@ export async function emitirNotificacionAlertaLocal(
 
     cuerpoMensaje = `${certezaTexto} ${alerta.mensaje}${advertenciaLadera}`;
   }
+
+  await configurarCanalNotificacionesAndroid();
 
   await Notifications.scheduleNotificationAsync({
     content: {
@@ -158,10 +171,13 @@ export async function emitirNotificacionAlertaLocal(
         rol,
         certeza: alerta.certeza_operador
       },
-      sound: true,
+      sound: 'alerta',
       priority: Notifications.AndroidNotificationPriority.MAX,
-      color: '#ef4444'
+      color: '#ef4444',
     },
-    trigger: null // Envío inmediato
+    trigger: {
+      channelId: CANAL_NOTIFICACION_ID,
+    } as any
+
   });
 }
