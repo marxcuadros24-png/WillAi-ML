@@ -335,28 +335,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
         </View>
 
-        {/* Acceso Directo al Mapa Satelital en Pantalla Completa */}
-        <TouchableOpacity
-          style={styles.mapDirectBanner}
-          onPress={onNavigateToMap}
-          activeOpacity={0.85}
-        >
-          <View style={styles.mapDirectIconBox}>
-            <MapIcon size={24} color="#0284c7" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.mapDirectTitle}>
-              {idioma === 'qu' ? 'Satelital Saywiti qaway' : 'Abrir Mapa Satelital de Fuegos'}
-            </Text>
-            <Text style={styles.mapDirectSubtitle}>
-              {puntosMapa.length > 0
-                ? (idioma === 'qu' ? `${puntosMapa.length} nina rikusqa Saywitipi` : `${puntosMapa.length} fuegos ubicados en Parinacochas`)
-                : (idioma === 'qu' ? 'Saywitipi qaway maypi kasqanta' : 'Ver ortofoto satelital ESRI en pantalla completa')}
-            </Text>
-          </View>
-          <ChevronRight size={20} color="#0284c7" />
-        </TouchableOpacity>
-
         {/* Foco más cercano al poblador */}
         {focoMasCercano && (
           <View style={styles.nearestIncidentBox}>
