@@ -113,7 +113,7 @@ export const App: React.FC = () => {
   const [simulacionGeojson, setSimulacionGeojson] = useState<any | null>(null);
 
   // Timeline & Historical filters
-  const [timeRange, setTimeRange] = useState<'today' | '24h' | '7d' | '30d' | '3m' | '6m' | 'custom'>('30d');
+  const [timeRange, setTimeRange] = useState<'today' | '24h' | '7d' | '30d' | '3m' | '6m' | 'custom'>('today');
   const [customDesde, setCustomDesde] = useState<string>('2026-05-01');
   const [customHasta, setCustomHasta] = useState<string>('2026-10-22');
 
@@ -174,7 +174,7 @@ export const App: React.FC = () => {
     try {
       const results = await Promise.allSettled([
         fetchIncidentes(),
-        fetchFocosFirms(30),
+        fetchFocosFirms(1),
         fetchHistorialFirms(6),
         fetchFWI(),
         fetchBrigadas(),
@@ -308,7 +308,7 @@ export const App: React.FC = () => {
 
     const data = await fetchFocosFirms(dias);
     setFocos(data);
-    showToast(`NASA FIRMS: Visualizando ${data.length} detecciones satelitales (${newRange.toUpperCase()})`);
+    showToast(`NASA FIRMS: Visualizando ${data.length} detecciones satelitales (${newRange === 'today' ? 'HOY' : newRange.toUpperCase()})`);
   };
 
   const handleApplyCustomDates = async (desde: string, hasta: string) => {

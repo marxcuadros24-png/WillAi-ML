@@ -1360,7 +1360,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             onClick={() => onChangeTimeRange('today')}
             title="Detecciones de hoy"
           >
-            TODAY
+            HOY
           </button>
           <button
             id="time-btn-24h"
@@ -1368,7 +1368,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             onClick={() => onChangeTimeRange('24h')}
             title="Últimas 24 Horas"
           >
-            24HRS
+            24 HORAS
           </button>
           <button
             id="time-btn-7d"
@@ -1376,7 +1376,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             onClick={() => onChangeTimeRange('7d')}
             title="Últimos 7 días"
           >
-            7DAYS
+            7 DÍAS
           </button>
           <button
             id="time-btn-30d"
