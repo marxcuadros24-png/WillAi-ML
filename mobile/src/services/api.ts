@@ -464,6 +464,7 @@ export async function enviarReporteApi(
     combustible: string;
     foto_uri?: string | null;
     foto_base64?: string | null;
+    video_uri?: string | null;
     fecha_captura: string;
   },
   token?: string | null
@@ -491,7 +492,75 @@ export async function enviarReporteApi(
     base64Img = payload.foto_uri;
   }
 
-  // Payload JSON estándar (100% inmune a errores de FormDataPart de React Native)
+  // Si incluye evidencia de video, enviar mediante multipart/form-data (streaming eficiente sin saturar memoria)
+  if (payload.video_uri) {
+    const formData = new FormData();
+    formData.append('tipo_incendio', tipoIncendioDjango);
+    formData.append('fecha_evento', payload.fecha_captura);
+    formData.append('latitud', String(Number(Number(payload.latitud).toFixed(6))));
+    formData.append('longitud', String(Number(Number(payload.longitud).toFixed(6))));
+    formData.append('precision_metros', String(payload.precision_m || 10.0));
+    formData.append('origen', 'movil');
+    formData.append(
+      'descripcion',
+      `[WillAI Móvil] Tipo: ${payload.tipo_fuego} | Combustible: ${payload.combustible} | Azimut: ${payload.azimut ?? 'N/A'}° | UUID: ${payload.client_uuid}`
+    );
+    formData.append('autoriza_publicacion', 'false');
+
+    if (base64Img) {
+      formData.append('fotografia_base64', base64Img);
+    } else if (payload.foto_uri && !payload.foto_uri.startsWith('data:')) {
+      const pName = payload.foto_uri.split('/').pop() || 'evidencia.jpg';
+      formData.append('fotografia', {
+        uri: payload.foto_uri,
+        name: pName,
+        type: 'image/jpeg'
+      } as any);
+    }
+
+    const vName = payload.video_uri.split('/').pop() || 'evidencia_video.mp4';
+    let vType = 'video/mp4';
+    if (vName.toLowerCase().endsWith('.mov')) vType = 'video/quicktime';
+    else if (vName.toLowerCase().endsWith('.3gp')) vType = 'video/3gpp';
+    else if (vName.toLowerCase().endsWith('.webm')) vType = 'video/webm';
+
+    formData.append('video', {
+      uri: payload.video_uri,
+      name: vName,
+      type: vType
+    } as any);
+
+    const formHeaders: Record<string, string> = {};
+    if (token) formHeaders['Authorization'] = `Token ${token}`;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 45000); // 45s timeout para subida de video en zonas rurales
+
+    try {
+      const res = await apiFetch(`${getApiBase()}/reportes/reportes/`, {
+        method: 'POST',
+        headers: formHeaders,
+        body: formData,
+        signal: controller.signal
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        let msg = `HTTP ${res.status}`;
+        if (typeof err === 'object') {
+          const firstVal = Object.values(err)[0];
+          if (typeof firstVal === 'string') msg = firstVal;
+          else if (Array.isArray(firstVal)) msg = firstVal[0];
+        }
+        throw new Error(msg);
+      }
+      return await res.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  // Payload JSON estándar (cuando solo hay fotografía o texto sin video)
   const jsonBody: Record<string, any> = {
     tipo_incendio: tipoIncendioDjango,
     fecha_evento: payload.fecha_captura,

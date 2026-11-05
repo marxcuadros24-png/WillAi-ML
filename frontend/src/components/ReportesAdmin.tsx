@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, XCircle, Flame, MapPin, User, Calendar, Image as ImageIcon, Trash2, AlertTriangle, Clock } from 'lucide-react';
+import { CheckCircle2, XCircle, Flame, MapPin, User, Calendar, Image as ImageIcon, Trash2, AlertTriangle, Clock, Video, Play } from 'lucide-react';
 import type { ReporteCiudadano } from '../types';
 import { Pagination } from './Pagination';
 import { getMediaUrl } from '../services/api';
+
+const isVideoUrl = (url: string | null | undefined): boolean => {
+  if (!url) return false;
+  const clean = url.toLowerCase();
+  return clean.endsWith('.mp4') || clean.endsWith('.mov') || clean.endsWith('.3gp') || clean.endsWith('.webm') || clean.includes('/video');
+};
 
 interface ReportesAdminProps {
   reportes: ReporteCiudadano[];
@@ -152,30 +158,85 @@ export const ReportesAdmin: React.FC<ReportesAdminProps> = ({
                 {getEstadoBadge(rep.estado)}
               </div>
 
-              {rep.evidencia_url ? (
-                <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => setSelectedPhoto(rep.evidencia_url || null)}>
-                  <img
-                    src={getMediaUrl(rep.evidencia_url)}
-                    alt="Evidencia fotográfica"
-                    className="report-card-img"
-                  />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      bottom: '8px',
-                      right: '8px',
-                      background: 'rgba(0,0,0,0.7)',
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      fontSize: '0.7rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}
-                  >
-                    <ImageIcon size={12} />
-                    Ver foto
-                  </div>
+              {/* Evidencia Multimedia (Fotografía y/o Video de hasta 15s) */}
+              {rep.video_url || rep.fotografia_url || rep.evidencia_url ? (
+                <div style={{ position: 'relative', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+                  {rep.fotografia_url || (rep.evidencia_url && !isVideoUrl(rep.evidencia_url)) ? (
+                    <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => setSelectedPhoto(rep.fotografia_url || rep.evidencia_url || null)}>
+                      <img
+                        src={getMediaUrl(rep.fotografia_url || rep.evidencia_url || '')}
+                        alt="Evidencia fotográfica"
+                        className="report-card-img"
+                      />
+                      <div
+                        style={{
+                          position: 'absolute',
+                          bottom: '8px',
+                          right: '8px',
+                          background: 'rgba(0,0,0,0.75)',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '0.7rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          color: '#ffffff'
+                        }}
+                      >
+                        <ImageIcon size={12} />
+                        Ver foto
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        height: '110px',
+                        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.9))',
+                        border: '1px solid rgba(249, 115, 22, 0.3)',
+                        borderRadius: 'var(--radius-sm)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        gap: '6px'
+                      }}
+                      onClick={() => setSelectedPhoto(rep.video_url || rep.evidencia_url || null)}
+                    >
+                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(249, 115, 22, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Play size={18} color="#f97316" style={{ marginLeft: '2px' }} />
+                      </div>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#fed7aa', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Video size={13} /> Reproducir Video Evidencia (15s)
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Si contiene ambos (foto y video) permitir reproducir video directamente */}
+                  {rep.video_url && (rep.fotografia_url || (rep.evidencia_url && !isVideoUrl(rep.evidencia_url))) && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPhoto(rep.video_url || null)}
+                      style={{
+                        marginTop: '6px',
+                        width: '100%',
+                        background: 'rgba(249, 115, 22, 0.15)',
+                        border: '1px solid rgba(249, 115, 22, 0.4)',
+                        color: '#fed7aa',
+                        padding: '5px 8px',
+                        borderRadius: '6px',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <Play size={12} color="#f97316" /> Reproducir Video Adjunto
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div
@@ -193,7 +254,7 @@ export const ReportesAdmin: React.FC<ReportesAdminProps> = ({
                   }}
                 >
                   <ImageIcon size={16} />
-                  Sin fotografía adjunta
+                  <span>Sin evidencia multimedia adjunta</span>
                 </div>
               )}
 
@@ -315,13 +376,14 @@ export const ReportesAdmin: React.FC<ReportesAdminProps> = ({
         </div>
       )}
 
-      {/* Photo Viewer Modal */}
+      {/* Visor Modal de Evidencia (Fotografía o Video de 15s) */}
       {selectedPhoto && (
         <div
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.85)',
+            background: 'rgba(0,0,0,0.88)',
+            backdropFilter: 'blur(6px)',
             zIndex: 9999,
             display: 'flex',
             alignItems: 'center',
@@ -330,14 +392,51 @@ export const ReportesAdmin: React.FC<ReportesAdminProps> = ({
           }}
           onClick={() => setSelectedPhoto(null)}
         >
-          <div style={{ position: 'relative', maxWidth: '800px', width: '100%' }}>
-            <img
-              src={getMediaUrl(selectedPhoto)}
-              alt="Evidencia ampliada"
-              style={{ width: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: '12px' }}
-            />
-            <div style={{ textAlign: 'center', marginTop: '10px', color: '#94a3b8', fontSize: '0.8rem' }}>
-              Clic en cualquier parte para cerrar
+          <div
+            style={{ position: 'relative', maxWidth: '800px', width: '100%', background: '#0b1329', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.15)', overflow: 'hidden' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: '#1e293b' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isVideoUrl(selectedPhoto) ? (
+                  <>
+                    <Video size={16} color="#f97316" /> Video de Evidencia (Máx. 15s)
+                  </>
+                ) : (
+                  <>
+                    <ImageIcon size={16} color="#38bdf8" /> Fotografía de Evidencia
+                  </>
+                )}
+              </span>
+              <button
+                onClick={() => setSelectedPhoto(null)}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1rem', fontWeight: 800 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#020617' }}>
+              {isVideoUrl(selectedPhoto) ? (
+                <video
+                  src={getMediaUrl(selectedPhoto)}
+                  controls
+                  autoPlay
+                  playsInline
+                  preload="metadata"
+                  style={{ width: '100%', maxHeight: '75vh', borderRadius: '8px' }}
+                />
+              ) : (
+                <img
+                  src={getMediaUrl(selectedPhoto)}
+                  alt="Evidencia ampliada"
+                  style={{ width: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: '8px' }}
+                />
+              )}
+            </div>
+
+            <div style={{ textAlign: 'center', padding: '8px', color: '#64748b', fontSize: '0.75rem', background: '#0f172a' }}>
+              Presiona ✕ o haz clic fuera para cerrar
             </div>
           </div>
         </div>

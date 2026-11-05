@@ -1,4 +1,5 @@
 from rest_framework import viewsets, permissions, status
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils import timezone
@@ -16,6 +17,7 @@ class ReporteViewSet(viewsets.ModelViewSet):
     """
     CRUD y flujo operativo de Reportes Ciudadanos de Incendios.
     """
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     queryset = Reporte.objects.select_related('usuario', 'comunidad').prefetch_related('evidencias', 'validaciones').all()
     filterset_fields = ['estado', 'tipo_incendio', 'origen', 'comunidad']
     search_fields = ['descripcion', 'usuario__nombre_visible']

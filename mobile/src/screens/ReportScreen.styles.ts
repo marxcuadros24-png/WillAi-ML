@@ -165,6 +165,37 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.textSecondary
   },
+  videoBox: {
+    borderWidth: 2,
+    borderColor: '#fed7aa',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff7ed'
+  },
+  videoPlayer: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 8,
+    backgroundColor: '#0f172a'
+  },
+  videoDurationBadge: {
+    backgroundColor: '#dc2626',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4
+  },
+  videoDurationBadgeText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '800'
+  },
   btnRefreshGps: {
     flexDirection: 'row',
     alignItems: 'center',

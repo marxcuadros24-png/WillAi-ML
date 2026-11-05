@@ -1,9 +1,10 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 from rest_framework import status
-from apps.reportes.models import Reporte, ValidacionReporte
+from apps.reportes.models import Reporte, Evidencia, ValidacionReporte
 from apps.geografia.models import Distrito, Comunidad
 
 User = get_user_model()
@@ -68,3 +69,56 @@ class ReportesModelAndAPITests(TestCase):
         val = ValidacionReporte.objects.first()
         self.assertEqual(val.revisor, self.verificador)
         self.assertEqual(val.resultado, 'validado')
+
+    def test_crear_reporte_con_video(self):
+        self.client.force_authenticate(user=self.user)
+        video_dummy = SimpleUploadedFile(
+            'incendio_15s.mp4',
+            b'\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00isommp42' + b'A' * 5000,
+            content_type='video/mp4'
+        )
+        payload = {
+            'tipo_incendio': 'forestal',
+            'descripcion': 'Grabación de video de llamas avanzando en cerro',
+            'latitud': -15.0189,
+            'longitud': -73.7806,
+            'precision_metros': 4.0,
+            'video': video_dummy,
+        }
+        response = self.client.post('/api/v1/reportes/reportes/', payload, format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        reporte = Reporte.objects.get(id_reporte=response.data['id_reporte'])
+        self.assertEqual(reporte.evidencias.count(), 1)
+        evidencia = reporte.evidencias.first()
+        self.assertEqual(evidencia.tipo, Evidencia.TipoEvidencia.VIDEO)
+        self.assertIn('.mp4', evidencia.archivo.name)
+        self.assertEqual(evidencia.mime_type, 'video/mp4')
+        self.assertGreater(evidencia.tamano_bytes, 0)
+
+    def test_crear_reporte_con_foto_y_video(self):
+        self.client.force_authenticate(user=self.user)
+        # 1x1 gif
+        foto_dummy = SimpleUploadedFile(
+            'evidencia.jpg',
+            b'GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;',
+            content_type='image/jpeg'
+        )
+        video_dummy = SimpleUploadedFile(
+            'incendio_15s.mov',
+            b'fake_mov_stream_data_12345',
+            content_type='video/quicktime'
+        )
+        payload = {
+            'tipo_incendio': 'pastizal',
+            'descripcion': 'Reporte completo con foto y video simultáneos',
+            'latitud': -15.0250,
+            'longitud': -73.7900,
+            'fotografia': foto_dummy,
+            'video': video_dummy,
+        }
+        response = self.client.post('/api/v1/reportes/reportes/', payload, format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        reporte = Reporte.objects.get(id_reporte=response.data['id_reporte'])
+        self.assertEqual(reporte.evidencias.count(), 2)
+        tipos = set(reporte.evidencias.values_list('tipo', flat=True))
+        self.assertEqual(tipos, {'fotografia', 'video'})

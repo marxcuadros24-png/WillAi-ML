@@ -101,6 +101,7 @@ class IncidenteListSerializer(serializers.ModelSerializer):
     creado_por_nombre = serializers.ReadOnlyField(source='creado_por.nombre_visible')
     brigadas_asignadas = serializers.SerializerMethodField()
     fotografia_url = serializers.SerializerMethodField()
+    video_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Incidente
@@ -124,6 +125,7 @@ class IncidenteListSerializer(serializers.ModelSerializer):
             'resumen',
             'brigadas_asignadas',
             'fotografia_url',
+            'video_url',
             'detectado_en',
             'creado_en',
         ]
@@ -163,6 +165,22 @@ class IncidenteListSerializer(serializers.ModelSerializer):
             pass
         return None
 
+    def get_video_url(self, obj):
+        try:
+            for vinculo in obj.vinculos_reporte.select_related('reporte').prefetch_related('reporte__evidencias').all():
+                if vinculo.reporte:
+                    ev = vinculo.reporte.evidencias.filter(tipo='video').first()
+                    if ev and ev.archivo:
+                        request = self.context.get('request')
+                        if request:
+                            return request.build_absolute_uri(ev.archivo.url)
+                        return ev.archivo.url
+                    elif ev and ev.uri_archivo and ev.uri_archivo.startswith('http'):
+                        return ev.uri_archivo
+        except Exception:
+            pass
+        return None
+
 
 class IncidenteDetailSerializer(serializers.ModelSerializer):
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
@@ -177,6 +195,8 @@ class IncidenteDetailSerializer(serializers.ModelSerializer):
     cierre = CierreIncidenteSerializer(read_only=True)
     fotografia_url = serializers.SerializerMethodField()
     fotografias = serializers.SerializerMethodField()
+    video_url = serializers.SerializerMethodField()
+    videos = serializers.SerializerMethodField()
 
     class Meta:
         model = Incidente
@@ -208,6 +228,8 @@ class IncidenteDetailSerializer(serializers.ModelSerializer):
             'cierre',
             'fotografia_url',
             'fotografias',
+            'video_url',
+            'videos',
             'creado_en',
             'actualizado_en',
         ]
@@ -234,6 +256,40 @@ class IncidenteDetailSerializer(serializers.ModelSerializer):
             for v in obj.vinculos_reporte.select_related('reporte').prefetch_related('reporte__evidencias').all():
                 if v.reporte:
                     for ev in v.reporte.evidencias.all():
+                        if ev.tipo == 'fotografia' or not ev.tipo:
+                            if ev.archivo:
+                                request = self.context.get('request')
+                                url = request.build_absolute_uri(ev.archivo.url) if request else ev.archivo.url
+                                if url and url not in urls:
+                                    urls.append(url)
+                            elif ev.uri_archivo and ev.uri_archivo.startswith('http') and ev.uri_archivo not in urls:
+                                urls.append(ev.uri_archivo)
+        except Exception:
+            pass
+        return urls
+
+    def get_video_url(self, obj):
+        try:
+            for v in obj.vinculos_reporte.select_related('reporte').prefetch_related('reporte__evidencias').all():
+                if v.reporte:
+                    ev = v.reporte.evidencias.filter(tipo='video').first()
+                    if ev and ev.archivo:
+                        request = self.context.get('request')
+                        if request:
+                            return request.build_absolute_uri(ev.archivo.url)
+                        return ev.archivo.url
+                    elif ev and ev.uri_archivo and ev.uri_archivo.startswith('http'):
+                        return ev.uri_archivo
+        except Exception:
+            pass
+        return None
+
+    def get_videos(self, obj):
+        urls = []
+        try:
+            for v in obj.vinculos_reporte.select_related('reporte').prefetch_related('reporte__evidencias').all():
+                if v.reporte:
+                    for ev in v.reporte.evidencias.filter(tipo='video'):
                         if ev.archivo:
                             request = self.context.get('request')
                             url = request.build_absolute_uri(ev.archivo.url) if request else ev.archivo.url

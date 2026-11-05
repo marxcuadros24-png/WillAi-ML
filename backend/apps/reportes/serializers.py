@@ -119,11 +119,24 @@ class CrearReporteSerializer(serializers.ModelSerializer):
     fecha_evento = serializers.DateTimeField(required=False, default=timezone.now)
     fotografia = Base64OrFileImageField(required=False, write_only=True)
     fotografia_base64 = Base64OrFileImageField(required=False, write_only=True, source='fotografia')
+    video = serializers.FileField(required=False, write_only=True)
     evidencias_archivos = serializers.ListField(
         child=serializers.FileField(max_length=100000, allow_empty_file=False),
         write_only=True,
         required=False
     )
+
+    def validate_video(self, value):
+        if value:
+            # Tamaño máximo: 25 MB (duración máxima esperada: 15 segundos)
+            max_size = 25 * 1024 * 1024
+            if value.size > max_size:
+                raise serializers.ValidationError('El archivo de video no puede superar los 25 MB.')
+            valid_exts = ('.mp4', '.mov', '.3gp', '.m4v', '.webm')
+            name = (getattr(value, 'name', '') or '').lower()
+            if not any(name.endswith(ext) for ext in valid_exts):
+                raise serializers.ValidationError('Formato no válido. Se admiten videos: MP4, MOV, 3GP, WEBM.')
+        return value
 
     class Meta:
         model = Reporte
@@ -142,6 +155,7 @@ class CrearReporteSerializer(serializers.ModelSerializer):
             'comunidad',
             'fotografia',
             'fotografia_base64',
+            'video',
             'evidencias_archivos',
         ]
         read_only_fields = ['id_reporte', 'uuid']
@@ -163,6 +177,7 @@ class CrearReporteSerializer(serializers.ModelSerializer):
         from apps.geografia.models import Distrito
 
         fotografia = validated_data.pop('fotografia', None)
+        video = validated_data.pop('video', None)
         archivos = validated_data.pop('evidencias_archivos', [])
         request = self.context.get('request')
         user = request.user if (request and request.user.is_authenticated) else None
@@ -182,11 +197,37 @@ class CrearReporteSerializer(serializers.ModelSerializer):
             if fotografia:
                 Evidencia.objects.create(
                     reporte=reporte,
+                    tipo=Evidencia.TipoEvidencia.FOTOGRAFIA,
                     archivo=fotografia,
                     uri_archivo=getattr(fotografia, 'name', 'evidencia.jpg'),
                     nombre_original=getattr(fotografia, 'name', 'evidencia.jpg'),
                     mime_type=getattr(fotografia, 'content_type', 'image/jpeg'),
                     tamano_bytes=getattr(fotografia, 'size', None),
+                    capturada_en=timezone.now()
+                )
+
+            # 3. Registrar evidencia de video si fue enviada (Archivo en disco /media/, metadatos en PostgreSQL)
+            if video:
+                v_name = getattr(video, 'name', 'evidencia.mp4')
+                v_mime = getattr(video, 'content_type', 'video/mp4')
+                if not v_mime or v_mime == 'application/octet-stream':
+                    if v_name.lower().endswith('.mov'):
+                        v_mime = 'video/quicktime'
+                    elif v_name.lower().endswith('.3gp'):
+                        v_mime = 'video/3gpp'
+                    elif v_name.lower().endswith('.webm'):
+                        v_mime = 'video/webm'
+                    else:
+                        v_mime = 'video/mp4'
+
+                Evidencia.objects.create(
+                    reporte=reporte,
+                    tipo=Evidencia.TipoEvidencia.VIDEO,
+                    archivo=video,
+                    uri_archivo=v_name,
+                    nombre_original=v_name,
+                    mime_type=v_mime,
+                    tamano_bytes=getattr(video, 'size', None),
                     capturada_en=timezone.now()
                 )
 

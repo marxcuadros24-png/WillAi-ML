@@ -112,13 +112,20 @@ def panel_datos_api(request):
     # Reportes ciudadanos
     reportes_list = []
     for r in Reporte.objects.select_related('usuario', 'comunidad').prefetch_related('evidencias').order_by('-creado_en')[:30]:
-        ev_url = None
-        ev = r.evidencias.first()
-        if ev and ev.archivo:
-            try:
-                ev_url = ev.archivo.url
-            except Exception:
-                ev_url = None
+        ev_foto_url = None
+        ev_video_url = None
+        for ev in r.evidencias.all():
+            if ev.archivo:
+                try:
+                    url = ev.archivo.url
+                    if ev.tipo == 'video':
+                        if not ev_video_url:
+                            ev_video_url = url
+                    else:
+                        if not ev_foto_url:
+                            ev_foto_url = url
+                except Exception:
+                    pass
         reportes_list.append({
             'id': r.id_reporte,
             'usuario': r.usuario.nombre_completo if r.usuario else 'Ciudadano Anónimo',
@@ -129,7 +136,10 @@ def panel_datos_api(request):
             'longitud': float(r.longitud),
             'descripcion': r.descripcion or '',
             'fecha': r.creado_en.strftime('%d/%m/%Y %H:%M'),
-            'evidencia_url': ev_url
+            'evidencia_url': ev_foto_url or ev_video_url,
+            'fotografia_url': ev_foto_url,
+            'video_url': ev_video_url,
+            'tipo_evidencia': 'ambos' if (ev_foto_url and ev_video_url) else ('video' if ev_video_url else ('fotografia' if ev_foto_url else None)),
         })
 
     # Donaciones comunitarias
@@ -222,13 +232,20 @@ def mapa_data_api(request):
 
     reportes_data = []
     for rep in Reporte.objects.select_related('usuario', 'comunidad').prefetch_related('evidencias')[:50]:
-        evidencia_url = None
-        ev = rep.evidencias.first()
-        if ev and ev.archivo:
-            try:
-                evidencia_url = ev.archivo.url
-            except Exception:
-                evidencia_url = None
+        ev_foto_url = None
+        ev_video_url = None
+        for ev in rep.evidencias.all():
+            if ev.archivo:
+                try:
+                    url = ev.archivo.url
+                    if ev.tipo == 'video':
+                        if not ev_video_url:
+                            ev_video_url = url
+                    else:
+                        if not ev_foto_url:
+                            ev_foto_url = url
+                except Exception:
+                    pass
         reportes_data.append({
             'id': rep.id_reporte,
             'usuario': rep.usuario.nombre_completo if rep.usuario else 'Anónimo',
@@ -239,7 +256,10 @@ def mapa_data_api(request):
             'comunidad': rep.comunidad.nombre if rep.comunidad else 'Coracora',
             'descripcion': rep.descripcion,
             'fecha': rep.creado_en.strftime('%d/%m/%Y %H:%M'),
-            'evidencia_url': evidencia_url,
+            'evidencia_url': ev_foto_url or ev_video_url,
+            'fotografia_url': ev_foto_url,
+            'video_url': ev_video_url,
+            'tipo_evidencia': 'ambos' if (ev_foto_url and ev_video_url) else ('video' if ev_video_url else ('fotografia' if ev_foto_url else None)),
         })
 
     viviendas_data = []

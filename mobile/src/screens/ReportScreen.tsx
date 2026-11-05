@@ -22,8 +22,12 @@ import {
   Send,
   AlertTriangle,
   ImageIcon,
-  Trash2
+  Trash2,
+  Video,
+  Film,
+  Clock
 } from 'lucide-react-native';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { COLORS } from '../constants/config';
 import { useTranslation } from '../i18n/useTranslation';
 import { useAuthStore } from '../stores/authStore';
@@ -39,6 +43,24 @@ interface ReportScreenProps {
 type TipoFuego = 'incendio_descontrolado' | 'quema_agricola_controlada';
 type TipoCombustible = 'ichu_pajonal' | 'matorral' | 'bofedal' | 'cultivo';
 
+
+// Componente de reproducción y previsualización segura de video antes del envío
+const VideoPreviewPlayer: React.FC<{ uri: string }> = ({ uri }) => {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = true;
+    p.play();
+  });
+
+  return (
+    <VideoView
+      style={styles.videoPlayer}
+      player={player}
+      nativeControls
+      contentFit="contain"
+    />
+  );
+};
+
 export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
   const { t, idioma } = useTranslation();
   const token = useAuthStore((s) => s.token);
@@ -52,6 +74,12 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
   const [fotoTomada, setFotoTomada] = useState<boolean>(false);
   const [fotoUri, setFotoUri] = useState<string | null>(null);
   const [fotoBase64, setFotoBase64] = useState<string | null>(null);
+
+  // Estados de Evidencia de Video (Máximo estricto: 15 segundos)
+  const [videoTomado, setVideoTomado] = useState<boolean>(false);
+  const [videoUri, setVideoUri] = useState<string | null>(null);
+  const [videoDuracionS, setVideoDuracionS] = useState<number>(0);
+  const [videoSizeMb, setVideoSizeMb] = useState<string>('0');
 
   // Telemetría GPS real
   const [latitud, setLatitud] = useState<number>(-15.0189);
@@ -211,6 +239,107 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
     setFotoTomada(false);
   };
 
+  // 1. Grabar video con cámara real (límite automático estricto de 15 segundos)
+  const handleGrabarVideoCamara = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          idioma === 'qu' ? 'Permisota munanchik' : 'Permiso de Cámara',
+          idioma === 'qu'
+            ? 'Cámarata kichanaykipaq permisotam munanchik.'
+            : 'Se requiere permiso para abrir la cámara de tu teléfono.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['videos'],
+        videoMaxDuration: 15, // Detención automática nativa a los 15s
+        allowsEditing: false,
+        quality: 0.7
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const duracionMs = asset.duration || 0;
+        // Validación estricta: máx 15 segundos (+1.5s margen de metadatos)
+        if (duracionMs > 16500) {
+          Alert.alert(
+            'Límite Excedido',
+            'El video grabado dura más de 15 segundos. Por favor, graba un video de hasta 15 segundos.'
+          );
+          return;
+        }
+
+        const duracionS = Math.round(duracionMs / 1000) || 15;
+        const sizeMb = asset.fileSize ? (asset.fileSize / (1024 * 1024)).toFixed(1) : '2.0';
+        setVideoUri(asset.uri);
+        setVideoDuracionS(duracionS);
+        setVideoSizeMb(sizeMb);
+        setVideoTomado(true);
+      }
+    } catch (err) {
+      console.warn('Error al abrir cámara de video:', err);
+      Alert.alert(
+        'Aviso',
+        'No se pudo abrir la cámara de video directamente. ¿Deseas elegir un video de tu galería?',
+        [
+          { text: 'No', style: 'cancel' },
+          { text: 'Abrir Galería', onPress: handleElegirVideoDeGaleria }
+        ]
+      );
+    }
+  };
+
+  // 2. Elegir video desde galería (máx 15 segundos)
+  const handleElegirVideoDeGaleria = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permiso Requerido',
+          'Se requiere permiso para ver los videos de tu teléfono.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['videos'],
+        allowsEditing: false,
+        quality: 0.7
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const duracionMs = asset.duration || 0;
+        if (duracionMs > 16500) {
+          Alert.alert(
+            'Video demasiado largo',
+            'El video seleccionado dura más de 15 segundos. Por favor selecciona un video de hasta 15 segundos.'
+          );
+          return;
+        }
+
+        const duracionS = Math.round(duracionMs / 1000) || 15;
+        const sizeMb = asset.fileSize ? (asset.fileSize / (1024 * 1024)).toFixed(1) : '2.0';
+        setVideoUri(asset.uri);
+        setVideoDuracionS(duracionS);
+        setVideoSizeMb(sizeMb);
+        setVideoTomado(true);
+      }
+    } catch (err) {
+      console.warn('Error al abrir galería de video:', err);
+    }
+  };
+
+  const handleEliminarVideo = () => {
+    setVideoUri(null);
+    setVideoTomado(false);
+    setVideoDuracionS(0);
+    setVideoSizeMb('0');
+  };
+
   const handleEnviarReporte = async () => {
     setEnviando(true);
     const clientUuid = `rep-movil-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -228,6 +357,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
       combustible,
       foto_uri: dataUri,
       foto_base64: fotoBase64 || null,
+      video_uri: videoUri || null,
       fecha_captura: fechaCaptura
     };
 
@@ -371,7 +501,85 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
             )}
           </View>
 
-          {/* 2. SECCIÓN: TU UBICACIÓN */}
+          {/* 2. SECCIÓN: VIDEO DEL FUEGO (MÁXIMO 15 SEGUNDOS) */}
+          <View style={styles.card}>
+            <View style={styles.cardTitleRow}>
+              <Text style={styles.cardTitle}>
+                {idioma === 'qu' ? '2. Ninapa Videon (Max 15s)' : '2. Video del Fuego (Máx. 15s)'}
+              </Text>
+              <View style={styles.videoDurationBadge}>
+                <Clock size={11} color="#ffffff" />
+                <Text style={styles.videoDurationBadgeText}>Máx. 15s</Text>
+              </View>
+            </View>
+
+            {videoTomado && videoUri ? (
+              <View style={styles.photoPreviewContainer}>
+                <VideoPreviewPlayer uri={videoUri} />
+                <View style={styles.photoCapturedContent}>
+                  <View style={styles.photoSuccessBadge}>
+                    <CheckCircle2 size={18} color="#059669" />
+                    <Text style={styles.photoCapturedText}>
+                      {idioma === 'qu' ? `Video hap'isqa (${videoDuracionS}s)` : `Video listo (${videoDuracionS}s • ${videoSizeMb}MB)`}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    <TouchableOpacity
+                      style={styles.photoChangeBtn}
+                      onPress={handleGrabarVideoCamara}
+                    >
+                      <Text style={styles.photoChangeText}>Regrabar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.photoChangeBtn, { borderColor: '#fca5a5' }]}
+                      onPress={handleEliminarVideo}
+                    >
+                      <Trash2 size={14} color="#dc2626" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.videoBox}>
+                <View style={styles.photoPlaceholder}>
+                  <Video size={38} color="#ea580c" />
+                  <Text style={[styles.photoBtnText, { color: '#ea580c' }]}>
+                    {idioma === 'qu' ? 'Ninata Videoy (15 segundo)' : 'Grabar Video del Fuego'}
+                  </Text>
+                  <Text style={styles.photoBtnSub}>
+                    Muestra el avance de las llamas y humo (se detiene a los 15s)
+                  </Text>
+
+                  {/* Botones de acción: Grabar o Galería */}
+                  <View style={styles.photoActionRow}>
+                    <TouchableOpacity
+                      style={[styles.photoSmallBtn, { backgroundColor: '#ffedd5', borderColor: '#fed7aa' }]}
+                      onPress={handleGrabarVideoCamara}
+                      activeOpacity={0.8}
+                    >
+                      <Video size={16} color="#ea580c" />
+                      <Text style={[styles.photoSmallBtnText, { color: '#ea580c' }]}>
+                        {idioma === 'qu' ? 'Videota kichay' : 'Grabar Video'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.photoSmallBtn}
+                      onPress={handleElegirVideoDeGaleria}
+                      activeOpacity={0.8}
+                    >
+                      <Film size={16} color={COLORS.textSecondary} />
+                      <Text style={styles.photoSmallBtnText}>
+                        {idioma === 'qu' ? 'Galeríamanta' : 'De Galería'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* 3. SECCIÓN: TU UBICACIÓN */}
           <View style={styles.card}>
             <View style={styles.cardTitleRow}>
               <Text style={styles.cardTitle}>
@@ -412,10 +620,10 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
             </View>
           </View>
 
-          {/* 3. SECCIÓN: TIPO DE FUEGO */}
+          {/* 4. SECCIÓN: TIPO DE FUEGO */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>
-              {idioma === 'qu' ? '3. ¿Ima nina kaytaq?' : '3. ¿Qué tipo de fuego es?'}
+              {idioma === 'qu' ? '4. ¿Ima nina kaytaq?' : '4. ¿Qué tipo de fuego es?'}
             </Text>
             <View style={styles.optionsRow}>
               <TouchableOpacity
@@ -464,10 +672,10 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
             </View>
           </View>
 
-          {/* 4. SECCIÓN: QUÉ SE ESTÁ QUEMANDO */}
+          {/* 5. SECCIÓN: QUÉ SE ESTÁ QUEMANDO */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>
-              {idioma === 'qu' ? '4. ¿Imataq rupachkan?' : '4. ¿Qué pasto o vegetación se quema?'}
+              {idioma === 'qu' ? '5. ¿Imataq rupachkan?' : '5. ¿Qué pasto o vegetación se quema?'}
             </Text>
             <View style={styles.fuelGrid}>
               {[
@@ -493,12 +701,12 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
             </View>
           </View>
 
-          {/* 5. SECCIÓN: CASAS O FAMILIAS EN PELIGRO */}
+          {/* 6. SECCIÓN: CASAS O FAMILIAS EN PELIGRO */}
           <View style={styles.card}>
             <View style={styles.switchRow}>
               <View style={styles.switchLabelBox}>
                 <Text style={styles.switchLabel}>
-                  {idioma === 'qu' ? '5. ¿Wasikuna qayllapichu kachkan?' : '5. ¿Hay casas o corrales cerca?'}
+                  {idioma === 'qu' ? '6. ¿Wasikuna qayllapichu kachkan?' : '6. ¿Hay casas o corrales cerca?'}
                 </Text>
                 <Text style={styles.switchSub}>
                   {idioma === 'qu'
@@ -534,10 +742,10 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
             </View>
           </View>
 
-          {/* 6. OBSERVACIÓN OPCIONAL */}
+          {/* 7. OBSERVACIÓN OPCIONAL */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>
-              {idioma === 'qu' ? '6. Yapasqa willakuy (munaspayki)' : '6. Algún dato más (opcional)'}
+              {idioma === 'qu' ? '7. Yapasqa willakuy (munaspayki)' : '7. Algún dato más (opcional)'}
             </Text>
             <TextInput
               style={styles.textInput}

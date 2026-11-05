@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Flame, PlusCircle, Shield, MapPin, Eye, CheckCircle2, Filter, Clock, Camera, XCircle } from 'lucide-react';
+import { Flame, PlusCircle, Shield, MapPin, Eye, CheckCircle2, Filter, Clock, Camera, XCircle, Video } from 'lucide-react';
 import type { Incidente } from '../types';
 import { Pagination } from './Pagination';
 import { getMediaUrl } from '../services/api';
+
+const isVideoUrl = (url: string | null | undefined): boolean => {
+  if (!url) return false;
+  const clean = url.toLowerCase();
+  return clean.endsWith('.mp4') || clean.endsWith('.mov') || clean.endsWith('.3gp') || clean.endsWith('.webm') || clean.includes('/video');
+};
 
 interface IncidentesAdminProps {
   incidentes: Incidente[];
@@ -227,29 +233,55 @@ export const IncidentesAdmin: React.FC<IncidentesAdminProps> = ({
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                       Iniciado: {inc.fecha_inicio} • Reportado por: {inc.reportado_por}
                     </div>
-                    {inc.fotografia_url && (
-                      <div style={{ marginTop: '5px' }}>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedPhoto(inc.fotografia_url || null)}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            background: 'rgba(239, 68, 68, 0.15)',
-                            border: '1px solid rgba(239, 68, 68, 0.4)',
-                            color: '#fca5a5',
-                            borderRadius: '4px',
-                            padding: '3px 8px',
-                            fontSize: '0.72rem',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                          }}
-                          title="Ver fotografía capturada por el ciudadano"
-                        >
-                          <Camera size={13} color="#f87171" />
-                          Evidencia Fotográfica
-                        </button>
+                    {/* Botones de Evidencia Multimedia (Foto y/o Video 15s) */}
+                    {(inc.fotografia_url || inc.video_url) && (
+                      <div style={{ marginTop: '5px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        {inc.fotografia_url && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPhoto(inc.fotografia_url || null)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              background: 'rgba(239, 68, 68, 0.15)',
+                              border: '1px solid rgba(239, 68, 68, 0.4)',
+                              color: '#fca5a5',
+                              borderRadius: '4px',
+                              padding: '3px 8px',
+                              fontSize: '0.72rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                            title="Ver fotografía capturada por el ciudadano"
+                          >
+                            <Camera size={13} color="#f87171" />
+                            Foto Evidencia
+                          </button>
+                        )}
+                        {inc.video_url && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPhoto(inc.video_url || null)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              background: 'rgba(249, 115, 22, 0.18)',
+                              border: '1px solid rgba(249, 115, 22, 0.45)',
+                              color: '#fed7aa',
+                              borderRadius: '4px',
+                              padding: '3px 8px',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                            title="Ver video de 15 segundos grabado por el ciudadano"
+                          >
+                            <Video size={13} color="#f97316" />
+                            Video (15s)
+                          </button>
+                        )}
                       </div>
                     )}
                     {inc.brigadas_asignadas && inc.brigadas_asignadas.length > 0 && (
@@ -371,13 +403,14 @@ export const IncidentesAdmin: React.FC<IncidentesAdminProps> = ({
           />
         )}
       </div>
-      {/* Visor Modal de Fotografía de Evidencia */}
+      {/* Visor Modal de Evidencia (Fotografía o Video de 15s) */}
       {selectedPhoto && (
         <div
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.85)',
+            background: 'rgba(0,0,0,0.88)',
+            backdropFilter: 'blur(6px)',
             zIndex: 9999,
             display: 'flex',
             alignItems: 'center',
@@ -386,14 +419,51 @@ export const IncidentesAdmin: React.FC<IncidentesAdminProps> = ({
           }}
           onClick={() => setSelectedPhoto(null)}
         >
-          <div style={{ position: 'relative', maxWidth: '800px', width: '100%' }}>
-            <img
-              src={getMediaUrl(selectedPhoto)}
-              alt="Evidencia fotográfica ampliada"
-              style={{ width: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: '12px' }}
-            />
-            <div style={{ textAlign: 'center', marginTop: '10px', color: '#94a3b8', fontSize: '0.8rem' }}>
-              Clic en cualquier parte para cerrar
+          <div
+            style={{ position: 'relative', maxWidth: '800px', width: '100%', background: '#0b1329', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.15)', overflow: 'hidden' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: '#1e293b' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isVideoUrl(selectedPhoto) ? (
+                  <>
+                    <Video size={16} color="#f97316" /> Video de Evidencia (Máx. 15s)
+                  </>
+                ) : (
+                  <>
+                    <Camera size={16} color="#f87171" /> Fotografía de Evidencia
+                  </>
+                )}
+              </span>
+              <button
+                onClick={() => setSelectedPhoto(null)}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1rem', fontWeight: 800 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#020617' }}>
+              {isVideoUrl(selectedPhoto) ? (
+                <video
+                  src={getMediaUrl(selectedPhoto)}
+                  controls
+                  autoPlay
+                  playsInline
+                  preload="metadata"
+                  style={{ width: '100%', maxHeight: '75vh', borderRadius: '8px' }}
+                />
+              ) : (
+                <img
+                  src={getMediaUrl(selectedPhoto)}
+                  alt="Evidencia fotográfica ampliada"
+                  style={{ width: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: '8px' }}
+                />
+              )}
+            </div>
+
+            <div style={{ textAlign: 'center', padding: '8px', color: '#64748b', fontSize: '0.75rem', background: '#0f172a' }}>
+              Presiona ✕ o haz clic fuera para cerrar
             </div>
           </div>
         </div>

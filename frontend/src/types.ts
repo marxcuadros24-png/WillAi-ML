@@ -19,6 +19,8 @@ export interface Incidente {
   origen: 'ciudadano' | 'satelital' | 'verificador';
   tipo_incendio?: string;
   fotografia_url?: string | null;
+  video_url?: string | null;
+  videos?: string[];
   estado_original?: string;
 }
 
@@ -185,6 +187,9 @@ export interface ReporteCiudadano {
   descripcion: string;
   fecha: string;
   evidencia_url?: string | null;
+  fotografia_url?: string | null;
+  video_url?: string | null;
+  tipo_evidencia?: 'fotografia' | 'video' | 'ambos' | null;
 }
 
 export interface DonacionItem {

@@ -12,6 +12,7 @@ export interface ReporteLocal {
   tipo_fuego: 'quema_agricola_controlada' | 'incendio_descontrolado';
   combustible: 'ichu_pajonal' | 'matorral' | 'bofedal' | 'cultivo';
   foto_uri?: string | null;
+  video_uri?: string | null;
   fecha_captura: string;
   estado_sync?: 'pendiente' | 'sincronizando' | 'sincronizado' | 'error';
   error_mensaje?: string | null;
@@ -33,8 +34,8 @@ export function encolarReporte(
   const query = `
     INSERT INTO reportes_pendientes (
       client_uuid, latitud, longitud, precision_m, azimut,
-      tipo_fuego, combustible, foto_uri, fecha_captura, estado_sync, intentos
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente', 0)
+      tipo_fuego, combustible, foto_uri, video_uri, fecha_captura, estado_sync, intentos
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente', 0)
   `;
 
   db.runSync(query, [
@@ -46,6 +47,7 @@ export function encolarReporte(
     datos.tipo_fuego,
     datos.combustible,
     datos.foto_uri ?? null,
+    datos.video_uri ?? null,
     fecha_captura
   ]);
 
@@ -172,6 +174,7 @@ export async function sincronizarColaOffline(token?: string | null): Promise<{
           combustible: item.combustible,
           foto_uri: fotoLimpia,
           foto_base64: fotoLimpia,
+          video_uri: item.video_uri || null,
           fecha_captura: item.fecha_captura
         },
         token

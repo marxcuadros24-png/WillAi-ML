@@ -83,7 +83,8 @@
             "usesCleartextTraffic": true
           }
         }
-      ]
+      ],
+      "expo-video"
     ],
     "extra": {
       "eas": {

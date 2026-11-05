@@ -59,12 +59,18 @@ export function initDatabase(): void {
         tipo_fuego TEXT NOT NULL,
         combustible TEXT NOT NULL,
         foto_uri TEXT,
+        video_uri TEXT,
         fecha_captura TEXT NOT NULL,
         estado_sync TEXT NOT NULL DEFAULT 'pendiente',
         error_mensaje TEXT,
         intentos INTEGER DEFAULT 0
       );
     `);
+    try {
+      db.execSync(`ALTER TABLE reportes_pendientes ADD COLUMN video_uri TEXT;`);
+    } catch {
+      // Columna video_uri ya existe en la base local
+    }
   } catch (error) {
     console.error('Error al inicializar tabla SQLite reportes_pendientes:', error);
   }
