@@ -71,6 +71,89 @@ class ReporteViewSet(viewsets.ModelViewSet):
             reporte.estado = Reporte.EstadoReporte.RECHAZADO
         reporte.save(update_fields=['estado'])
 
+        # Sincronizar o crear Incidente operativo táctico
+        from apps.incidentes.models import Incidente, ReporteIncidente, HistorialIncidente
+        from apps.geografia.models import Distrito
+
+        user_auth = request.user if (request.user and request.user.is_authenticated) else None
+        vinculo = ReporteIncidente.objects.filter(reporte=reporte).select_related('incidente').first()
+        if vinculo and vinculo.incidente:
+            inc = vinculo.incidente
+            if resultado == ValidacionReporte.ResultadoValidacion.VALIDADO:
+                inc.estado = Incidente.EstadoIncidente.CONFIRMADO
+                if not inc.confirmado_en:
+                    inc.confirmado_en = timezone.now()
+                inc.save(update_fields=['estado', 'confirmado_en'])
+                HistorialIncidente.objects.create(
+                    incidente=inc,
+                    usuario=user_auth,
+                    estado_anterior=None,
+                    estado_nuevo=Incidente.EstadoIncidente.CONFIRMADO,
+                    nota=f"Incidente confirmado al validar reporte #{reporte.id_reporte}: {comentario}"
+                )
+            elif resultado == ValidacionReporte.ResultadoValidacion.RECHAZADO:
+                inc.estado = Incidente.EstadoIncidente.DESCARTADO
+                inc.cerrado_en = timezone.now()
+                inc.save(update_fields=['estado', 'cerrado_en'])
+                HistorialIncidente.objects.create(
+                    incidente=inc,
+                    usuario=user_auth,
+                    estado_anterior=None,
+                    estado_nuevo=Incidente.EstadoIncidente.DESCARTADO,
+                    nota=f"Incidente descartado al rechazar reporte #{reporte.id_reporte}: {comentario}"
+                )
+        elif resultado == ValidacionReporte.ResultadoValidacion.VALIDADO:
+            # Si no tenía incidente vinculado, crearlo como confirmado para que aparezca en el mapa táctico
+            fecha_hoy = timezone.now().strftime('%Y%m%d')
+            conteo_hoy = Incidente.objects.filter(codigo__startswith=f"INC-{fecha_hoy}").count() + 1
+            codigo = f"INC-{fecha_hoy}-{conteo_hoy:03d}"
+            while Incidente.objects.filter(codigo=codigo).exists():
+                conteo_hoy += 1
+                codigo = f"INC-{fecha_hoy}-{conteo_hoy:03d}"
+
+            comunidad = reporte.comunidad
+            distrito = comunidad.distrito if (comunidad and hasattr(comunidad, 'distrito')) else Distrito.objects.filter(nombre__icontains='Coracora').first()
+            nombre_lugar = comunidad.nombre if comunidad else (distrito.nombre if distrito else 'Coracora')
+            titulo = f"Incendio en {nombre_lugar} (Reporte #{reporte.id_reporte})"
+
+            tipo_map = {
+                'pastizal': Incidente.TipoIncendio.PASTIZAL,
+                'forestal': Incidente.TipoIncendio.FORESTAL,
+                'agricola': Incidente.TipoIncendio.AGRICOLA,
+                'residencial': Incidente.TipoIncendio.RESIDENCIAL,
+                'otro': Incidente.TipoIncendio.OTRO,
+            }
+            tipo_inc = tipo_map.get(reporte.tipo_incendio, Incidente.TipoIncendio.PASTIZAL)
+
+            incidente = Incidente.objects.create(
+                codigo=codigo,
+                titulo=titulo,
+                tipo_incendio=tipo_inc,
+                estado=Incidente.EstadoIncidente.CONFIRMADO,
+                prioridad=Incidente.Prioridad.ALTA,
+                latitud_referencia=reporte.latitud,
+                longitud_referencia=reporte.longitud,
+                distrito=distrito,
+                comunidad=comunidad,
+                creado_por=user_auth,
+                detectado_en=reporte.fecha_evento or timezone.now(),
+                confirmado_en=timezone.now(),
+                resumen=reporte.descripcion or f"Reporte ciudadano #{reporte.id_reporte}"
+            )
+            ReporteIncidente.objects.create(
+                incidente=incidente,
+                reporte=reporte,
+                tipo_vinculo=ReporteIncidente.TipoVinculo.ORIGEN,
+                vinculado_por=user_auth
+            )
+            HistorialIncidente.objects.create(
+                incidente=incidente,
+                usuario=user_auth,
+                estado_anterior=None,
+                estado_nuevo=Incidente.EstadoIncidente.CONFIRMADO,
+                nota=f"Incidente generado y confirmado al validar reporte #{reporte.id_reporte}: {comentario}"
+            )
+
         return Response(
             {
                 "mensaje": f"Reporte #{reporte.id_reporte} marcado como {resultado}.",

@@ -314,6 +314,85 @@ def validar_reporte_rapido(request, id_reporte):
         reporte.estado = 'en_evaluacion'
     reporte.save()
 
+    # Sincronizar o crear Incidente operativo táctico para que aparezca en el mapa
+    user_fk = user if (user and getattr(user, 'pk', None)) else None
+    vinculo = ReporteIncidente.objects.filter(reporte=reporte).select_related('incidente').first()
+    if vinculo and vinculo.incidente:
+        inc = vinculo.incidente
+        if resultado == 'validado':
+            inc.estado = 'confirmado'
+            if not inc.confirmado_en:
+                inc.confirmado_en = timezone.now()
+            inc.save(update_fields=['estado', 'confirmado_en'])
+            HistorialIncidente.objects.create(
+                incidente=inc,
+                usuario=user_fk,
+                estado_anterior=None,
+                estado_nuevo='confirmado',
+                nota=f"Incidente confirmado al validar reporte #{id_reporte}: {comentario}"
+            )
+        elif resultado == 'rechazado':
+            inc.estado = 'descartado'
+            inc.cerrado_en = timezone.now()
+            inc.save(update_fields=['estado', 'cerrado_en'])
+            HistorialIncidente.objects.create(
+                incidente=inc,
+                usuario=user_fk,
+                estado_anterior=None,
+                estado_nuevo='descartado',
+                nota=f"Incidente descartado al rechazar reporte #{id_reporte}: {comentario}"
+            )
+    elif resultado == 'validado':
+        fecha_hoy = timezone.now().strftime('%Y%m%d')
+        conteo_hoy = Incidente.objects.filter(codigo__startswith=f"INC-{fecha_hoy}").count() + 1
+        codigo = f"INC-{fecha_hoy}-{conteo_hoy:03d}"
+        while Incidente.objects.filter(codigo=codigo).exists():
+            conteo_hoy += 1
+            codigo = f"INC-{fecha_hoy}-{conteo_hoy:03d}"
+
+        comunidad = reporte.comunidad
+        distrito = comunidad.distrito if (comunidad and hasattr(comunidad, 'distrito')) else Distrito.objects.filter(nombre__icontains='Coracora').first()
+        nombre_lugar = comunidad.nombre if comunidad else (distrito.nombre if distrito else 'Coracora')
+        titulo = f"Incendio en {nombre_lugar} (Reporte #{reporte.id_reporte})"
+
+        tipo_map = {
+            'pastizal': 'pastizal',
+            'forestal': 'forestal',
+            'agricola': 'agricola',
+            'residencial': 'residencial',
+            'otro': 'otro',
+        }
+        tipo_inc = tipo_map.get(reporte.tipo_incendio, 'pastizal')
+
+        incidente = Incidente.objects.create(
+            codigo=codigo,
+            titulo=titulo,
+            tipo_incendio=tipo_inc,
+            estado='confirmado',
+            prioridad='alta',
+            latitud_referencia=reporte.latitud,
+            longitud_referencia=reporte.longitud,
+            distrito=distrito,
+            comunidad=comunidad,
+            creado_por=user_fk,
+            detectado_en=reporte.fecha_evento or timezone.now(),
+            confirmado_en=timezone.now(),
+            resumen=reporte.descripcion or f"Reporte ciudadano #{reporte.id_reporte}"
+        )
+        ReporteIncidente.objects.create(
+            incidente=incidente,
+            reporte=reporte,
+            tipo_vinculo=ReporteIncidente.TipoVinculo.ORIGEN,
+            vinculado_por=user_fk
+        )
+        HistorialIncidente.objects.create(
+            incidente=incidente,
+            usuario=user_fk,
+            estado_anterior=None,
+            estado_nuevo='confirmado',
+            nota=f"Incidente generado y confirmado al validar reporte #{id_reporte}: {comentario}"
+        )
+
     registrar_auditoria(
         accion=f"VALIDAR_REPORTE_{resultado.upper()}",
         entidad="Reporte",

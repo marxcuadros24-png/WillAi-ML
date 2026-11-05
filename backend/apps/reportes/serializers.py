@@ -242,7 +242,57 @@ class CrearReporteSerializer(serializers.ModelSerializer):
                     capturada_en=timezone.now()
                 )
 
-            # El reporte queda en estado RECIBIDO para validacion y triaje en la aplicacion web
+            # 4. Vincular o crear automáticamente un Incidente operativo
+            if not ReporteIncidente.objects.filter(reporte=reporte).exists():
+                fecha_hoy = timezone.now().strftime('%Y%m%d')
+                conteo_hoy = Incidente.objects.filter(codigo__startswith=f"INC-{fecha_hoy}").count() + 1
+                codigo = f"INC-{fecha_hoy}-{conteo_hoy:03d}"
+                while Incidente.objects.filter(codigo=codigo).exists():
+                    conteo_hoy += 1
+                    codigo = f"INC-{fecha_hoy}-{conteo_hoy:03d}"
+
+                comunidad = reporte.comunidad
+                distrito = comunidad.distrito if (comunidad and hasattr(comunidad, 'distrito')) else Distrito.objects.filter(nombre__icontains='Coracora').first()
+                nombre_lugar = comunidad.nombre if comunidad else (distrito.nombre if distrito else 'Coracora')
+                titulo = f"Incendio en {nombre_lugar} (Reporte #{reporte.id_reporte})"
+
+                tipo_map = {
+                    'pastizal': Incidente.TipoIncendio.PASTIZAL,
+                    'forestal': Incidente.TipoIncendio.FORESTAL,
+                    'agricola': Incidente.TipoIncendio.AGRICOLA,
+                    'residencial': Incidente.TipoIncendio.RESIDENCIAL,
+                    'otro': Incidente.TipoIncendio.OTRO,
+                }
+                tipo_inc = tipo_map.get(reporte.tipo_incendio, Incidente.TipoIncendio.PASTIZAL)
+
+                incidente = Incidente.objects.create(
+                    codigo=codigo,
+                    titulo=titulo,
+                    tipo_incendio=tipo_inc,
+                    estado=Incidente.EstadoIncidente.NUEVO,
+                    prioridad=Incidente.Prioridad.ALTA,
+                    latitud_referencia=reporte.latitud,
+                    longitud_referencia=reporte.longitud,
+                    distrito=distrito,
+                    comunidad=comunidad,
+                    creado_por=user,
+                    detectado_en=reporte.fecha_evento or timezone.now(),
+                    resumen=reporte.descripcion or f"Reporte ciudadano #{reporte.id_reporte}"
+                )
+                ReporteIncidente.objects.create(
+                    incidente=incidente,
+                    reporte=reporte,
+                    tipo_vinculo=ReporteIncidente.TipoVinculo.ORIGEN,
+                    vinculado_por=user
+                )
+                HistorialIncidente.objects.create(
+                    incidente=incidente,
+                    usuario=user,
+                    estado_anterior=None,
+                    estado_nuevo=Incidente.EstadoIncidente.NUEVO,
+                    nota=f"Incidente registrado automáticamente a partir de reporte ciudadano #{reporte.id_reporte}"
+                )
+
             return reporte
 
 
