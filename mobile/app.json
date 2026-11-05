@@ -6,7 +6,12 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
     "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
       "backgroundColor": "#080c14"
     },
     "ios": {
@@ -22,7 +27,14 @@
       "googleServicesFile": "./google-services.json",
       "usesCleartextTraffic": true,
       "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png",
         "backgroundColor": "#080c14"
+      },
+      "notification": {
+        "icon": "./assets/notification-icon.png",
+        "color": "#ef4444"
       },
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
