@@ -5,7 +5,7 @@ import * as SecureStore from 'expo-secure-store';
  */
 
 // URL pública activa vía Cloudflare Tunnel HTTPS
-export const DEFAULT_SERVER_URL = 'https://marked-thanks-objectives-until.trycloudflare.com/api/v1';
+export const DEFAULT_SERVER_URL = 'https://intranet-championships-dental-sent.trycloudflare.com/api/v1';
 
 let currentServerUrl = DEFAULT_SERVER_URL;
 

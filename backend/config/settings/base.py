@@ -195,3 +195,7 @@ CELERY_BEAT_SCHEDULE = {
 NASA_FIRMS_MAP_KEY = env('NASA_FIRMS_MAP_KEY', default='')
 SERFOR_API_URL = env('SERFOR_API_URL', default='https://geo.serfor.gob.pe')
 OPEN_METEO_API_URL = env('OPEN_METEO_API_URL', default='https://api.open-meteo.com/v1/forecast')
+
+# Firebase Admin SDK Configuration
+FIREBASE_CREDENTIALS_PATH = env('FIREBASE_CREDENTIALS_PATH', default=str(BASE_DIR / 'firebase-service-account.json'))
+

@@ -687,6 +687,28 @@ def emitir_alerta_rapida(request):
         emitida_en=timezone.now()
     )
 
+    # Despachar notificacion Push inmediata a todos los telefonos moviles registrados
+    try:
+        from apps.alertas.models import PreferenciaNotificacion
+        from apps.alertas.push_service import despachar_push
+        tokens = list(PreferenciaNotificacion.objects.filter(
+            canal=PreferenciaNotificacion.Canal.PUSH,
+            habilitado=True
+        ).values_list('destino', flat=True))
+        if tokens:
+            despachar_push(
+                tokens=tokens,
+                titulo=f"🚨 {titulo}",
+                cuerpo=mensaje,
+                data={
+                    'id_alerta': alerta.id_alerta,
+                    'prioridad': prioridad,
+                    'tipo': tipo
+                }
+            )
+    except Exception as e:
+        logger.error(f"Error despachando push desde panel web: {e}")
+
     registrar_auditoria(
         accion="EMITIR_ALERTA_PANEL",
         entidad="AlertaEmergencia",

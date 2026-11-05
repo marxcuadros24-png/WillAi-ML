@@ -5,18 +5,20 @@ import {
   LIMITE_PROVINCIAL_PARINACOCHAS,
   LIMITES_DISTRITALES_PARINACOCHAS,
 } from '../data/demarcacionParinacochas';
-import { Compass, Layers, Globe, Map as MapIcon } from 'lucide-react';
+import { Compass, Globe, Map as MapIcon } from 'lucide-react';
 
 interface MapaPublicoIncidentesProps {
   incidentes: IncidentePublico[];
   selectedIncidenteId: number | null;
   onSelectIncidente: (incidente: IncidentePublico) => void;
+  centerCoords?: [number, number] | null;
 }
 
 export const MapaPublicoIncidentes: React.FC<MapaPublicoIncidentesProps> = ({
   incidentes,
   selectedIncidenteId,
   onSelectIncidente,
+  centerCoords = null,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -28,7 +30,7 @@ export const MapaPublicoIncidentes: React.FC<MapaPublicoIncidentesProps> = ({
 
   const [mapType, setMapType] = useState<'satelite' | 'calles'>('satelite');
 
-  // Inicialización de Leaflet
+  // 1. Inicialización de Leaflet
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
@@ -43,11 +45,11 @@ export const MapaPublicoIncidentes: React.FC<MapaPublicoIncidentesProps> = ({
 
     L.control.zoom({ position: 'topright' }).addTo(map);
 
-    // 1. Capa Satelital Esri World Imagery (Exactamente igual a TacticalMap)
+    // 1. Capa Satelital Esri World Imagery
     const satLayer = L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       {
-        attribution: 'Tiles &copy; Esri &mdash; WillAI Satelital Coracora',
+        attribution: 'Tiles &copy; Esri &mdash; WillAI Satelital Parinacochas',
         maxZoom: 18,
       }
     );
@@ -109,28 +111,34 @@ export const MapaPublicoIncidentes: React.FC<MapaPublicoIncidentesProps> = ({
     markersLayerRef.current = markersGroup;
     mapInstanceRef.current = map;
 
-    // Observador de Redimensionamiento para garantizar carga inmediata de tiles
+    // Observador de Redimensionamiento
     const resizeObserver = new ResizeObserver(() => {
       map.invalidateSize();
     });
     resizeObserver.observe(mapContainerRef.current);
 
-    // Invalidaciones temporales en caso de transición CSS
-    const t1 = setTimeout(() => map.invalidateSize(), 100);
-    const t2 = setTimeout(() => map.invalidateSize(), 400);
-    const t3 = setTimeout(() => map.invalidateSize(), 1000);
+    const t1 = setTimeout(() => map.invalidateSize(), 150);
+    const t2 = setTimeout(() => map.invalidateSize(), 500);
 
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
-      clearTimeout(t3);
       resizeObserver.disconnect();
       map.remove();
       mapInstanceRef.current = null;
     };
   }, []);
 
-  // Alternar entre mapa satelital y mapa callejero
+  // 2. Centrado cuando cambia el distrito o coordenadas seleccionadas
+  useEffect(() => {
+    if (!centerCoords || !mapInstanceRef.current) return;
+    mapInstanceRef.current.flyTo(centerCoords, 12, {
+      duration: 1.2,
+      easeLinearity: 0.25,
+    });
+  }, [centerCoords]);
+
+  // Alternar entre satelital y callejero
   const handleToggleMapType = () => {
     const map = mapInstanceRef.current;
     if (!map || !satelliteLayerRef.current || !streetLayerRef.current || !labelsLayerRef.current) return;
@@ -148,12 +156,12 @@ export const MapaPublicoIncidentes: React.FC<MapaPublicoIncidentesProps> = ({
     }
   };
 
-  // Crear icono SVG para el marcador
+  // Icono SVG para incidentes
   const createMarkerIcon = (inc: IncidentePublico, isSelected: boolean) => {
     const isActivo = ['nuevo', 'verificacion', 'confirmado', 'asignado', 'en_atencion', 'en_combate'].includes(inc.estado);
     const isControlado = ['contenido', 'controlado'].includes(inc.estado);
 
-    let color = '#10b981'; // Extinguido / Cerrado
+    let color = '#10b981'; // Extinguido
     let pulseHtml = '';
 
     if (isActivo) {
@@ -189,7 +197,7 @@ export const MapaPublicoIncidentes: React.FC<MapaPublicoIncidentesProps> = ({
     });
   };
 
-  // Renderizar o actualizar marcadores
+  // Renderizar incidentes
   useEffect(() => {
     const map = mapInstanceRef.current;
     const markersGroup = markersLayerRef.current;
@@ -222,7 +230,7 @@ export const MapaPublicoIncidentes: React.FC<MapaPublicoIncidentesProps> = ({
         : '#10b981';
 
       const popupContent = `
-        <div style="font-family:var(--font-sans, sans-serif);color:#f8fafc;background:#0f172a;padding:12px;border-radius:8px;max-width:260px;font-size:12px;line-height:1.4;">
+        <div style="font-family:sans-serif;color:#f8fafc;background:#0f172a;padding:12px;border-radius:8px;max-width:260px;font-size:12px;line-height:1.4;">
           ${fotoHtml}
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:6px;">
             <span style="font-weight:700;font-size:11px;color:#94a3b8;font-family:monospace;">${inc.codigo}</span>
@@ -255,13 +263,6 @@ export const MapaPublicoIncidentes: React.FC<MapaPublicoIncidentesProps> = ({
       marker.addTo(markersGroup);
       markerMapRef.current.set(inc.id, marker);
     });
-
-    // Si no hay incidente individual seleccionado, ajustar el mapa para abarcar todos los incidentes
-    if (!selectedIncidenteId && validIncidents.length > 0) {
-      const coords = validIncidents.map((i) => [i.latitud, i.longitud] as [number, number]);
-      const bounds = L.latLngBounds(coords);
-      map.fitBounds(bounds.pad(0.2), { maxZoom: 13 });
-    }
   }, [incidentes, selectedIncidenteId]);
 
   // Centrar y abrir popup cuando se selecciona un incidente
@@ -292,26 +293,25 @@ export const MapaPublicoIncidentes: React.FC<MapaPublicoIncidentesProps> = ({
   };
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '520px', background: '#080c14', overflow: 'hidden' }}>
-      {/* Contenedor Leaflet con id dedicado y dimensiones forzadas */}
+    <div style={{ position: 'relative', width: '100%', height: '100%', background: '#081224', overflow: 'hidden' }}>
+      {/* Contenedor Leaflet */}
       <div
         id="leaflet-map-publico"
         ref={mapContainerRef}
         style={{
           width: '100%',
           height: '100%',
-          minHeight: '520px',
           position: 'absolute',
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          background: '#080c14',
+          background: '#081224',
           zIndex: 1
         }}
       />
 
-      {/* Botones de control flotantes en esquina superior */}
+      {/* Botones de control flotantes en esquina superior izquierda */}
       <div style={{ position: 'absolute', top: '14px', left: '14px', zIndex: 400, display: 'flex', gap: '8px' }}>
         <button
           onClick={handleResetView}
@@ -321,19 +321,19 @@ export const MapaPublicoIncidentes: React.FC<MapaPublicoIncidentesProps> = ({
             gap: '6px',
             padding: '7px 12px',
             borderRadius: '8px',
-            background: 'rgba(15, 23, 42, 0.92)',
+            background: 'rgba(14, 29, 60, 0.92)',
             backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
+            border: '1px solid rgba(96, 165, 250, 0.3)',
             color: '#f8fafc',
             fontSize: '11.5px',
-            fontWeight: 600,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+            fontWeight: 700,
+            boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
             cursor: 'pointer'
           }}
           title="Centrar en Parinacochas"
         >
           <Compass size={14} color="#fbbf24" />
-          <span>Centrar Provincia</span>
+          <span>Provincia</span>
         </button>
 
         <button
@@ -344,59 +344,47 @@ export const MapaPublicoIncidentes: React.FC<MapaPublicoIncidentesProps> = ({
             gap: '6px',
             padding: '7px 12px',
             borderRadius: '8px',
-            background: 'rgba(15, 23, 42, 0.92)',
+            background: 'rgba(14, 29, 60, 0.92)',
             backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
+            border: '1px solid rgba(96, 165, 250, 0.3)',
             color: '#f8fafc',
             fontSize: '11.5px',
-            fontWeight: 600,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+            fontWeight: 700,
+            boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
             cursor: 'pointer'
           }}
           title="Alternar vista Satelital / Callejera"
         >
           {mapType === 'satelite' ? <Globe size={14} color="#38bdf8" /> : <MapIcon size={14} color="#34d399" />}
-          <span>{mapType === 'satelite' ? 'Satélite (Esri)' : 'Callejero (OSM)'}</span>
+          <span>{mapType === 'satelite' ? 'Satélite' : 'Callejero'}</span>
         </button>
       </div>
 
-      {/* Leyenda cartográfica flotante en esquina inferior */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '16px',
-          left: '16px',
-          zIndex: 400,
-          background: 'rgba(15, 23, 42, 0.94)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
-          borderRadius: '8px',
-          padding: '10px 14px',
-          fontSize: '11px',
-          color: '#cbd5e1',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
-          maxWidth: '240px'
-        }}
-      >
-        <div style={{ fontWeight: 700, color: '#ffffff', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          <Layers size={13} color="#38bdf8" /> Capas del Mapa
+      {/* Leyenda cartográfica flotante estilo SENAMHI en esquina inferior derecha */}
+      <div className="obs-floating-legend">
+        <div className="obs-legend-title">
+          <span>Nivel de Peligro FWI</span>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444', display: 'inline-block', boxShadow: '0 0 6px #ef4444' }}></span>
-            <span>Activo / En Combate</span>
+        <div className="obs-legend-row">
+          <span className="obs-legend-color-dot" style={{ background: '#eab308' }}></span>
+          <span>Moderada (FWI 5-11)</span>
+        </div>
+        <div className="obs-legend-row">
+          <span className="obs-legend-color-dot" style={{ background: '#f97316' }}></span>
+          <span>Fuerte / Alta (FWI 11-21)</span>
+        </div>
+        <div className="obs-legend-row">
+          <span className="obs-legend-color-dot" style={{ background: '#dc2626' }}></span>
+          <span>Extrema (FWI &gt; 21)</span>
+        </div>
+
+        <div style={{ margin: '8px 0 6px 0', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '6px' }}>
+          <div className="obs-legend-title">
+            <span>Incidentes Reportados</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }}></span>
-            <span>Controlado / Contenido</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
-            <span>Extinguido / Cerrado</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '4px', borderTop: '1px solid rgba(255,255,255,0.1)', color: '#fbbf24' }}>
-            <span style={{ width: '14px', height: '2px', borderTop: '2px dashed #f59e0b', display: 'inline-block' }}></span>
-            <span>Límite Provincial Parinacochas</span>
+          <div className="obs-legend-row">
+            <span className="obs-legend-color-dot" style={{ background: '#ef4444', border: '1.5px solid #ffffff' }}></span>
+            <span>Incidentes en Terreno ({incidentes.length})</span>
           </div>
         </div>
       </div>

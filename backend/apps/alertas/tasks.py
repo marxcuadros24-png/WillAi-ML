@@ -26,7 +26,7 @@ def calcular_distancia_km(lat1, lon1, lat2, lon2):
 def evaluar_exposicion_y_alertar_task(id_incidente=None, id_prediccion=None):
     """
     Evalúa la exposición de viviendas rurales ante un foco de incendio o predicción de riesgo crítico,
-    generando alertas tempranas y notificando a los residentes.
+    generando alertas tempranas y notificando a los residentes vía Push real.
     """
     lat_ref, lon_ref = -15.0189, -73.7806
     incidente = None
@@ -82,6 +82,7 @@ def evaluar_exposicion_y_alertar_task(id_incidente=None, id_prediccion=None):
 
         # Enrolar residentes de las viviendas expuestas como destinatarios
         total_dest = 0
+        tokens_a_notificar = []
         for viv in viviendas_expuestas:
             for res in viv.residentes.filter(recibe_alertas=True):
                 DestinatarioAlerta.objects.create(
@@ -90,11 +91,33 @@ def evaluar_exposicion_y_alertar_task(id_incidente=None, id_prediccion=None):
                     vivienda=viv,
                     canal=PreferenciaNotificacion.Canal.PUSH,
                     motivo=DestinatarioAlerta.MotivoDestino.VIVIENDA_EXPUESTA,
-                    estado_entrega=DestinatarioAlerta.EstadoEntrega.ENTREGADO,
+                    estado_entrega=DestinatarioAlerta.EstadoEntrega.ENVIADO,
                     enviado_en=timezone.now(),
-                    entregado_en=timezone.now()
                 )
                 total_dest += 1
+
+                # Obtener token push si el usuario lo tiene registrado
+                if res.usuario:
+                    tokens_usr = PreferenciaNotificacion.objects.filter(
+                        usuario=res.usuario,
+                        canal=PreferenciaNotificacion.Canal.PUSH,
+                        habilitado=True
+                    ).values_list('destino', flat=True)
+                    tokens_a_notificar.extend(tokens_usr)
+
+        # Despachar notificación push FCM nativa con bypass Doze Mode
+        if tokens_a_notificar:
+            try:
+                from .push_service import despachar_push
+                tokens_unicos = list(set(tokens_a_notificar))
+                despachar_push(
+                    tokens=tokens_unicos,
+                    titulo=f"🚨 {alerta.titulo}",
+                    cuerpo=alerta.mensaje,
+                    data={"id_alerta": alerta.id_alerta, "prioridad": alerta.prioridad}
+                )
+            except Exception as e:
+                pass
 
         return {
             "status": "ok",

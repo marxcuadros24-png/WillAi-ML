@@ -41,3 +41,12 @@ staticfiles/
 .idea/
 .vscode/
 *.swp
+
+# Binaries & APKs
+*.apk
+*.aab
+
+# Credentials & Service Accounts
+*firebase-adminsdk*.json
+firebase-*.json
+serviceAccountKey.json

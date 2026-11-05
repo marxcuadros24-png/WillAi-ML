@@ -53,3 +53,12 @@ Thumbs.db
 *.swp
 
 .claude/
+
+# Binaries & APKs
+*.apk
+*.aab
+
+# Credentials & Service Accounts
+*firebase-adminsdk*.json
+firebase-*.json
+serviceAccountKey.json

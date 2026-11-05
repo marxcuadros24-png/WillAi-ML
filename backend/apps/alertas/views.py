@@ -24,6 +24,25 @@ class AlertaEmergenciaViewSet(viewsets.ModelViewSet):
             return [permissions.AllowAny()]
         return [permissions.IsAuthenticated()]
 
+    def perform_create(self, serializer):
+        alerta = serializer.save()
+        if alerta.estado == AlertaEmergencia.EstadoAlerta.ENVIADA:
+            self._despachar_push(alerta)
+
+    def _despachar_push(self, alerta):
+        from .push_service import despachar_push
+        tokens = list(PreferenciaNotificacion.objects.filter(
+            canal=PreferenciaNotificacion.Canal.PUSH,
+            habilitado=True
+        ).values_list('destino', flat=True))
+        if tokens:
+            despachar_push(
+                tokens=tokens,
+                titulo=f"🚨 {alerta.titulo}",
+                cuerpo=alerta.mensaje,
+                data={"id_alerta": alerta.id_alerta, "prioridad": alerta.prioridad}
+            )
+
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def mis_alertas(self, request):
         """
@@ -86,7 +105,7 @@ class PreferenciaNotificacionViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='registrar-token')
     def registrar_token(self, request):
         """
-        Registra o actualiza de forma idempotente el token Expo Push del dispositivo.
+        Registra o actualiza de forma idempotente el token FCM Push del dispositivo.
         """
         token = request.data.get('token', '').strip()
         if not token:
@@ -106,3 +125,33 @@ class PreferenciaNotificacionViewSet(viewsets.ModelViewSet):
             'canal': pref.canal,
             'destino': pref.destino
         }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], url_path='test-push')
+    def test_push(self, request):
+        """
+        Envía un push de prueba de alta prioridad al dispositivo del usuario o al token provisto.
+        """
+        token = request.data.get('token', '').strip()
+        if not token:
+            pref = PreferenciaNotificacion.objects.filter(
+                usuario=request.user,
+                canal=PreferenciaNotificacion.Canal.PUSH,
+                habilitado=True
+            ).first()
+            if pref:
+                token = pref.destino
+
+        if not token:
+            return Response(
+                {'error': 'No hay token push registrado para este usuario ni provisto en la petición.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from .push_service import despachar_push
+        res = despachar_push(
+            tokens=[token],
+            titulo="🚨 PRUEBA DE ALERTA FORESTAL",
+            cuerpo="Verificación de sonido y recepción en Doze Mode (WillAI Coracora).",
+            data={"tipo": "test_push", "id_alerta": 0}
+        )
+        return Response(res, status=status.HTTP_200_OK)

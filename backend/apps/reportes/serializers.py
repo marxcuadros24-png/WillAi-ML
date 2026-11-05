@@ -201,55 +201,7 @@ class CrearReporteSerializer(serializers.ModelSerializer):
                     capturada_en=timezone.now()
                 )
 
-            # 3. Evitar duplicar incidentes para el mismo reporte (Requisito 2)
-            if not ReporteIncidente.objects.filter(reporte=reporte).exists():
-                fecha_hoy = timezone.now().strftime('%Y%m%d')
-                conteo_hoy = Incidente.objects.filter(codigo__startswith=f"INC-{fecha_hoy}").count() + 1
-                codigo = f"INC-{fecha_hoy}-{conteo_hoy:03d}"
-                while Incidente.objects.filter(codigo=codigo).exists():
-                    conteo_hoy += 1
-                    codigo = f"INC-{fecha_hoy}-{conteo_hoy:03d}"
-
-                comunidad = reporte.comunidad
-                distrito = None
-                if comunidad and hasattr(comunidad, 'distrito'):
-                    distrito = comunidad.distrito
-                if not distrito:
-                    distrito = Distrito.objects.filter(nombre__icontains='Coracora').first()
-
-                nombre_lugar = comunidad.nombre if comunidad else (distrito.nombre if distrito else 'Coracora')
-                titulo = f"Incendio en {nombre_lugar} (Reporte #{reporte.id_reporte})"
-
-                incidente = Incidente.objects.create(
-                    codigo=codigo,
-                    titulo=titulo,
-                    tipo_incendio=reporte.tipo_incendio or Incidente.TipoIncendio.PASTIZAL,
-                    estado=Incidente.EstadoIncidente.NUEVO,
-                    prioridad=Incidente.Prioridad.ALTA,
-                    latitud_referencia=reporte.latitud,
-                    longitud_referencia=reporte.longitud,
-                    distrito=distrito,
-                    comunidad=comunidad,
-                    creado_por=user,
-                    detectado_en=reporte.fecha_evento or timezone.now(),
-                    resumen=reporte.descripcion or f"Reporte ciudadano #{reporte.id_reporte}"
-                )
-
-                ReporteIncidente.objects.create(
-                    incidente=incidente,
-                    reporte=reporte,
-                    tipo_vinculo=ReporteIncidente.TipoVinculo.ORIGEN,
-                    vinculado_por=user
-                )
-
-                HistorialIncidente.objects.create(
-                    incidente=incidente,
-                    usuario=user,
-                    estado_anterior=None,
-                    estado_nuevo=Incidente.EstadoIncidente.NUEVO,
-                    nota=f"Incidente registrado automáticamente a partir de reporte ciudadano #{reporte.id_reporte}"
-                )
-
+            # El reporte queda en estado RECIBIDO para validacion y triaje en la aplicacion web
             return reporte
 
 

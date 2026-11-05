@@ -26,5 +26,8 @@ rasterio>=1.3.0
 affine>=2.4.0
 joblib>=1.4.0
 
+# Push Notifications & Firebase
+firebase-admin>=6.5.0
+
 # WSGI Production Server
 gunicorn>=22.0.0

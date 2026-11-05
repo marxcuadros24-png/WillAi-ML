@@ -2,545 +2,609 @@ import React, { useState, useEffect } from 'react';
 import {
   Flame,
   ShieldCheck,
-  ShieldAlert,
-  MapPin,
-  Calendar,
+  Thermometer,
+  Wind,
+  Droplets,
+  CloudRain,
+  Sun,
+  AlertTriangle,
+  Phone,
+  PhoneCall,
   Clock,
-  User,
-  Eye,
-  Filter,
-  Search,
-  RotateCcw,
-  Image as ImageIcon,
-  X,
   ChevronRight,
-  Thermometer
+  ChevronLeft,
+  Shield,
+  Activity,
+  HeartPulse,
+  Image as ImageIcon,
+  X
 } from 'lucide-react';
+import willaiLogo from '../assets/LogoWillai.jpeg';
 import { MapaPublicoIncidentes } from '../components/MapaPublicoIncidentes';
+import './PortalPublico.css';
 import {
   fetchIncidentesPublicos,
   fetchEstadisticasPublicas,
-  fetchDistritosPublicos
+  fetchDistritosPublicos,
+  fetchFWI,
 } from '../services/api';
 import type {
   IncidentePublico,
   EstadisticasPublicas,
   DistritoPublico,
-  FiltrosPublicos
+  MetricasFWI,
 } from '../types';
+
+// Coordenadas oficiales de los 8 distritos de Parinacochas
+const DISTRITOS_COORDS: Record<string, { lat: number; lon: number; nombre: string; altitud: string }> = {
+  coracora: { lat: -15.0189, lon: -73.7806, nombre: 'Coracora (Capital)', altitud: '3,175 msnm' },
+  chumpi: { lat: -15.0561, lon: -73.8647, nombre: 'Chumpi', altitud: '3,200 msnm' },
+  coronel_castaneda: { lat: -14.8814, lon: -73.6192, nombre: 'Coronel Castañeda', altitud: '3,620 msnm' },
+  pacapausa: { lat: -14.9333, lon: -73.5833, nombre: 'Pacapausa', altitud: '3,310 msnm' },
+  pullo: { lat: -15.2014, lon: -73.8183, nombre: 'Pullo', altitud: '3,030 msnm' },
+  puyusca: { lat: -15.1764, lon: -73.6706, nombre: 'Puyusca (Incuyo)', altitud: '3,290 msnm' },
+  san_francisco: { lat: -14.9961, lon: -73.6667, nombre: 'San Francisco de Ravacayco', altitud: '3,350 msnm' },
+  upahuacho: { lat: -14.8889, lon: -73.4722, nombre: 'Upahuacho', altitud: '3,580 msnm' },
+};
+
+// Componente Tacómetro de Amenaza (Gauge SVG inspirado en SENAMHI)
+const DangerGauge: React.FC<{ level: string }> = ({ level }) => {
+  let angle = 60;
+  const lvl = level.toLowerCase();
+  if (lvl.includes('bajo')) angle = -60;
+  else if (lvl.includes('moder')) angle = -20;
+  else if (lvl.includes('alto') || lvl.includes('fuerte')) angle = 25;
+  else if (lvl.includes('extrem') || lvl.includes('crit')) angle = 70;
+
+  return (
+    <div style={{ position: 'relative', width: '64px', height: '36px', overflow: 'hidden' }}>
+      <svg width="64" height="64" viewBox="0 0 100 100" style={{ transform: 'translateY(-14px)' }}>
+        <path d="M 15 50 A 35 35 0 0 1 85 50" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="10" strokeLinecap="round" />
+        <path d="M 15 50 A 35 35 0 0 1 35 23" fill="none" stroke="#10b981" strokeWidth="10" />
+        <path d="M 35 23 A 35 35 0 0 1 65 23" fill="none" stroke="#f59e0b" strokeWidth="10" />
+        <path d="M 65 23 A 35 35 0 0 1 85 50" fill="none" stroke="#ef4444" strokeWidth="10" />
+        <g transform={`rotate(${angle} 50 50)`}>
+          <line x1="50" y1="50" x2="50" y2="20" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" />
+          <circle cx="50" cy="50" r="4" fill="#ffffff" />
+        </g>
+      </svg>
+    </div>
+  );
+};
 
 export const PortalPublicoPage: React.FC = () => {
   // Datos principales
   const [incidentes, setIncidentes] = useState<IncidentePublico[]>([]);
   const [estadisticas, setEstadisticas] = useState<EstadisticasPublicas | null>(null);
   const [distritos, setDistritos] = useState<DistritoPublico[]>([]);
+  const [fwiData, setFwiData] = useState<MetricasFWI | null>(null);
   const [cargando, setCargando] = useState<boolean>(true);
 
-  // Estados de interacción
+  // Estados de navegación e interacción
   const [selectedIncidenteId, setSelectedIncidenteId] = useState<number | null>(null);
   const [activePhotoModal, setActivePhotoModal] = useState<string | null>(null);
-  const [mobileTab, setMobileTab] = useState<'mapa' | 'lista'>('mapa');
+  const [mobileTab, setMobileTab] = useState<'clima' | 'mapa' | 'avisos'>('mapa');
 
-  // Filtros interactivos
-  const [filtroFecha, setFiltroFecha] = useState<string>('todos');
-  const [filtroDistrito, setFiltroDistrito] = useState<string>('todos');
-  const [filtroEstado, setFiltroEstado] = useState<string>('todos');
-  const [busquedaTexto, setBusquedaTexto] = useState<string>('');
+  // Distrito seleccionado para clima y centrado de mapa
+  const [distritoKey, setDistritoKey] = useState<string>('coracora');
+  const [centerCoords, setCenterCoords] = useState<[number, number] | null>([-15.0189, -73.7806]);
 
-  // Cargar datos al montar y cuando cambian los filtros
+  // Carrusel de Avisos
+  const [avisoSlide, setAvisoSlide] = useState<number>(0);
+
+  // Reloj digital en vivo
+  const [relojHora, setRelojHora] = useState<string>('');
+  const [relojFecha, setRelojFecha] = useState<string>('');
+
+  // 1. Reloj en tiempo real
+  useEffect(() => {
+    const actualizarReloj = () => {
+      const ahora = new Date();
+      setRelojHora(
+        ahora.toLocaleTimeString('es-PE', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+        })
+      );
+      setRelojFecha(
+        ahora.toLocaleDateString('es-PE', {
+          weekday: 'short',
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        })
+      );
+    };
+
+    actualizarReloj();
+    const interval = setInterval(actualizarReloj, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // 2. Cargar datos reales públicos
   useEffect(() => {
     let montado = true;
     setCargando(true);
 
     const cargar = async () => {
       try {
-        const filtros: FiltrosPublicos = {
-          fecha: filtroFecha,
-          distrito: filtroDistrito,
-          estado: filtroEstado,
-          q: busquedaTexto.trim() || undefined
-        };
-
-        const [incData, statsData, distData] = await Promise.all([
-          fetchIncidentesPublicos(filtros),
+        const [incData, statsData, distData, fwiRes] = await Promise.all([
+          fetchIncidentesPublicos({ fecha: 'todos', distrito: 'todos', estado: 'todos' }),
           fetchEstadisticasPublicas(),
-          fetchDistritosPublicos()
+          fetchDistritosPublicos(),
+          fetchFWI(false),
         ]);
 
         if (!montado) return;
         setIncidentes(incData);
         if (statsData) setEstadisticas(statsData);
         if (distData.length > 0) setDistritos(distData);
-
-        if (selectedIncidenteId && !incData.some((i) => i.id === selectedIncidenteId)) {
-          setSelectedIncidenteId(null);
-        }
+        if (fwiRes) setFwiData(fwiRes);
       } catch (err) {
-        console.error('Error al cargar datos del portal público:', err);
+        console.error('Error al cargar datos del observatorio público:', err);
       } finally {
         if (montado) setCargando(false);
       }
     };
 
     cargar();
-
     return () => {
       montado = false;
     };
-  }, [filtroFecha, filtroDistrito, filtroEstado, busquedaTexto]);
+  }, []);
 
-  const limpiarFiltros = () => {
-    setFiltroFecha('todos');
-    setFiltroDistrito('todos');
-    setFiltroEstado('todos');
-    setBusquedaTexto('');
+  // Manejar cambio de distrito
+  const handleDistrictChange = (key: string) => {
+    setDistritoKey(key);
+    const coords = DISTRITOS_COORDS[key];
+    if (coords) {
+      setCenterCoords([coords.lat, coords.lon]);
+    }
   };
 
-  const hayFiltrosActivos =
-    filtroFecha !== 'todos' ||
-    filtroDistrito !== 'todos' ||
-    filtroEstado !== 'todos' ||
-    busquedaTexto.trim() !== '';
+  // Avisos oficiales para Parinacochas
+  const avisos = [
+    {
+      id: '004',
+      tipo: 'EXTREMA',
+      titulo: 'INCREMENTO DE TEMPERATURA Y VIENTO EN PARINACOCHAS',
+      fechas: '01 Nov ➔ 05 Nov 2026',
+      nivel: 'Extremo',
+      descripcion:
+        'Sea extremadamente precavido. Ambiente seco con vientos vespertinos de hasta 35 km/h. Se prohíben totalmente las quemas agropecuarias y fogatas en pastizales de toda la provincia.',
+      accion: 'Evitar toda quema y resguardar forraje seco.',
+    },
+    {
+      id: '005',
+      tipo: 'FUERTE',
+      titulo: 'VIGILANCIA DE PASTIZALES EN PUNA SECA',
+      fechas: '02 Nov ➔ 06 Nov 2026',
+      nivel: 'Alto',
+      descripcion:
+        'Zonas altas de Huallhua, Secce y Muchapampa presentan pajonales con índice de ignición FFMC > 90. Alto riesgo de ignición por colillas o chispas de maquinaria.',
+      accion: 'Establecer fajas cortafuego de 3 metros.',
+    },
+    {
+      id: '006',
+      tipo: 'MODERADA',
+      titulo: 'RECOMENDACIÓN PARA AGRICULTORES Y COMUNEROS',
+      fechas: '03 Nov ➔ 07 Nov 2026',
+      nivel: 'Moderado',
+      descripcion:
+        'Construir fajas cortafuego alrededor de parcelas, corrales y viviendas rurales. Reportar de inmediato columnas de humo al 116 o números de emergencia.',
+      accion: 'Llamar a Bomberos ante cualquier avistamiento de humo.',
+    },
+  ];
+
+  const avisoActual = avisos[avisoSlide];
+  const distritoInfo = DISTRITOS_COORDS[distritoKey] || DISTRITOS_COORDS.coracora;
+
+  // Métricas calculadas o reales
+  const tempReal = fwiData?.temperatura ? Math.round(fwiData.temperatura * 10) / 10 : 21.9;
+  const rhReal = fwiData?.humedad_relativa ? Math.round(fwiData.humedad_relativa) : 28;
+  const windReal = fwiData?.velocidad_viento ? Math.round(fwiData.velocidad_viento * 10) / 10 : 13.6;
+  const windDir = fwiData?.direccion_viento || 'WSW';
+  const rainReal = fwiData?.precipitacion != null ? fwiData.precipitacion.toFixed(1) : '0.0';
+  const fwiScore = estadisticas?.meteorologia.fwi_score ?? (fwiData?.fwi ? fwiData.fwi.toFixed(1) : '32.0');
+  const fwiNivel = estadisticas?.meteorologia.fwi_nivel ?? (fwiData?.nivel_peligro || 'ALTO');
 
   return (
-    <div className="portal-container">
-      {/* 1. Cabecera pública ciudadana (Sin enlaces de login) */}
-      <header className="portal-header">
-        <div className="portal-brand">
-          <div className="portal-brand-icon">
-            <Flame size={24} />
+    <div className="obs-portal-container">
+      {/* 1. BARRA SUPERIOR INSTITUCIONAL (SENAMHI STYLE) */}
+      <header className="obs-header">
+        <div className="obs-header-left">
+          {/* Badge Perú Oficial */}
+          <div className="obs-peru-badge">
+            <div className="obs-peru-flag"></div>
+            <div className="obs-peru-text">
+              <strong>PERÚ</strong>
+              <span>Sistema WillAI</span>
+            </div>
           </div>
-          <div className="portal-brand-text">
-            <h1>
-              WillAI <span style={{ color: '#ff6b00' }}>Coracora</span>
-              <span
-                style={{
-                  fontSize: '10px',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  padding: '2px 8px',
-                  borderRadius: '12px',
-                  background: 'rgba(16, 185, 129, 0.15)',
-                  color: '#34d399',
-                  border: '1px solid rgba(16, 185, 129, 0.35)',
-                  marginLeft: '8px'
-                }}
-              >
-                Portal Público
-              </span>
-            </h1>
-            <p>Información y Transparencia de Incendios Forestales • Provincia de Parinacochas</p>
+
+          {/* Logo WillAI con branding */}
+          <div className="obs-logo-container">
+            <img src={willaiLogo} alt="WillAI Logo" className="obs-logo-img" />
+            <div className="obs-title-group">
+              <h1>
+                OBSERVATORIO DE INCENDIOS FORESTALES Y CLIMA
+              </h1>
+              <p>WillAI Coracora • Monitoreo Satelital y Alerta Temprana en Parinacochas, Ayacucho</p>
+            </div>
           </div>
         </div>
 
-        <div className="portal-badge-civic">
-          <ShieldCheck size={14} color="#38bdf8" />
-          <span>Protección de Datos Personales (Ley N° 29733)</span>
+        {/* Sección derecha: Badges de Alerta, Clima en vivo y Reloj */}
+        <div className="obs-header-right">
+          <div className="obs-header-warning-badge">
+            <Flame size={13} />
+            <span>PELIGRO FWI: {fwiNivel} ({fwiScore})</span>
+          </div>
+
+          <div className="obs-header-notice-badge">
+            <Clock size={13} />
+            <span>AVISO VIGENTE N° 004</span>
+          </div>
+
+          <div className="obs-weather-capsule">
+            <Sun size={15} color="#fbbf24" />
+            <span>
+              <strong>{tempReal}°C</strong> • Máx 26° / Mín 11° • <strong>CORACORA</strong>
+            </span>
+          </div>
+
+          <div className="obs-clock-capsule">
+            <span className="obs-clock-time">{relojHora || '11:42:04 a. m.'}</span>
+            <span className="obs-clock-date">{relojFecha || 'mar, 03 nov. 2026'} GMT-5</span>
+          </div>
         </div>
       </header>
 
-      {/* 2. Barra de Estadísticas Clave del Día */}
-      <section className="portal-kpi-section">
-        <div className="portal-kpi-grid">
-          {/* KPI 1: Reportados Hoy */}
-          <div className="portal-kpi-card">
-            <div className="portal-kpi-header">
-              <span>Reportados Hoy</span>
-              <Calendar size={15} color="#fb923c" />
-            </div>
-            <div className="portal-kpi-value">{estadisticas?.hoy.total ?? 0}</div>
-            <div className="portal-kpi-sub">
-              Fecha oficial: {estadisticas?.hoy.fecha || 'Hoy'}
-            </div>
-          </div>
-
-          {/* KPI 2: Activos en Combate */}
-          <div className="portal-kpi-card" style={{ borderLeft: '3px solid #ef4444' }}>
-            <div className="portal-kpi-header">
-              <span>Activos en Combate</span>
-              <Flame size={15} color="#ef4444" />
-            </div>
-            <div className="portal-kpi-value" style={{ color: '#f87171' }}>
-              {estadisticas?.sistema.total_activos ?? 0}
-            </div>
-            <div className="portal-kpi-sub">En atención de brigadas</div>
-          </div>
-
-          {/* KPI 3: Controlados / Cerrados */}
-          <div className="portal-kpi-card" style={{ borderLeft: '3px solid #10b981' }}>
-            <div className="portal-kpi-header">
-              <span>Controlados / Cerrados</span>
-              <ShieldCheck size={15} color="#34d399" />
-            </div>
-            <div className="portal-kpi-value" style={{ color: '#34d399' }}>
-              {estadisticas?.sistema.total_cerrados ?? 0}
-            </div>
-            <div className="portal-kpi-sub">Liquidación asegurada</div>
-          </div>
-
-          {/* KPI 4: Peligro Meteorológico FWI Canadiense */}
-          <div className="portal-kpi-card" style={{ borderLeft: '3px solid #f59e0b' }}>
-            <div className="portal-kpi-header">
-              <span>Peligro FWI Hoy</span>
-              <Thermometer size={15} color="#fbbf24" />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-              <span className="portal-kpi-value" style={{ color: '#fbbf24', fontSize: '1.45rem' }}>
-                {estadisticas?.meteorologia.fwi_nivel || 'MODERADO'}
-              </span>
-              {estadisticas?.meteorologia.fwi_score != null && (
-                <span style={{ fontSize: '11px', color: '#94a3b8' }}>
-                  ({estadisticas.meteorologia.fwi_score})
-                </span>
-              )}
-            </div>
-            <div className="portal-kpi-sub">
-              {estadisticas?.meteorologia.zona || 'Coracora, Parinacochas'}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 3. Barra interactiva de filtros y búsqueda */}
-      <section className="portal-filter-section">
-        <div className="portal-filter-inner">
-          <div className="portal-filter-controls">
-            <div className="portal-filter-label">
-              <Filter size={14} color="#ff6b00" />
-              <span>Filtros:</span>
-            </div>
-
-            {/* Filtro Fecha */}
-            <select
-              value={filtroFecha}
-              onChange={(e) => setFiltroFecha(e.target.value)}
-              className="portal-select"
-            >
-              <option value="todos">Cualquier fecha</option>
-              <option value="hoy">Hoy</option>
-              <option value="7d">Últimos 7 días</option>
-              <option value="30d">Últimos 30 días</option>
-            </select>
-
-            {/* Filtro Distrito */}
-            <select
-              value={filtroDistrito}
-              onChange={(e) => setFiltroDistrito(e.target.value)}
-              className="portal-select"
-            >
-              <option value="todos">Todos los distritos</option>
-              {distritos.map((d) => (
-                <option key={d.id} value={d.id.toString()}>
-                  {d.nombre}
-                </option>
-              ))}
-            </select>
-
-            {/* Filtro Estado */}
-            <select
-              value={filtroEstado}
-              onChange={(e) => setFiltroEstado(e.target.value)}
-              className="portal-select"
-            >
-              <option value="todos">Todos los estados</option>
-              <option value="activos">Activos / En Combate</option>
-              <option value="controlados">Controlados</option>
-              <option value="cerrados">Extinguidos / Cerrados</option>
-            </select>
-
-            {/* Botón limpiar */}
-            {hayFiltrosActivos && (
-              <button
-                onClick={limpiarFiltros}
-                className="portal-btn-clear"
-                title="Restablecer filtros"
-              >
-                <RotateCcw size={12} />
-                <span>Restablecer</span>
-              </button>
-            )}
-          </div>
-
-          {/* Buscador de texto */}
-          <div className="portal-search-wrapper">
-            <Search size={14} className="portal-search-icon" />
-            <input
-              type="text"
-              value={busquedaTexto}
-              onChange={(e) => setBusquedaTexto(e.target.value)}
-              placeholder="Buscar por código, sector o lugar..."
-              className="portal-search-input"
-            />
-            {busquedaTexto && (
-              <button
-                onClick={() => setBusquedaTexto('')}
-                style={{
-                  position: 'absolute',
-                  right: '8px',
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#94a3b8',
-                  cursor: 'pointer'
-                }}
-              >
-                <X size={13} />
-              </button>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* 4. Selector de Vista en Móvil */}
-      <div className="portal-mobile-tabs">
+      {/* Selector de Pestañas en Móvil */}
+      <div className="obs-mobile-tabs-bar">
         <button
-          onClick={() => setMobileTab('mapa')}
-          className={`portal-mobile-tab-btn ${mobileTab === 'mapa' ? 'active' : ''}`}
+          className={`obs-mobile-tab-btn ${mobileTab === 'clima' ? 'active' : ''}`}
+          onClick={() => setMobileTab('clima')}
         >
-          🗺️ Ver Mapa Interactivo
+          🌡️ Clima & FWI
         </button>
         <button
-          onClick={() => setMobileTab('lista')}
-          className={`portal-mobile-tab-btn ${mobileTab === 'lista' ? 'active' : ''}`}
+          className={`obs-mobile-tab-btn ${mobileTab === 'mapa' ? 'active' : ''}`}
+          onClick={() => setMobileTab('mapa')}
         >
-          📋 Lista de Incidentes ({incidentes.length})
+          🗺️ Mapa de Incidentes
+        </button>
+        <button
+          className={`obs-mobile-tab-btn ${mobileTab === 'avisos' ? 'active' : ''}`}
+          onClick={() => setMobileTab('avisos')}
+        >
+          🚨 Avisos & Teléfonos
         </button>
       </div>
 
-      {/* 5. Contenido Principal: Mapa + Lista Lateral */}
-      <main className="portal-main-content">
-        <div className="portal-grid-layout">
-          {/* Columna Izquierda: Mapa */}
-          <div className={`portal-map-pane ${mobileTab === 'mapa' ? '' : 'mobile-hidden'}`}>
-            <MapaPublicoIncidentes
-              incidentes={incidentes}
-              selectedIncidenteId={selectedIncidenteId}
-              onSelectIncidente={(inc) => {
-                setSelectedIncidenteId(inc.id);
-              }}
-            />
-          </div>
+      {/* 2. LAYOUT PRINCIPAL DE 3 COLUMNAS */}
+      <main className="obs-main-layout">
+        {/* COLUMNA IZQUIERDA: TIEMPO Y PELIGRO ACTUAL */}
+        <section className={`obs-left-column ${mobileTab === 'clima' ? '' : 'obs-mobile-hidden'}`}>
+          <div className="obs-left-card">
+            {/* Cabecera del Tiempo */}
+            <div className="obs-weather-header-group">
+              <span className="obs-weather-tag">TIEMPO EN</span>
+              <select
+                value={distritoKey}
+                onChange={(e) => handleDistrictChange(e.target.value)}
+                className="obs-district-select"
+              >
+                {Object.entries(DISTRITOS_COORDS).map(([key, d]) => (
+                  <option key={key} value={key}>
+                    {d.nombre.toUpperCase()}, AYACUCHO
+                  </option>
+                ))}
+              </select>
+              <div className="obs-weather-live-indicator">
+                <span className="obs-weather-live-dot"></span>
+                <span>{cargando ? 'Sincronizando satélites...' : `● Ahora - ${relojHora ? relojHora.slice(0, 5) : '10:00'}`}</span>
+                <span style={{ marginLeft: 'auto', color: '#93c5fd', fontSize: '0.68rem' }}>
+                  {distritoInfo.altitud} • {distritos.length > 0 ? `${distritos.length} distritos` : 'Parinacochas'}
+                </span>
+              </div>
+            </div>
 
-          {/* Columna Derecha: Lista de Incidentes */}
-          <div className={`portal-list-pane ${mobileTab === 'lista' ? '' : 'mobile-hidden'}`}>
-            <div className="portal-list-header">
+            {/* Temperatura Principal */}
+            <div className="obs-temp-hero">
               <div>
-                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#ffffff' }}>
-                  Incidentes Registrados
+                <span className="obs-temp-number">{tempReal}</span>
+                <span className="obs-temp-unit">°C</span>
+              </div>
+              <div className="obs-temp-range">
+                Máx 26° • Mín 11°
+              </div>
+            </div>
+
+            {/* Grilla 4 Métricas Meteorológicas */}
+            <div className="obs-metrics-grid">
+              {/* Temperatura */}
+              <div className="obs-metric-tile">
+                <div className="obs-metric-label">
+                  <Thermometer size={12} color="#fb923c" />
+                  <span>Temperatura</span>
                 </div>
-                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                  {incidentes.length} {incidentes.length === 1 ? 'incidente encontrado' : 'incidentes encontrados'}
+                <div className="obs-metric-val">{tempReal} °C</div>
+                <div className="obs-metric-sub">Sensación 22°C</div>
+              </div>
+
+              {/* Humedad */}
+              <div className="obs-metric-tile">
+                <div className="obs-metric-label">
+                  <Droplets size={12} color="#38bdf8" />
+                  <span>Humedad</span>
+                </div>
+                <div className="obs-metric-val" style={{ color: rhReal < 30 ? '#fca5a5' : '#f8fafc' }}>
+                  {rhReal} %
+                </div>
+                <div className="obs-metric-sub">
+                  {rhReal < 30 ? 'Ambiente muy seco' : 'Humedad regular'}
                 </div>
               </div>
 
-              {selectedIncidenteId && (
-                <button
-                  onClick={() => setSelectedIncidenteId(null)}
-                  className="portal-btn-clear"
-                >
-                  Ver todos
-                </button>
-              )}
+              {/* Precipitación */}
+              <div className="obs-metric-tile">
+                <div className="obs-metric-label">
+                  <CloudRain size={12} color="#60a5fa" />
+                  <span>Precipitación</span>
+                </div>
+                <div className="obs-metric-val">{rainReal} mm/h</div>
+                <div className="obs-metric-sub">Sin lluvia activa</div>
+              </div>
+
+              {/* Viento */}
+              <div className="obs-metric-tile">
+                <div className="obs-metric-label">
+                  <Wind size={12} color="#34d399" />
+                  <span>Viento</span>
+                </div>
+                <div className="obs-metric-val">{windReal} km/h</div>
+                <div className="obs-metric-sub">↗ {windDir}</div>
+              </div>
             </div>
 
-            <div className="portal-list-items">
-              {cargando ? (
-                <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
-                  Consultando incidentes reales...
-                </div>
-              ) : incidentes.length === 0 ? (
-                <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-                  <div
-                    style={{
-                      width: '48px',
-                      height: '48px',
-                      borderRadius: '50%',
-                      background: 'rgba(16, 185, 129, 0.12)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      margin: '0 auto 12px auto'
-                    }}
-                  >
-                    <ShieldCheck size={26} color="#34d399" />
-                  </div>
-                  <h4 style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: 700, color: '#ffffff' }}>
-                    Sin incidentes reportados
-                  </h4>
-                  <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8', lineHeight: 1.4 }}>
-                    {hayFiltrosActivos
-                      ? 'No hay incidentes que coincidan con los filtros seleccionados.'
-                      : 'Actualmente no se registran incidentes activos en los criterios consultados.'}
-                  </p>
-                  {hayFiltrosActivos && (
-                    <button
-                      onClick={limpiarFiltros}
-                      style={{
-                        marginTop: '12px',
-                        background: 'transparent',
-                        border: 'none',
-                        color: '#ff6b00',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        textDecoration: 'underline'
-                      }}
-                    >
-                      Restablecer filtros
-                    </button>
-                  )}
-                </div>
-              ) : (
-                incidentes.map((inc) => {
-                  const isSelected = inc.id === selectedIncidenteId;
-                  const isActivo = ['nuevo', 'verificacion', 'confirmado', 'asignado', 'en_atencion', 'en_combate'].includes(inc.estado);
-                  const isControlado = ['contenido', 'controlado'].includes(inc.estado);
-
-                  const badgeClass = isActivo
-                    ? 'badge-status badge-status-red'
-                    : isControlado
-                    ? 'badge-status badge-status-amber'
-                    : 'badge-status badge-status-emerald';
-
-                  return (
-                    <div
-                      key={inc.id}
-                      onClick={() => {
-                        setSelectedIncidenteId(inc.id);
-                        if (window.innerWidth < 1024) {
-                          setMobileTab('mapa');
-                        }
-                      }}
-                      className={`portal-card ${isSelected ? 'selected' : ''}`}
-                    >
-                      <div className="portal-card-top">
-                        <span className="portal-card-code">{inc.codigo}</span>
-                        <span className={badgeClass}>{inc.estado_display}</span>
-                      </div>
-
-                      <h4 className="portal-card-title">{inc.titulo}</h4>
-
-                      {/* Fotografía de evidencia */}
-                      {inc.fotografias && inc.fotografias.length > 0 ? (
-                        <div className="portal-card-photo-box">
-                          <img
-                            src={inc.fotografias[0]}
-                            alt={inc.titulo}
-                            loading="lazy"
-                          />
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActivePhotoModal(inc.fotografias[0]);
-                            }}
-                            className="portal-card-photo-btn"
-                          >
-                            <Eye size={12} color="#fb923c" /> Ampliar foto
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="portal-card-no-photo">
-                          <ImageIcon size={14} />
-                          <span>Sin fotografía adjunta (Reporte verificado)</span>
-                        </div>
-                      )}
-
-                      {/* Descripción breve */}
-                      {inc.resumen && <p className="portal-card-desc">{inc.resumen}</p>}
-
-                      {/* Contexto geográfico y temporal */}
-                      <div className="portal-card-meta">
-                        <div className="portal-card-meta-row">
-                          <MapPin size={13} color="#38bdf8" />
-                          <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{inc.comunidad_nombre}</span>
-                          <span>({inc.distrito_nombre})</span>
-                        </div>
-                        <div className="portal-card-meta-row">
-                          <Clock size={13} color="#fbbf24" />
-                          <span>{inc.fecha_display}</span>
-                        </div>
-                      </div>
-
-                      {/* Quién reportó */}
-                      <div className="portal-card-footer">
-                        <div className="portal-reporter-tag">
-                          {inc.identidad_autorizada ? (
-                            <User size={13} color="#38bdf8" />
-                          ) : (
-                            <ShieldAlert size={13} color="#94a3b8" />
-                          )}
-                          <span style={{ color: 'var(--text-muted)' }}>Reportado por:</span>
-                          <span
-                            style={{
-                              color: inc.identidad_autorizada ? '#e2e8f0' : '#94a3b8',
-                              fontWeight: inc.identidad_autorizada ? 600 : 400,
-                              fontStyle: inc.identidad_autorizada ? 'normal' : 'italic'
-                            }}
-                          >
-                            {inc.reportado_por}
-                          </span>
-                        </div>
-
-                        <span className="portal-locate-link">
-                          Localizar <ChevronRight size={13} />
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+            {/* Bloque Bio-Climático y Combustible Vegetal */}
+            <div className="obs-climate-block">
+              <div className="obs-climate-item">
+                <strong>Sector Climático:</strong>
+                <span>Puna Andina y Quebradas Interandinas</span>
+              </div>
+              <div className="obs-climate-item">
+                <strong>Clasificación Climática:</strong>
+                <span>Templado / Frío con deficiencia de humedad y sequedad estacional</span>
+              </div>
+              <div className="obs-climate-item">
+                <strong>Estado del Combustible Vegetal:</strong>
+                <span style={{ color: '#fb923c', fontWeight: 700 }}>
+                  {fwiData?.estado_combustible || 'Extremadamente Seco (Pajonales y Rastrojos)'}
+                </span>
+              </div>
+              <div className="obs-climate-item">
+                <strong>Índice de Ignición Fina (FFMC):</strong>
+                <span style={{ color: '#fca5a5', fontWeight: 800 }}>
+                  {fwiData?.ffmc ? fwiData.ffmc.toFixed(1) : '90.8'} / 100 (Alta facilidad de chispa)
+                </span>
+              </div>
             </div>
           </div>
-        </div>
+        </section>
+
+        {/* COLUMNA CENTRAL: MAPA TÁCTICO INTERACTIVO */}
+        <section className={`obs-center-column ${mobileTab === 'mapa' ? '' : 'obs-mobile-hidden'}`}>
+          <MapaPublicoIncidentes
+            incidentes={incidentes}
+            selectedIncidenteId={selectedIncidenteId}
+            onSelectIncidente={(inc) => setSelectedIncidenteId(inc.id)}
+            centerCoords={centerCoords}
+          />
+        </section>
+
+        {/* COLUMNA DERECHA: AVISOS OFICIALES Y NÚMEROS DE EMERGENCIA */}
+        <section className={`obs-right-column ${mobileTab === 'avisos' ? '' : 'obs-mobile-hidden'}`}>
+          {/* Card 1: Aviso de Amenaza Meteorológica y Forestal */}
+          <div className="obs-notice-card">
+            <div className="obs-notice-top">
+              <span className="obs-notice-badge-red">
+                <AlertTriangle size={12} />
+                {avisoActual.tipo} • Aviso N° {avisoActual.id}
+              </span>
+              <DangerGauge level={avisoActual.nivel} />
+            </div>
+
+            <div style={{ fontSize: '0.68rem', color: '#93c5fd' }}>
+              3 avisos vigentes para Parinacochas
+            </div>
+
+            <h3 className="obs-notice-title">{avisoActual.titulo}</h3>
+            <div className="obs-notice-date">📅 {avisoActual.fechas}</div>
+            <p className="obs-notice-text">{avisoActual.descripcion}</p>
+
+            <div className="obs-notice-footer">
+              <div style={{ fontSize: '0.7rem', color: '#38bdf8', fontWeight: 600 }}>
+                {avisoActual.accion}
+              </div>
+
+              {/* Navegación del Carrusel */}
+              <div className="obs-carousel-nav">
+                <button
+                  onClick={() => setAvisoSlide((prev) => (prev > 0 ? prev - 1 : avisos.length - 1))}
+                  title="Aviso anterior"
+                >
+                  <ChevronLeft size={13} />
+                </button>
+                <span>
+                  {avisoSlide + 1} / {avisos.length}
+                </span>
+                <button
+                  onClick={() => setAvisoSlide((prev) => (prev < avisos.length - 1 ? prev + 1 : 0))}
+                  title="Siguiente aviso"
+                >
+                  <ChevronRight size={13} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: Aviso Comunal y Estado de Brigadas */}
+          <div className="obs-comunal-card">
+            <div className="obs-comunal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <ShieldCheck size={14} color="#34d399" />
+                <span>Estado Comunal • Parinacochas</span>
+              </div>
+              <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                ACTIVO
+              </span>
+            </div>
+            <p className="obs-comunal-text">
+              🛡️ <strong>Brigada B-12 Coracora</strong> en patrullaje preventivo en sectores Huallhua, Secce y Muchapampa.
+            </p>
+            <div style={{ fontSize: '0.7rem', color: '#93c5fd' }}>
+              {estadisticas?.sistema.total_activos ?? 0} fuegos activos en combate • {estadisticas?.sistema.total_cerrados ?? 0} liquidados
+            </div>
+          </div>
+
+          {/* Card 3: DIRECTORIO DE NÚMEROS OFICIALES DE EMERGENCIA (Fiel a la Imagen Oficial) */}
+          <div className="obs-directory-card">
+            <div className="obs-directory-header">
+              <PhoneCall size={18} color="#38bdf8" />
+              <div>
+                <h3 className="obs-directory-title">PONEMOS A DISPOSICIÓN LOS NÚMEROS OFICIALES</h3>
+                <p className="obs-directory-sub">Autoridades y Centrales de Emergencia • Coracora</p>
+              </div>
+            </div>
+
+            <div className="obs-authority-group">
+              {/* Policía Nacional */}
+              <div className="obs-authority-row">
+                <div className="obs-authority-info">
+                  <Shield size={16} color="#38bdf8" />
+                  <div className="obs-authority-name">
+                    <span>POLICÍA NACIONAL</span>
+                    <small>Comisaría Sectorial Coracora</small>
+                  </div>
+                </div>
+                <a href="tel:964778078" className="obs-call-btn" title="Llamar a Policía Nacional">
+                  <Phone size={11} />
+                  <span>964778078</span>
+                </a>
+              </div>
+
+              {/* Serenazgo */}
+              <div className="obs-authority-row">
+                <div className="obs-authority-info">
+                  <Activity size={16} color="#34d399" />
+                  <div className="obs-authority-name">
+                    <span>SERENAZGO</span>
+                    <small>Seguridad Ciudadana</small>
+                  </div>
+                </div>
+                <a href="tel:951015995" className="obs-call-btn" title="Llamar a Serenazgo">
+                  <Phone size={11} />
+                  <span>951015995</span>
+                </a>
+              </div>
+
+              {/* Emergencia Hospital */}
+              <div className="obs-authority-row">
+                <div className="obs-authority-info">
+                  <HeartPulse size={16} color="#f87171" />
+                  <div className="obs-authority-name">
+                    <span>EMERGENCIA</span>
+                    <small>Hospital Referencial de Coracora</small>
+                  </div>
+                </div>
+                <a href="tel:914026792" className="obs-call-btn" style={{ background: '#0284c7' }} title="Llamar a Hospital">
+                  <Phone size={11} />
+                  <span>914026792</span>
+                </a>
+              </div>
+
+              {/* Bomberos (4 Números Oficiales) */}
+              <div className="obs-bomberos-card">
+                <div className="obs-bomberos-header">
+                  <Flame size={15} color="#ef4444" />
+                  <span>BOMBEROS DE CORACORA</span>
+                </div>
+                <div className="obs-bomberos-grid">
+                  <a href="tel:940138271" className="obs-bomberos-call-btn" title="Llamar a Bomberos">
+                    <Phone size={11} />
+                    <span>940138271</span>
+                  </a>
+                  <a href="tel:993609580" className="obs-bomberos-call-btn" title="Llamar a Bomberos">
+                    <Phone size={11} />
+                    <span>993609580</span>
+                  </a>
+                  <a href="tel:940665530" className="obs-bomberos-call-btn" title="Llamar a Bomberos">
+                    <Phone size={11} />
+                    <span>940665530</span>
+                  </a>
+                  <a href="tel:939278602" className="obs-bomberos-call-btn" title="Llamar a Bomberos">
+                    <Phone size={11} />
+                    <span>939278602</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div className="obs-directory-footer">
+              ¡Trabajamos unidos por tu seguridad!
+            </div>
+          </div>
+        </section>
       </main>
 
-      {/* 6. Modal Lightbox para Ampliación de Fotografía */}
+      {/* MODAL LIGHTBOX PARA AMPLIACIÓN DE FOTOGRAFÍAS */}
       {activePhotoModal && (
         <div
-          className="portal-lightbox-backdrop"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 2000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
           onClick={() => setActivePhotoModal(null)}
         >
           <div
-            className="portal-lightbox-panel"
+            style={{
+              maxWidth: '800px',
+              width: '90%',
+              background: '#0f172a',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              border: '1px solid rgba(255,255,255,0.2)'
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="portal-lightbox-header">
-              <span style={{ fontSize: '13px', fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ImageIcon size={16} color="#ff6b00" /> Fotografía de Evidencia Ciudadana
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#1e293b' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <ImageIcon size={16} color="#fb923c" /> Fotografía de Evidencia
               </span>
               <button
                 onClick={() => setActivePhotoModal(null)}
-                style={{
-                  background: 'rgba(255,255,255,0.08)',
-                  border: 'none',
-                  borderRadius: '6px',
-                  color: '#ffffff',
-                  width: '28px',
-                  height: '28px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer'
-                }}
+                style={{ background: 'transparent', border: 'none', color: '#ffffff', cursor: 'pointer' }}
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
-            <div className="portal-lightbox-img-box">
-              <img src={activePhotoModal} alt="Evidencia en alta resolución" />
+            <div style={{ maxHeight: '70vh', overflow: 'hidden', background: '#000000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src={activePhotoModal} alt="Evidencia" style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain' }} />
             </div>
           </div>
         </div>
       )}
-
-      {/* 7. Pie de Página Cívico */}
-      <footer className="portal-footer">
-        <div>
-          WillAI &copy; {new Date().getFullYear()} • Sistema de Alerta Temprana de Incendios Forestales
-        </div>
-        <div style={{ marginTop: '4px', fontSize: '11px', color: '#64748b' }}>
-          Parinacochas, Ayacucho, Perú • Datos integrados de SERFOR, NASA FIRMS y Brigadas Comunales de Primera Respuesta
-        </div>
-      </footer>
     </div>
   );
 };
