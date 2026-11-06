@@ -5,7 +5,7 @@ import * as SecureStore from 'expo-secure-store';
  */
 
 // URL pública activa vía Cloudflare Tunnel HTTPS
-export const DEFAULT_SERVER_URL = 'https://wallpaper-motivated-tee-registry.trycloudflare.com/api/v1';
+export const DEFAULT_SERVER_URL = 'https://animals-male-takes-sole.trycloudflare.com/api/v1';
 
 let currentServerUrl = DEFAULT_SERVER_URL;
 

@@ -345,6 +345,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
     const clientUuid = `rep-movil-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const fechaCaptura = new Date().toISOString();
 
+    // Preservar la ruta en disco (fotoUri) para streaming multipart y dataUri como respaldo
     const dataUri = fotoBase64 ? `data:image/jpeg;base64,${fotoBase64}` : (fotoUri || null);
 
     const payload = {
@@ -355,7 +356,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
       azimut: 210,
       tipo_fuego: tipoFuego,
       combustible,
-      foto_uri: dataUri,
+      foto_uri: fotoUri || dataUri,
       foto_base64: fotoBase64 || null,
       video_uri: videoUri || null,
       fecha_captura: fechaCaptura
@@ -766,7 +767,14 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
             activeOpacity={0.88}
           >
             {enviando ? (
-              <ActivityIndicator color="#ffffff" size="small" />
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <ActivityIndicator color="#ffffff" size="small" />
+                <Text style={styles.btnSubmitText}>
+                  {videoUri
+                    ? (idioma === 'qu' ? 'VIDEOTA KACHACHKAN...' : 'SUBIENDO VIDEO Y AVISO...')
+                    : (idioma === 'qu' ? 'KACHACHKAN...' : 'ENVIANDO AVISO...')}
+                </Text>
+              </View>
             ) : (
               <>
                 <Send size={20} color="#ffffff" />

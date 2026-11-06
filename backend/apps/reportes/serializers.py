@@ -128,14 +128,18 @@ class CrearReporteSerializer(serializers.ModelSerializer):
 
     def validate_video(self, value):
         if value:
-            # Tamaño máximo: 25 MB (duración máxima esperada: 15 segundos)
-            max_size = 25 * 1024 * 1024
+            # Tamaño máximo: 50 MB (duración máxima esperada: 15 segundos en cámaras modernas)
+            max_size = 50 * 1024 * 1024
             if value.size > max_size:
-                raise serializers.ValidationError('El archivo de video no puede superar los 25 MB.')
-            valid_exts = ('.mp4', '.mov', '.3gp', '.m4v', '.webm')
+                raise serializers.ValidationError('El archivo de video no puede superar los 50 MB.')
+            valid_exts = ('.mp4', '.mov', '.3gp', '.m4v', '.webm', '.avi', '.mkv')
             name = (getattr(value, 'name', '') or '').lower()
-            if not any(name.endswith(ext) for ext in valid_exts):
+            mime = (getattr(value, 'content_type', '') or '').lower()
+            es_video = any(name.endswith(ext) for ext in valid_exts) or 'video' in mime
+            if not es_video:
                 raise serializers.ValidationError('Formato no válido. Se admiten videos: MP4, MOV, 3GP, WEBM.')
+            if not any(name.endswith(ext) for ext in valid_exts):
+                value.name = f"{name or 'evidencia_video'}.mp4"
         return value
 
     class Meta:
@@ -209,6 +213,8 @@ class CrearReporteSerializer(serializers.ModelSerializer):
             # 3. Registrar evidencia de video si fue enviada (Archivo en disco /media/, metadatos en PostgreSQL)
             if video:
                 v_name = getattr(video, 'name', 'evidencia.mp4')
+                if not any(v_name.lower().endswith(ext) for ext in ('.mp4', '.mov', '.3gp', '.webm', '.m4v', '.avi', '.mkv')):
+                    v_name = f"{v_name}.mp4"
                 v_mime = getattr(video, 'content_type', 'video/mp4')
                 if not v_mime or v_mime == 'application/octet-stream':
                     if v_name.lower().endswith('.mov'):

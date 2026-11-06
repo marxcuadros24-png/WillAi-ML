@@ -156,11 +156,10 @@ export async function sincronizarColaOffline(token?: string | null): Promise<{
     const latitudRedondeada = Number(Number(item.latitud).toFixed(6));
     const longitudRedondeada = Number(Number(item.longitud).toFixed(6));
 
-    // Preservar la imagen Base64 (data:image o base64 codificado)
-    const fotoLimpia =
-      item.foto_uri && (item.foto_uri.startsWith('data:image') || item.foto_uri.length > 200)
-        ? item.foto_uri
-        : null;
+    // Detectar si es una URI de archivo en disco o cadena Base64
+    const isBase64 = Boolean(item.foto_uri && (item.foto_uri.startsWith('data:image') || item.foto_uri.length > 300));
+    const fotoFile = item.foto_uri && !isBase64 ? item.foto_uri : null;
+    const fotoBase64 = isBase64 ? item.foto_uri : null;
 
     try {
       await enviarReporteApi(
@@ -172,8 +171,8 @@ export async function sincronizarColaOffline(token?: string | null): Promise<{
           azimut: item.azimut,
           tipo_fuego: item.tipo_fuego,
           combustible: item.combustible,
-          foto_uri: fotoLimpia,
-          foto_base64: fotoLimpia,
+          foto_uri: fotoFile || fotoBase64,
+          foto_base64: fotoBase64,
           video_uri: item.video_uri || null,
           fecha_captura: item.fecha_captura
         },
@@ -184,8 +183,8 @@ export async function sincronizarColaOffline(token?: string | null): Promise<{
       sincronizados++;
     } catch (err: any) {
       console.warn(`[offlineQueue] Fallo al sincronizar reporte ${item.client_uuid}:`, err?.message || err);
-      // Solo en el último intento (intentos >= 2) degradar enviando sin fotografía para asegurar las coordenadas
-      if ((item.intentos || 0) >= 2 && fotoLimpia) {
+      // Solo en el último intento (intentos >= 2) degradar enviando solo coordenadas y datos textuales
+      if ((item.intentos || 0) >= 2 && (item.foto_uri || item.video_uri)) {
         try {
           await enviarReporteApi(
             {
@@ -197,6 +196,8 @@ export async function sincronizarColaOffline(token?: string | null): Promise<{
               tipo_fuego: item.tipo_fuego,
               combustible: item.combustible,
               foto_uri: null,
+              foto_base64: null,
+              video_uri: null,
               fecha_captura: item.fecha_captura
             },
             token
@@ -205,7 +206,7 @@ export async function sincronizarColaOffline(token?: string | null): Promise<{
           sincronizados++;
           continue;
         } catch (rescueErr: any) {
-          console.warn(`[offlineQueue] Falló rescate sin foto para ${item.client_uuid}:`, rescueErr?.message || rescueErr);
+          console.warn(`[offlineQueue] Falló rescate sin multimedia para ${item.client_uuid}:`, rescueErr?.message || rescueErr);
         }
       }
       marcarErrorSync(item.client_uuid, err?.message || 'Error de red');

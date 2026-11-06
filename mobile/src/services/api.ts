@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { API_BASE, getApiBase } from '../constants/config';
 
 const DEFAULT_HEADERS: Record<string, string> = {
@@ -507,25 +508,40 @@ export async function enviarReporteApi(
     );
     formData.append('autoriza_publicacion', 'false');
 
-    if (base64Img) {
-      formData.append('fotografia_base64', base64Img);
-    } else if (payload.foto_uri && !payload.foto_uri.startsWith('data:')) {
-      const pName = payload.foto_uri.split('/').pop() || 'evidencia.jpg';
+    // En multipart/form-data, priorizar siempre el archivo en disco (evita duplicar MBs en Base64 en el puente JS)
+    if (payload.foto_uri && !payload.foto_uri.startsWith('data:')) {
+      const pRawName = payload.foto_uri.split('/').pop()?.split('?')[0] || 'evidencia.jpg';
+      const pName = /\.(jpe?g|png|webp)$/i.test(pRawName) ? pRawName : `${pRawName}.jpg`;
+      const pUri =
+        Platform.OS === 'android' && !payload.foto_uri.startsWith('file://') && !payload.foto_uri.startsWith('content://')
+          ? `file://${payload.foto_uri}`
+          : payload.foto_uri;
       formData.append('fotografia', {
-        uri: payload.foto_uri,
+        uri: pUri,
         name: pName,
         type: 'image/jpeg'
       } as any);
+    } else if (base64Img) {
+      formData.append('fotografia_base64', base64Img);
     }
 
-    const vName = payload.video_uri.split('/').pop() || 'evidencia_video.mp4';
+    const rawVName = payload.video_uri.split('/').pop()?.split('?')[0] || 'evidencia_video.mp4';
+    let vName = rawVName;
+    if (!/\.(mp4|mov|3gp|webm|m4v|avi|mkv)$/i.test(vName)) {
+      vName = `${vName}.mp4`;
+    }
     let vType = 'video/mp4';
     if (vName.toLowerCase().endsWith('.mov')) vType = 'video/quicktime';
     else if (vName.toLowerCase().endsWith('.3gp')) vType = 'video/3gpp';
     else if (vName.toLowerCase().endsWith('.webm')) vType = 'video/webm';
 
+    const vUri =
+      Platform.OS === 'android' && !payload.video_uri.startsWith('file://') && !payload.video_uri.startsWith('content://')
+        ? `file://${payload.video_uri}`
+        : payload.video_uri;
+
     formData.append('video', {
-      uri: payload.video_uri,
+      uri: vUri,
       name: vName,
       type: vType
     } as any);
@@ -534,9 +550,10 @@ export async function enviarReporteApi(
     if (token) formHeaders['Authorization'] = `Token ${token}`;
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 45000); // 45s timeout para subida de video en zonas rurales
+    const timer = setTimeout(() => controller.abort(), 90000); // 90s timeout para subida de video en zonas rurales
 
     try {
+      console.log(`[enviarReporteApi] Subiendo reporte multipart (Video: ${vName}, URI: ${vUri.substring(0, 50)}...)`);
       const res = await apiFetch(`${getApiBase()}/reportes/reportes/`, {
         method: 'POST',
         headers: formHeaders,
@@ -547,11 +564,13 @@ export async function enviarReporteApi(
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         let msg = `HTTP ${res.status}`;
-        if (typeof err === 'object') {
+        if (typeof err === 'object' && err !== null) {
           const firstVal = Object.values(err)[0];
           if (typeof firstVal === 'string') msg = firstVal;
-          else if (Array.isArray(firstVal)) msg = firstVal[0];
+          else if (Array.isArray(firstVal)) msg = String(firstVal[0]);
+          else msg = JSON.stringify(err);
         }
+        console.error('[enviarReporteApi] Error devuelto por el servidor:', res.status, msg);
         throw new Error(msg);
       }
       return await res.json();
