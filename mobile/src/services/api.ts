@@ -24,6 +24,63 @@ async function fetchConTimeout(url: string, options: RequestInit = {}, timeoutMs
   }
 }
 
+/**
+ * Envío de multipart/form-data mediante XMLHttpRequest nativo de React Native.
+ * Evita el crash 'Error: Unsupported FormDataPart implementation' de expo/fetch (WinterCG)
+ * al procesar adjuntos nativos { uri, name, type } de Android/iOS.
+ */
+function uploadMultipartXHR(
+  url: string,
+  formData: FormData,
+  headers: Record<string, string> = {},
+  timeoutMs: number = 90000
+): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    xhr.timeout = timeoutMs;
+
+    // Encabezados requeridos (sin Content-Type para autogenerar boundary)
+    xhr.setRequestHeader('bypass-tunnel-reminder', 'true');
+    xhr.setRequestHeader('Accept', 'application/json');
+    for (const [key, val] of Object.entries(headers)) {
+      xhr.setRequestHeader(key, val);
+    }
+
+    xhr.onload = () => {
+      let responseJson: any = null;
+      try {
+        responseJson = JSON.parse(xhr.responseText);
+      } catch {
+        responseJson = { raw: xhr.responseText };
+      }
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(responseJson);
+      } else {
+        let msg = `HTTP ${xhr.status}`;
+        if (typeof responseJson === 'object' && responseJson !== null) {
+          const firstVal = Object.values(responseJson)[0];
+          if (typeof firstVal === 'string') msg = firstVal;
+          else if (Array.isArray(firstVal)) msg = String(firstVal[0]);
+          else msg = JSON.stringify(responseJson);
+        }
+        reject(new Error(msg));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error('Error de red al subir reporte con video'));
+    };
+
+    xhr.ontimeout = () => {
+      reject(new Error('Tiempo de espera agotado (90s) al subir video'));
+    };
+
+    xhr.send(formData);
+  });
+}
+
 
 /**
  * Prueba la conectividad con el servidor WillAI.
@@ -549,36 +606,19 @@ export async function enviarReporteApi(
     const formHeaders: Record<string, string> = {};
     if (token) formHeaders['Authorization'] = `Token ${token}`;
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 90000); // 90s timeout para subida de video en zonas rurales
-
     try {
-      console.log(`[enviarReporteApi] Subiendo reporte multipart (Video: ${vName}, URI: ${vUri.substring(0, 50)}...)`);
-      const res = await apiFetch(`${getApiBase()}/reportes/reportes/`, {
-        method: 'POST',
-        headers: formHeaders,
-        body: formData,
-        signal: controller.signal
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        let msg = `HTTP ${res.status}`;
-        if (typeof err === 'object' && err !== null) {
-          const firstVal = Object.values(err)[0];
-          if (typeof firstVal === 'string') msg = firstVal;
-          else if (Array.isArray(firstVal)) msg = String(firstVal[0]);
-          else msg = JSON.stringify(err);
-        }
-        console.error('[enviarReporteApi] Error devuelto por el servidor:', res.status, msg);
-        throw new Error(msg);
-      }
-      return await res.json();
+      console.log(`[enviarReporteApi] Subiendo reporte multipart vía XHR nativo (Video: ${vName}, URI: ${vUri.substring(0, 50)}...)`);
+      const data = await uploadMultipartXHR(
+        `${getApiBase()}/reportes/reportes/`,
+        formData,
+        formHeaders,
+        90000
+      );
+      console.log(`[enviarReporteApi] Reporte con video subido exitosamente: ID #${data.id_reporte || data.id}`);
+      return data;
     } catch (uploadErr) {
       console.error("Fallo subida con video:", uploadErr);
       throw uploadErr;
-    } finally {
-      clearTimeout(timer);
     }
   }
 

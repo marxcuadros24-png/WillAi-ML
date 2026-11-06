@@ -89,7 +89,8 @@
     "extra": {
       "eas": {
         "projectId": "60253839-edb3-438f-8024-541266f95731"
-      }
+      },
+      "EXPO_PUBLIC_USE_RN_FETCH": "1"
     },
     "owner": "anuelperedo"
   }
