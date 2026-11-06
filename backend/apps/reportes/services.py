@@ -91,3 +91,4 @@ def optimizar_video_evidencia(id_evidencia: int) -> bool:
     except Exception as e:
         logger.error(f"[optimizar_video_evidencia] Error optimizando video #{id_evidencia}: {e}", exc_info=True)
         return False
+

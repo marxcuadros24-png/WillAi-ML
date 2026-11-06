@@ -203,7 +203,20 @@ def mapa_data_api(request):
     Compatible con llamadas autenticadas o directas desde el frontend SPA.
     """
     incidentes_data = []
-    for inc in Incidente.objects.exclude(estado__in=['cerrado']).select_related('distrito')[:50]:
+    for inc in Incidente.objects.exclude(estado__in=['cerrado']).select_related('distrito', 'comunidad').prefetch_related('vinculos_reporte__reporte__evidencias')[:50]:
+        ev_foto_url = None
+        ev_video_url = None
+        for v in inc.vinculos_reporte.all():
+            if v.reporte:
+                for ev in v.reporte.evidencias.all():
+                    if ev.archivo:
+                        try:
+                            if ev.tipo == 'video' and not ev_video_url:
+                                ev_video_url = ev.archivo.url
+                            elif ev.tipo == 'fotografia' and not ev_foto_url:
+                                ev_foto_url = ev.archivo.url
+                        except Exception:
+                            pass
         incidentes_data.append({
             'id': inc.id_incidente,
             'codigo': inc.codigo,
@@ -214,6 +227,10 @@ def mapa_data_api(request):
             'lat': float(inc.latitud_referencia),
             'lon': float(inc.longitud_referencia),
             'fecha': inc.creado_en.strftime('%d/%m/%Y %H:%M'),
+            'fotografia_url': ev_foto_url,
+            'video_url': ev_video_url,
+            'fotografia': ev_foto_url,
+            'video': ev_video_url,
         })
 
     hace_72h = timezone.now() - timezone.timedelta(hours=72)

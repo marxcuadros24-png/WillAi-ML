@@ -182,10 +182,14 @@ export async function sincronizarColaOffline(token?: string | null): Promise<{
       marcarComoSincronizado(item.client_uuid);
       sincronizados++;
     } catch (err: any) {
+      if (item.video_uri) {
+        console.error("Fallo subida con video:", err);
+      }
       console.warn(`[offlineQueue] Fallo al sincronizar reporte ${item.client_uuid}:`, err?.message || err);
-      // Solo en el último intento (intentos >= 2) degradar enviando solo coordenadas y datos textuales
-      if ((item.intentos || 0) >= 2 && (item.foto_uri || item.video_uri)) {
+      // Solo en caso de fallos persistentes tras múltiples reintentos (intentos >= 3) considerar rescate
+      if ((item.intentos || 0) >= 3 && (item.foto_uri || item.video_uri)) {
         try {
+          console.warn(`[offlineQueue] Reintentando reporte ${item.client_uuid} sin adjuntos pesados tras ${(item.intentos || 0)} fallos`);
           await enviarReporteApi(
             {
               client_uuid: item.client_uuid,

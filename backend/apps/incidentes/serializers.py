@@ -102,6 +102,8 @@ class IncidenteListSerializer(serializers.ModelSerializer):
     brigadas_asignadas = serializers.SerializerMethodField()
     fotografia_url = serializers.SerializerMethodField()
     video_url = serializers.SerializerMethodField()
+    fotografia = serializers.SerializerMethodField()
+    video = serializers.SerializerMethodField()
 
     class Meta:
         model = Incidente
@@ -124,7 +126,9 @@ class IncidenteListSerializer(serializers.ModelSerializer):
             'creado_por_nombre',
             'resumen',
             'brigadas_asignadas',
+            'fotografia',
             'fotografia_url',
+            'video',
             'video_url',
             'detectado_en',
             'creado_en',
@@ -180,6 +184,12 @@ class IncidenteListSerializer(serializers.ModelSerializer):
         except Exception:
             pass
         return None
+
+    def get_video(self, obj):
+        return self.get_video_url(obj)
+
+    def get_fotografia(self, obj):
+        return self.get_fotografia_url(obj)
 
 
 class IncidenteDetailSerializer(serializers.ModelSerializer):
@@ -283,6 +293,12 @@ class IncidenteDetailSerializer(serializers.ModelSerializer):
         except Exception:
             pass
         return None
+
+    def get_video(self, obj):
+        return self.get_video_url(obj)
+
+    def get_fotografia(self, obj):
+        return self.get_fotografia_url(obj)
 
     def get_videos(self, obj):
         urls = []

@@ -105,7 +105,8 @@ export async function fetchIncidentes(): Promise<Incidente[]> {
       brigadas_asignadas: (item.brigadas_asignadas || []).map((b: any) => typeof b === 'string' ? b : b.nombre),
       viviendas_riesgo: item.viviendas_afectadas_conteo || 0,
       reportado_por: item.creado_por_nombre || item.origen || 'Ciudadano (App Móvil)',
-      fotografia_url: item.fotografia_url || null,
+      fotografia_url: item.fotografia_url || item.fotografia || null,
+      video_url: item.video_url || item.video || null,
       origen: item.creado_por_nombre ? 'ciudadano' : 'satelital'
     }));
   } catch (err) {

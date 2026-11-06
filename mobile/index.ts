@@ -6,7 +6,12 @@ import App from './App';
 // 1. Manejador de notificaciones FCM nativo en Background / Doze Mode (Headless JS Task)
 // Solo se inicializa si el módulo nativo de Firebase está presente (EAS Build / APK standalone).
 // En Expo Go, el módulo no está compilado en el cliente estándar y se omite para evitar el crash NativeRNFBTurboApp.
-const hasNativeFirebase = Boolean(TurboModuleRegistry?.get?.('NativeRNFBTurboApp'));
+let hasNativeFirebase = false;
+try {
+  hasNativeFirebase = Boolean(TurboModuleRegistry?.get?.('NativeRNFBTurboApp'));
+} catch {
+  hasNativeFirebase = false;
+}
 
 if (hasNativeFirebase) {
   try {

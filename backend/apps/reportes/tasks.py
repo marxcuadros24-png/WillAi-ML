@@ -12,3 +12,4 @@ def optimizar_video_evidencia_task(id_evidencia: int):
     """
     logger.info(f"[Celery] Iniciando optimización ffmpeg para Evidencia #{id_evidencia}")
     return optimizar_video_evidencia(id_evidencia)
+

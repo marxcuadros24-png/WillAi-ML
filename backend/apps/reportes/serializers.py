@@ -52,8 +52,40 @@ class ReporteSerializer(serializers.ModelSerializer):
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
     comunidad_nombre = serializers.ReadOnlyField(source='comunidad.nombre')
     usuario_nombre = serializers.ReadOnlyField(source='usuario.nombre_visible')
+    fotografia_url = serializers.SerializerMethodField(read_only=True)
+    video_url = serializers.SerializerMethodField(read_only=True)
+    video = serializers.SerializerMethodField(read_only=True)
+    fotografia = serializers.SerializerMethodField(read_only=True)
     evidencias = EvidenciaSerializer(many=True, read_only=True)
     validaciones = ValidacionReporteSerializer(many=True, read_only=True)
+
+    def get_fotografia_url(self, obj):
+        ev = obj.evidencias.filter(tipo='fotografia').first() or obj.evidencias.first()
+        if ev and ev.archivo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(ev.archivo.url)
+            return ev.archivo.url
+        elif ev and ev.uri_archivo and ev.uri_archivo.startswith('http'):
+            return ev.uri_archivo
+        return None
+
+    def get_video_url(self, obj):
+        ev = obj.evidencias.filter(tipo='video').first()
+        if ev and ev.archivo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(ev.archivo.url)
+            return ev.archivo.url
+        elif ev and ev.uri_archivo and ev.uri_archivo.startswith('http'):
+            return ev.uri_archivo
+        return None
+
+    def get_video(self, obj):
+        return self.get_video_url(obj)
+
+    def get_fotografia(self, obj):
+        return self.get_fotografia_url(obj)
 
     class Meta:
         model = Reporte
@@ -76,6 +108,10 @@ class ReporteSerializer(serializers.ModelSerializer):
             'estado_display',
             'origen',
             'autoriza_publicacion',
+            'fotografia',
+            'fotografia_url',
+            'video',
+            'video_url',
             'evidencias',
             'validaciones',
             'creado_en',
@@ -120,11 +156,46 @@ class CrearReporteSerializer(serializers.ModelSerializer):
     fotografia = Base64OrFileImageField(required=False, write_only=True)
     fotografia_base64 = Base64OrFileImageField(required=False, write_only=True, source='fotografia')
     video = serializers.FileField(required=False, write_only=True)
+    fotografia_url = serializers.SerializerMethodField(read_only=True)
+    video_url = serializers.SerializerMethodField(read_only=True)
     evidencias_archivos = serializers.ListField(
         child=serializers.FileField(max_length=100000, allow_empty_file=False),
         write_only=True,
         required=False
     )
+
+    def get_fotografia_url(self, obj):
+        ev = obj.evidencias.filter(tipo='fotografia').first() or obj.evidencias.first()
+        if ev and ev.archivo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(ev.archivo.url)
+            return ev.archivo.url
+        elif ev and ev.uri_archivo and ev.uri_archivo.startswith('http'):
+            return ev.uri_archivo
+        return None
+
+    def get_video_url(self, obj):
+        ev = obj.evidencias.filter(tipo='video').first()
+        if ev and ev.archivo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(ev.archivo.url)
+            return ev.archivo.url
+        elif ev and ev.uri_archivo and ev.uri_archivo.startswith('http'):
+            return ev.uri_archivo
+        return None
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        v_url = self.get_video_url(instance)
+        f_url = self.get_fotografia_url(instance)
+        ret['video'] = v_url
+        ret['video_url'] = v_url
+        ret['fotografia'] = f_url
+        ret['fotografia_url'] = f_url
+        ret['evidencias'] = EvidenciaSerializer(instance.evidencias.all(), many=True, context=self.context).data
+        return ret
 
     def validate_video(self, value):
         if value:
@@ -159,10 +230,12 @@ class CrearReporteSerializer(serializers.ModelSerializer):
             'comunidad',
             'fotografia',
             'fotografia_base64',
+            'fotografia_url',
             'video',
+            'video_url',
             'evidencias_archivos',
         ]
-        read_only_fields = ['id_reporte', 'uuid']
+        read_only_fields = ['id_reporte', 'uuid', 'fotografia_url', 'video_url']
 
     def to_internal_value(self, data):
         # Normalizar y redondear coordenadas a 6 decimales para evitar rechazo de validación GPS (max_digits=9, decimal_places=6)

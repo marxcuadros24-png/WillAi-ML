@@ -526,7 +526,7 @@ export async function enviarReporteApi(
     }
 
     const rawVName = payload.video_uri.split('/').pop()?.split('?')[0] || 'evidencia_video.mp4';
-    let vName = rawVName;
+    let vName = rawVName.replace(/[^a-zA-Z0-9._-]/g, '_');
     if (!/\.(mp4|mov|3gp|webm|m4v|avi|mkv)$/i.test(vName)) {
       vName = `${vName}.mp4`;
     }
@@ -574,6 +574,9 @@ export async function enviarReporteApi(
         throw new Error(msg);
       }
       return await res.json();
+    } catch (uploadErr) {
+      console.error("Fallo subida con video:", uploadErr);
+      throw uploadErr;
     } finally {
       clearTimeout(timer);
     }

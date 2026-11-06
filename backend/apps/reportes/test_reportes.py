@@ -87,6 +87,9 @@ class ReportesModelAndAPITests(TestCase):
         }
         response = self.client.post('/api/v1/reportes/reportes/', payload, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNotNone(response.data.get('video'))
+        self.assertIsNotNone(response.data.get('video_url'))
+        self.assertIn('.mp4', response.data['video_url'])
         reporte = Reporte.objects.get(id_reporte=response.data['id_reporte'])
         self.assertEqual(reporte.evidencias.count(), 1)
         evidencia = reporte.evidencias.first()
@@ -118,7 +121,19 @@ class ReportesModelAndAPITests(TestCase):
         }
         response = self.client.post('/api/v1/reportes/reportes/', payload, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNotNone(response.data.get('video'))
+        self.assertIsNotNone(response.data.get('video_url'))
+        self.assertIsNotNone(response.data.get('fotografia'))
+        self.assertIsNotNone(response.data.get('fotografia_url'))
         reporte = Reporte.objects.get(id_reporte=response.data['id_reporte'])
         self.assertEqual(reporte.evidencias.count(), 2)
         tipos = set(reporte.evidencias.values_list('tipo', flat=True))
         self.assertEqual(tipos, {'fotografia', 'video'})
+
+        from apps.incidentes.models import ReporteIncidente
+        from apps.incidentes.serializers import IncidenteListSerializer
+        vinculo = ReporteIncidente.objects.filter(reporte=reporte).first()
+        self.assertIsNotNone(vinculo, "Debe vincularse un incidente automáticamente")
+        inc_data = IncidenteListSerializer(vinculo.incidente).data
+        self.assertIsNotNone(inc_data.get('video_url'))
+        self.assertIsNotNone(inc_data.get('fotografia_url'))

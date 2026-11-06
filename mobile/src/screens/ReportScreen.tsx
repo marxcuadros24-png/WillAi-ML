@@ -374,8 +374,9 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
         console.log('[ReportScreen] Reporte entregado con éxito a Django');
         setResultadoEnvio('online');
       } catch (err: any) {
-        console.warn('[ReportScreen] Fallo envío directo, encolando en SQLite:', err?.message || err);
-        // Si la red falla a mitad del envío, guardar en cola SQLite
+        console.error("Fallo subida con video:", err);
+        console.warn('[ReportScreen] Fallo envío directo en vivo, guardando en cola offline SQLite:', err?.message || err);
+        // Guardar fielmente en SQLite con todos los adjuntos (video intacto)
         await encolarReporte(payload);
         await refrescarContador();
         setResultadoEnvio('offline');

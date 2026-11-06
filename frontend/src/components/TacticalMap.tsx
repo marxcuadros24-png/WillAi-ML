@@ -807,11 +807,15 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           </div>
           <h4 style="font-size: 13px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">${inc.titulo}</h4>
           <p style="font-size: 11px; color: #cbd5e1; margin-bottom: 8px;">${inc.descripcion}</p>
-          ${inc.fotografia_url ? `
+          ${inc.video_url ? `
+            <div style="margin-top: 6px; margin-bottom: 8px;">
+              <video src="${getMediaUrl(inc.video_url)}" controls playsinline preload="metadata" style="width: 100%; max-height: 130px; object-fit: cover; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: #000;"></video>
+            </div>
+          ` : (inc.fotografia_url ? `
             <div style="margin-top: 6px; margin-bottom: 8px;">
               <img src="${getMediaUrl(inc.fotografia_url)}" style="width: 100%; max-height: 120px; object-fit: cover; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2);" alt="Evidencia fotográfica"/>
             </div>
-          ` : ''}
+          ` : '')}
           <div style="font-size: 11px; color: #94a3b8; display: flex; flex-direction: column; gap: 2px;">
             <span><strong>Comunidad:</strong> ${inc.comunidad}</span>
             <span><strong>Viviendas en riesgo:</strong> <strong style="color: #ef4444;">${inc.viviendas_riesgo}</strong></span>
