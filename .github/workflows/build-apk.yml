@@ -24,7 +24,6 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
 
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
@@ -68,6 +67,9 @@ jobs:
             }
           '
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Build Release APK with Gradle
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=512m"
@@ -83,3 +85,4 @@ jobs:
           path: mobile/android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 30
+
