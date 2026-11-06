@@ -226,7 +226,7 @@ class CrearReporteSerializer(serializers.ModelSerializer):
                     else:
                         v_mime = 'video/mp4'
 
-                Evidencia.objects.create(
+                ev_video = Evidencia.objects.create(
                     reporte=reporte,
                     tipo=Evidencia.TipoEvidencia.VIDEO,
                     archivo=video,
@@ -236,6 +236,14 @@ class CrearReporteSerializer(serializers.ModelSerializer):
                     tamano_bytes=getattr(video, 'size', None),
                     capturada_en=timezone.now()
                 )
+
+                # Optimizar video con ffmpeg (480p, sin audio, max 15s, faststart web)
+                try:
+                    from apps.reportes.services import optimizar_video_evidencia
+                    optimizar_video_evidencia(ev_video.id_evidencia)
+                except Exception as opt_err:
+                    import logging
+                    logging.getLogger(__name__).warning(f"No se pudo optimizar video #{ev_video.id_evidencia}: {opt_err}")
 
             for arch in archivos:
                 Evidencia.objects.create(

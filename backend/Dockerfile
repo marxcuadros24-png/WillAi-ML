@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
     curl \
     postgresql-client \
+    ffmpeg \
     binutils \
     libproj-dev \
     gdal-bin \

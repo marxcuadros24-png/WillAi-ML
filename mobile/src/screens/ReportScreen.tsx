@@ -256,8 +256,10 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['videos'],
         videoMaxDuration: 15, // Detención automática nativa a los 15s
+        videoQuality: ImagePicker.UIImagePickerControllerQualityType.Low,
+        videoExportPreset: ImagePicker.VideoExportPreset.H264_640x480,
         allowsEditing: false,
-        quality: 0.7
+        quality: 0 // Menor resolución/bitrate posible para zonas rurales sin cobertura
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -306,8 +308,11 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ onBack }) => {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['videos'],
+        videoMaxDuration: 15,
+        videoQuality: ImagePicker.UIImagePickerControllerQualityType.Low,
+        videoExportPreset: ImagePicker.VideoExportPreset.H264_640x480,
         allowsEditing: false,
-        quality: 0.7
+        quality: 0
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
