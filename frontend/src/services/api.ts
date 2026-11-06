@@ -937,17 +937,31 @@ export async function evaluarViviendasSimulacion(
 
 /**
  * Consulta incidentes públicos para el portal ciudadano (sin login).
+ * Por defecto consulta incidentes activos con bypass de caché para reflejar reportes móviles al instante.
  */
 export async function fetchIncidentesPublicos(filtros?: FiltrosPublicos): Promise<IncidentePublico[]> {
   try {
     const params = new URLSearchParams();
     if (filtros?.fecha) params.append('fecha', filtros.fecha);
     if (filtros?.distrito) params.append('distrito', filtros.distrito);
-    if (filtros?.estado) params.append('estado', filtros.estado);
+    // Por defecto filtrar únicamente los incidentes activos en terreno
+    const estado = filtros?.estado !== undefined ? filtros.estado : 'activos';
+    if (estado && estado !== 'todos') {
+      params.append('estado', estado);
+    }
     if (filtros?.q) params.append('q', filtros.q);
+    // Timestamp anti-caché para forzar respuesta fresca en tiempo real
+    params.append('_t', String(Date.now()));
 
-    const qs = params.toString() ? '?' + params.toString() : '';
-    const res = await fetch(API_BASE + '/publico/incidentes/' + qs, { cache: 'no-store' });
+    const qs = '?' + params.toString();
+    const res = await fetch(API_BASE + '/publico/incidentes/' + qs, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
     if (!res.ok) return [];
     const data = await res.json();
     return data.incidentes || [];
@@ -962,7 +976,14 @@ export async function fetchIncidentesPublicos(filtros?: FiltrosPublicos): Promis
  */
 export async function fetchEstadisticasPublicas(): Promise<EstadisticasPublicas | null> {
   try {
-    const res = await fetch(API_BASE + '/publico/estadisticas/', { cache: 'no-store' });
+    const res = await fetch(`${API_BASE}/publico/estadisticas/?_t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {

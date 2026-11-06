@@ -3,6 +3,9 @@ from rest_framework.response import Response
 from rest_framework import permissions, status
 from django.utils import timezone
 from django.db.models import Q
+from django.db.models.functions import Coalesce
+from django.views.decorators.cache import never_cache
+from django.utils.decorators import method_decorator
 from datetime import timedelta
 
 from .models import Incidente
@@ -10,6 +13,7 @@ from apps.geografia.models import Distrito
 from apps.predicciones.models import Prediccion
 
 
+@method_decorator(never_cache, name='dispatch')
 class IncidentesPublicosView(APIView):
     """
     Endpoint público de solo lectura para consulta ciudadana de incidentes forestales.
@@ -24,7 +28,9 @@ class IncidentesPublicosView(APIView):
         ).prefetch_related(
             'reportes_vinculados__evidencias',
             'reportes_vinculados__usuario'
-        ).order_by('-detectado_en', '-creado_en')
+        ).annotate(
+            fecha_orden=Coalesce('detectado_en', 'creado_en')
+        ).order_by('-fecha_orden', '-id_incidente')
 
         # 1. Filtro por fecha
         fecha_filtro = request.query_params.get('fecha', '').strip()
@@ -155,6 +161,7 @@ class IncidentesPublicosView(APIView):
         })
 
 
+@method_decorator(never_cache, name='dispatch')
 class EstadisticasPublicasView(APIView):
     """
     Métricas e indicadores ejecutivos públicos en tiempo real sobre incidentes del día.

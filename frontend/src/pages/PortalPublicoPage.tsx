@@ -17,7 +17,8 @@ import {
   Activity,
   HeartPulse,
   Image as ImageIcon,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
 import willaiLogo from '../assets/LogoWillai.jpeg';
 import { MapaPublicoIncidentes } from '../components/MapaPublicoIncidentes';
@@ -79,6 +80,11 @@ export const PortalPublicoPage: React.FC = () => {
   const [distritos, setDistritos] = useState<DistritoPublico[]>([]);
   const [fwiData, setFwiData] = useState<MetricasFWI | null>(null);
   const [cargando, setCargando] = useState<boolean>(true);
+  const [refrescando, setRefrescando] = useState<boolean>(false);
+  const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date());
+
+  // Filtro de estado: por defecto 'activos' para mostrar fuegos en combate/verificación
+  const [filtroEstado, setFiltroEstado] = useState<'activos' | 'todos'>('activos');
 
   // Estados de navegación e interacción
   const [selectedIncidenteId, setSelectedIncidenteId] = useState<number | null>(null);
@@ -123,15 +129,20 @@ export const PortalPublicoPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // 2. Cargar datos reales públicos
+  // 2. Cargar datos reales públicos con auto-refresco en vivo periódico
   useEffect(() => {
     let montado = true;
-    setCargando(true);
 
-    const cargar = async () => {
+    const cargar = async (esPrimerCarga = false) => {
+      if (esPrimerCarga) {
+        setCargando(true);
+      } else {
+        setRefrescando(true);
+      }
+
       try {
         const [incData, statsData, distData, fwiRes] = await Promise.all([
-          fetchIncidentesPublicos({ fecha: 'todos', distrito: 'todos', estado: 'todos' }),
+          fetchIncidentesPublicos({ fecha: 'todos', distrito: 'todos', estado: filtroEstado }),
           fetchEstadisticasPublicas(),
           fetchDistritosPublicos(),
           fetchFWI(false),
@@ -142,18 +153,52 @@ export const PortalPublicoPage: React.FC = () => {
         if (statsData) setEstadisticas(statsData);
         if (distData.length > 0) setDistritos(distData);
         if (fwiRes) setFwiData(fwiRes);
+        setUltimaActualizacion(new Date());
       } catch (err) {
         console.error('Error al cargar datos del observatorio público:', err);
       } finally {
-        if (montado) setCargando(false);
+        if (montado) {
+          if (esPrimerCarga) setCargando(false);
+          setRefrescando(false);
+        }
       }
     };
 
-    cargar();
+    cargar(true);
+
+    // Auto-refresco en vivo cada 10 segundos para capturar nuevos reportes móviles
+    const autoInterval = setInterval(() => {
+      cargar(false);
+    }, 10000);
+
     return () => {
       montado = false;
+      clearInterval(autoInterval);
     };
-  }, []);
+  }, [filtroEstado]);
+
+  // Manejar refresco manual inmediato
+  const handleRefrescarManual = async () => {
+    if (refrescando) return;
+    setRefrescando(true);
+    try {
+      const [incData, statsData, distData, fwiRes] = await Promise.all([
+        fetchIncidentesPublicos({ fecha: 'todos', distrito: 'todos', estado: filtroEstado }),
+        fetchEstadisticasPublicas(),
+        fetchDistritosPublicos(),
+        fetchFWI(false),
+      ]);
+      setIncidentes(incData);
+      if (statsData) setEstadisticas(statsData);
+      if (distData.length > 0) setDistritos(distData);
+      if (fwiRes) setFwiData(fwiRes);
+      setUltimaActualizacion(new Date());
+    } catch (err) {
+      console.error('Error al refrescar manualmente el observatorio:', err);
+    } finally {
+      setRefrescando(false);
+    }
+  };
 
   // Manejar cambio de distrito
   const handleDistrictChange = (key: string) => {
@@ -210,6 +255,10 @@ export const PortalPublicoPage: React.FC = () => {
   const fwiScore = estadisticas?.meteorologia.fwi_score ?? (fwiData?.fwi ? fwiData.fwi.toFixed(1) : '32.0');
   const fwiNivel = estadisticas?.meteorologia.fwi_nivel ?? (fwiData?.nivel_peligro || 'ALTO');
 
+  const isActivo = (estado: string) =>
+    ['nuevo', 'verificacion', 'confirmado', 'asignado', 'en_atencion', 'en_combate'].includes(estado);
+  const conteoActivos = estadisticas?.sistema?.total_activos ?? incidentes.filter((i) => isActivo(i.estado)).length;
+
   return (
     <div className="obs-portal-container">
       {/* 1. BARRA SUPERIOR INSTITUCIONAL (SENAMHI STYLE) */}
@@ -236,8 +285,63 @@ export const PortalPublicoPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Sección derecha: Badges de Alerta, Clima en vivo y Reloj */}
+        {/* Sección derecha: Badges de Alerta, Fuegos Activos, Clima en vivo y Reloj */}
         <div className="obs-header-right">
+          {/* Badge de Fuegos Activos en vivo */}
+          <div
+            className="obs-header-warning-badge"
+            style={{
+              background: conteoActivos > 0 ? 'rgba(239, 68, 68, 0.22)' : 'rgba(16, 185, 129, 0.2)',
+              border: conteoActivos > 0 ? '1px solid #ef4444' : '1px solid #10b981',
+              color: conteoActivos > 0 ? '#fca5a5' : '#6ee7b7',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+            onClick={() => setFiltroEstado('activos')}
+            title="Ver los fuegos activos en combate"
+          >
+            <span
+              style={{
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: conteoActivos > 0 ? '#ef4444' : '#10b981',
+                boxShadow: conteoActivos > 0 ? '0 0 8px #ef4444' : '0 0 8px #10b981',
+              }}
+            />
+            <span>{conteoActivos} FUEGO{conteoActivos === 1 ? '' : 'S'} ACTIVO{conteoActivos === 1 ? '' : 'S'}</span>
+          </div>
+
+          {/* Botón Refrescar en Vivo */}
+          <button
+            onClick={handleRefrescarManual}
+            disabled={refrescando}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '5px 10px',
+              borderRadius: '6px',
+              background: 'rgba(14, 29, 60, 0.9)',
+              border: '1px solid rgba(96, 165, 250, 0.35)',
+              color: '#38bdf8',
+              fontSize: '11px',
+              fontWeight: 700,
+              cursor: refrescando ? 'wait' : 'pointer',
+            }}
+            title="Actualizar datos en vivo"
+          >
+            <RefreshCw
+              size={12}
+              style={{
+                animation: refrescando ? 'spin 1s linear infinite' : 'none',
+              }}
+            />
+            <span>{refrescando ? 'Sincronizando...' : 'Refrescar'}</span>
+          </button>
+
           <div className="obs-header-warning-badge">
             <Flame size={13} />
             <span>PELIGRO FWI: {fwiNivel} ({fwiScore})</span>
@@ -403,6 +507,11 @@ export const PortalPublicoPage: React.FC = () => {
             selectedIncidenteId={selectedIncidenteId}
             onSelectIncidente={(inc) => setSelectedIncidenteId(inc.id)}
             centerCoords={centerCoords}
+            filtroEstado={filtroEstado}
+            onToggleFiltroEstado={setFiltroEstado}
+            onRefresh={handleRefrescarManual}
+            isRefreshing={refrescando}
+            ultimaActualizacion={ultimaActualizacion}
           />
         </section>
 

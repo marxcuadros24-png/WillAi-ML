@@ -5,13 +5,18 @@ import {
   LIMITE_PROVINCIAL_PARINACOCHAS,
   LIMITES_DISTRITALES_PARINACOCHAS,
 } from '../data/demarcacionParinacochas';
-import { Compass, Globe, Map as MapIcon } from 'lucide-react';
+import { Compass, Globe, Map as MapIcon, Flame, RefreshCw, CheckCircle2 } from 'lucide-react';
 
 interface MapaPublicoIncidentesProps {
   incidentes: IncidentePublico[];
   selectedIncidenteId: number | null;
   onSelectIncidente: (incidente: IncidentePublico) => void;
   centerCoords?: [number, number] | null;
+  filtroEstado?: 'activos' | 'todos';
+  onToggleFiltroEstado?: (filtro: 'activos' | 'todos') => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+  ultimaActualizacion?: Date | null;
 }
 
 export const MapaPublicoIncidentes: React.FC<MapaPublicoIncidentesProps> = ({
@@ -19,6 +24,11 @@ export const MapaPublicoIncidentes: React.FC<MapaPublicoIncidentesProps> = ({
   selectedIncidenteId,
   onSelectIncidente,
   centerCoords = null,
+  filtroEstado = 'activos',
+  onToggleFiltroEstado,
+  onRefresh,
+  isRefreshing = false,
+  ultimaActualizacion = null,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -29,6 +39,12 @@ export const MapaPublicoIncidentes: React.FC<MapaPublicoIncidentesProps> = ({
   const labelsLayerRef = useRef<L.TileLayer | null>(null);
 
   const [mapType, setMapType] = useState<'satelite' | 'calles'>('satelite');
+
+  const isActivo = (estado: string) =>
+    ['nuevo', 'verificacion', 'confirmado', 'asignado', 'en_atencion', 'en_combate'].includes(estado);
+
+  const conteoActivos = incidentes.filter((i) => isActivo(i.estado)).length;
+  const conteoCerrados = incidentes.filter((i) => ['extinguido', 'cerrado'].includes(i.estado)).length;
 
   // 1. Inicialización de Leaflet
   useEffect(() => {
@@ -210,7 +226,12 @@ export const MapaPublicoIncidentes: React.FC<MapaPublicoIncidentesProps> = ({
       (inc) => typeof inc.latitud === 'number' && typeof inc.longitud === 'number' && !isNaN(inc.latitud) && !isNaN(inc.longitud)
     );
 
-    validIncidents.forEach((inc) => {
+    // Filtrar estrictamente: por defecto solo incidentes activos en combate o verificación
+    const incidentesAMostrar = filtroEstado === 'todos'
+      ? validIncidents
+      : validIncidents.filter((inc) => isActivo(inc.estado));
+
+    incidentesAMostrar.forEach((inc) => {
       const isSelected = inc.id === selectedIncidenteId;
       const icon = createMarkerIcon(inc, isSelected);
 
@@ -263,7 +284,7 @@ export const MapaPublicoIncidentes: React.FC<MapaPublicoIncidentesProps> = ({
       marker.addTo(markersGroup);
       markerMapRef.current.set(inc.id, marker);
     });
-  }, [incidentes, selectedIncidenteId]);
+  }, [incidentes, selectedIncidenteId, filtroEstado]);
 
   // Centrar y abrir popup cuando se selecciona un incidente
   useEffect(() => {
@@ -292,6 +313,23 @@ export const MapaPublicoIncidentes: React.FC<MapaPublicoIncidentesProps> = ({
     mapInstanceRef.current.flyTo([-15.0189, -73.7806], 11, { duration: 1 });
   };
 
+  const btnStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '7px 12px',
+    borderRadius: '8px',
+    background: 'rgba(14, 29, 60, 0.92)',
+    backdropFilter: 'blur(8px)',
+    border: '1px solid rgba(96, 165, 250, 0.3)',
+    color: '#f8fafc',
+    fontSize: '11.5px',
+    fontWeight: 700,
+    boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  };
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', background: '#081224', overflow: 'hidden' }}>
       {/* Contenedor Leaflet */}
@@ -312,24 +350,10 @@ export const MapaPublicoIncidentes: React.FC<MapaPublicoIncidentesProps> = ({
       />
 
       {/* Botones de control flotantes en esquina superior izquierda */}
-      <div style={{ position: 'absolute', top: '14px', left: '14px', zIndex: 400, display: 'flex', gap: '8px' }}>
+      <div style={{ position: 'absolute', top: '14px', left: '14px', zIndex: 400, display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
         <button
           onClick={handleResetView}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '7px 12px',
-            borderRadius: '8px',
-            background: 'rgba(14, 29, 60, 0.92)',
-            backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(96, 165, 250, 0.3)',
-            color: '#f8fafc',
-            fontSize: '11.5px',
-            fontWeight: 700,
-            boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
-            cursor: 'pointer'
-          }}
+          style={btnStyle}
           title="Centrar en Parinacochas"
         >
           <Compass size={14} color="#fbbf24" />
@@ -338,27 +362,113 @@ export const MapaPublicoIncidentes: React.FC<MapaPublicoIncidentesProps> = ({
 
         <button
           onClick={handleToggleMapType}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '7px 12px',
-            borderRadius: '8px',
-            background: 'rgba(14, 29, 60, 0.92)',
-            backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(96, 165, 250, 0.3)',
-            color: '#f8fafc',
-            fontSize: '11.5px',
-            fontWeight: 700,
-            boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
-            cursor: 'pointer'
-          }}
+          style={btnStyle}
           title="Alternar vista Satelital / Callejera"
         >
           {mapType === 'satelite' ? <Globe size={14} color="#38bdf8" /> : <MapIcon size={14} color="#34d399" />}
           <span>{mapType === 'satelite' ? 'Satélite' : 'Callejero'}</span>
         </button>
+
+        {/* Toggle Filtro Activos / Historial */}
+        <button
+          onClick={() => onToggleFiltroEstado?.(filtroEstado === 'activos' ? 'todos' : 'activos')}
+          style={{
+            ...btnStyle,
+            background: filtroEstado === 'activos' ? 'rgba(220, 38, 38, 0.92)' : 'rgba(14, 29, 60, 0.92)',
+            border: filtroEstado === 'activos' ? '1px solid #ef4444' : '1px solid rgba(96, 165, 250, 0.3)',
+            boxShadow: filtroEstado === 'activos' ? '0 0 14px rgba(239, 68, 68, 0.4)' : '0 4px 14px rgba(0,0,0,0.5)',
+          }}
+          title={filtroEstado === 'activos' ? "Mostrando solo activos. Click para ver historial." : "Mostrando historial. Click para ver solo activos."}
+        >
+          <Flame size={14} color={filtroEstado === 'activos' ? '#ffffff' : '#ef4444'} />
+          <span>{filtroEstado === 'activos' ? `Solo Activos (${conteoActivos})` : `Todos (${incidentes.length})`}</span>
+        </button>
+
+        {/* Botón Refrescar en Vivo */}
+        {onRefresh && (
+          <button
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            style={{
+              ...btnStyle,
+              cursor: isRefreshing ? 'wait' : 'pointer',
+            }}
+            title="Actualizar datos en tiempo real de satélite y reportes móviles"
+          >
+            <RefreshCw
+              size={13}
+              color="#38bdf8"
+              style={{
+                animation: isRefreshing ? 'spin 1s linear infinite' : 'none',
+              }}
+            />
+            <span>{isRefreshing ? 'Actualizando...' : 'Refrescar'}</span>
+          </button>
+        )}
+
+        {/* Indicador de monitoreo en tiempo real */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '7px 11px',
+            borderRadius: '8px',
+            background: 'rgba(10, 20, 40, 0.88)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(56, 189, 248, 0.25)',
+            color: '#93c5fd',
+            fontSize: '11px',
+            fontWeight: 600,
+            boxShadow: '0 4px 14px rgba(0,0,0,0.4)',
+          }}
+        >
+          <span
+            style={{
+              width: '7px',
+              height: '7px',
+              borderRadius: '50%',
+              background: isRefreshing ? '#38bdf8' : '#10b981',
+              boxShadow: isRefreshing ? '0 0 8px #38bdf8' : '0 0 8px #10b981',
+            }}
+          />
+          <span>
+            {isRefreshing
+              ? 'Sincronizando...'
+              : ultimaActualizacion
+              ? `En vivo (${ultimaActualizacion.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })})`
+              : 'En vivo (auto 10s)'}
+          </span>
+        </div>
       </div>
+
+      {/* Banner flotante si no hay incendios activos */}
+      {filtroEstado === 'activos' && conteoActivos === 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '24px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 400,
+            background: 'rgba(6, 78, 59, 0.92)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid #10b981',
+            borderRadius: '10px',
+            padding: '10px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            color: '#ffffff',
+            fontSize: '12px',
+            fontWeight: 700,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+          }}
+        >
+          <CheckCircle2 size={18} color="#34d399" />
+          <span>Sin incendios activos reportados en este momento en Parinacochas</span>
+        </div>
+      )}
 
       {/* Leyenda cartográfica flotante estilo SENAMHI en esquina inferior derecha */}
       <div className="obs-floating-legend">
@@ -380,12 +490,18 @@ export const MapaPublicoIncidentes: React.FC<MapaPublicoIncidentesProps> = ({
 
         <div style={{ margin: '8px 0 6px 0', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '6px' }}>
           <div className="obs-legend-title">
-            <span>Incidentes Reportados</span>
+            <span>{filtroEstado === 'activos' ? 'Fuegos Activos' : 'Incidentes'}</span>
           </div>
           <div className="obs-legend-row">
-            <span className="obs-legend-color-dot" style={{ background: '#ef4444', border: '1.5px solid #ffffff' }}></span>
-            <span>Incidentes en Terreno ({incidentes.length})</span>
+            <span className="obs-legend-color-dot" style={{ background: '#ef4444', border: '1.5px solid #ffffff', boxShadow: '0 0 6px #ef4444' }}></span>
+            <span>Activos en Terreno ({conteoActivos})</span>
           </div>
+          {filtroEstado === 'todos' && (
+            <div className="obs-legend-row">
+              <span className="obs-legend-color-dot" style={{ background: '#10b981', border: '1.5px solid #ffffff' }}></span>
+              <span>Extinguidos / Cerrados ({conteoCerrados})</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
