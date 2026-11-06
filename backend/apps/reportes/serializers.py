@@ -239,10 +239,21 @@ class CrearReporteSerializer(serializers.ModelSerializer):
 
     def to_internal_value(self, data):
         # Normalizar y redondear coordenadas a 6 decimales para evitar rechazo de validación GPS (max_digits=9, decimal_places=6)
-        mutable_data = data.copy() if hasattr(data, 'copy') else dict(data)
+        # NOTA: Evitar data.copy() sobre QueryDict porque ejecuta deepcopy() y falla con TemporaryUploadedFile (cannot pickle '_io.BufferedRandom')
+        if hasattr(data, 'dict'):
+            mutable_data = data.dict()
+            if hasattr(data, 'getlist'):
+                archivos_list = data.getlist('evidencias_archivos')
+                if archivos_list:
+                    mutable_data['evidencias_archivos'] = archivos_list
+        else:
+            mutable_data = dict(data)
+
         for campo in ('latitud', 'longitud'):
             val = mutable_data.get(campo)
             if val is not None:
+                if isinstance(val, list) and val:
+                    val = val[0]
                 try:
                     mutable_data[campo] = f"{round(float(val), 6):.6f}"
                 except (ValueError, TypeError):
