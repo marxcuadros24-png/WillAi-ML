@@ -145,8 +145,12 @@ python manage.py entrenar_ocurrencia --test-ratio 0.30
 # Importar datos satelitales NASA FIRMS recientes (VIIRS + MODIS)
 python manage.py importar_firms --todos --days 3
 
-# Descargar histórico oficial de 180 días (6 meses) de NASA FIRMS (MODIS + VIIRS)
-python manage.py importar_firms_historico --dias 180 --paso 5
+# Descargar histórico oficial de años anteriores o temporadas secas de NASA FIRMS (MODIS + VIIRS)
+python manage.py importar_firms_historico --desde 2024-06-01 --hasta 2024-12-31 --paso 5
+python manage.py importar_firms_historico --anos 2024,2025
+
+# Exportar huellas físicas de píxeles (VIIRS 375m / MODIS 1km), isócronas y cicatrices a QGIS (.qgs) y Google Earth (.kmz)
+python manage.py exportar_mapa_quemado --anos 2024,2025,2026 --salida data/qgis_parinacochas
 
 # Importar focos de calor oficiales de SERFOR Perú
 python manage.py importar_firms --serfor

@@ -32,8 +32,20 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--dias', type=int, default=730,
-            help='Total de días hacia atrás a consultar (default: 730 para 2 años completos)'
+            '--dias', type=int, default=None,
+            help='Total de días hacia atrás a consultar (default: 730 si no se especifica fecha)'
+        )
+        parser.add_argument(
+            '--desde', type=str, default=None,
+            help='Fecha inicial en formato YYYY-MM-DD (ej: 2024-01-01)'
+        )
+        parser.add_argument(
+            '--hasta', type=str, default=None,
+            help='Fecha final en formato YYYY-MM-DD (ej: 2025-12-31)'
+        )
+        parser.add_argument(
+            '--ano', '--anos', dest='anos', type=str, default=None,
+            help='Año o lista de años separados por coma (ej: 2024 o 2024,2025)'
         )
         parser.add_argument(
             '--paso', type=int, default=5,
@@ -52,8 +64,8 @@ class Command(BaseCommand):
             help='Bounding Box W,S,E,N (por defecto: Provincia de Parinacochas)'
         )
         parser.add_argument(
-            '--pausa', type=float, default=1.2,
-            help='Segundos de pausa entre requests para respetar rate-limit de NASA (default: 1.2)'
+            '--pausa', type=float, default=0.8,
+            help='Segundos de pausa entre requests para respetar rate-limit de NASA (default: 0.8)'
         )
         parser.add_argument(
             '--reintentos', type=int, default=3,
@@ -61,7 +73,6 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        total_dias = max(1, options['dias'])
         paso = max(1, min(options['paso'], 5))
         bbox = options['bbox']
         pausa = options['pausa']
@@ -69,6 +80,23 @@ class Command(BaseCommand):
         ahora = timezone.now()
         hoy = ahora.date()
 
+        # Determinar rango de fechas
+        if options['anos']:
+            anos_lista = [int(a.strip()) for a in options['anos'].split(',') if a.strip()]
+            fecha_inicio = datetime(min(anos_lista), 1, 1).date()
+            fecha_fin = datetime(max(anos_lista), 12, 31).date()
+            if fecha_fin > hoy:
+                fecha_fin = hoy
+        elif options['desde']:
+            fecha_inicio = datetime.strptime(options['desde'], '%Y-%m-%d').date()
+            if options['hasta']:
+                fecha_fin = datetime.strptime(options['hasta'], '%Y-%m-%d').date()
+            else:
+                fecha_fin = hoy
+        else:
+            total_dias = options['dias'] if options['dias'] is not None else 730
+            fecha_inicio = hoy - timedelta(days=max(1, total_dias))
+            fecha_fin = hoy
         # Selección de sensores según banderas del usuario
         if options['modis_solo']:
             sensores_nrt = ['MODIS_NRT']
@@ -78,18 +106,16 @@ class Command(BaseCommand):
             sensores_archivo = ['VIIRS_SNPP_SP']
         else:
             # Cobertura completa multi-sensor:
-            # NRT: NOAA-20 (375m), NOAA-21 (375m), Suomi-NPP (375m), MODIS Aqua/Terra (1km)
-            # Archivo: Suomi-NPP SP (375m) y MODIS SP (1km)
             sensores_nrt = ['VIIRS_NOAA20_NRT', 'VIIRS_NOAA21_NRT', 'VIIRS_SNPP_NRT', 'MODIS_NRT']
             sensores_archivo = ['VIIRS_SNPP_SP', 'MODIS_SP']
 
-        fecha_inicio = hoy - timedelta(days=total_dias)
+        total_dias = (fecha_fin - fecha_inicio).days + 1
         total_ventanas = math.ceil(total_dias / paso)
 
         self.stdout.write(self.style.NOTICE(
             f'\n{"=" * 75}\n'
             f'  NASA FIRMS -- Recopilacion Historica Oficial (Parinacochas)\n'
-            f'  Rango temporal: {fecha_inicio.strftime("%Y-%m-%d")} -> {hoy.strftime("%Y-%m-%d")} '
+            f'  Rango temporal: {fecha_inicio.strftime("%Y-%m-%d")} -> {fecha_fin.strftime("%Y-%m-%d")} '
             f'({total_dias} dias / ~{total_dias // 365}a {(total_dias % 365) // 30}m)\n'
             f'  Bounding Box: {bbox} (Provincia de Parinacochas)\n'
             f'  Ventana de consulta: {paso} dias por peticion (Limite oficial NASA API)\n'
@@ -107,8 +133,8 @@ class Command(BaseCommand):
         cur_fecha = fecha_inicio
         inicio_tiempo = time.time()
 
-        while cur_fecha <= hoy:
-            dias_restantes = (hoy - cur_fecha).days + 1
+        while cur_fecha <= fecha_fin:
+            dias_restantes = (fecha_fin - cur_fecha).days + 1
             if dias_restantes <= 0:
                 break
             dias_ventana = min(paso, dias_restantes)
@@ -187,7 +213,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f'\n{"=" * 75}\n'
             f'  DESCARGA HISTORICA DE NASA FIRMS COMPLETADA EXITOSAMENTE\n'
-            f'  Periodo: {fecha_inicio.strftime("%Y-%m-%d")} a {hoy.strftime("%Y-%m-%d")} ({total_dias} dias)\n'
+            f'  Periodo: {fecha_inicio.strftime("%Y-%m-%d")} a {fecha_fin.strftime("%Y-%m-%d")} ({total_dias} dias)\n'
             f'  Ventanas procesadas: {ventana_num}/{total_ventanas}\n'
             f'  Detecciones recibidas de satelites: {total_recibidas:,}\n'
             f'  Nuevos focos de calor insertados en PostgreSQL: {total_insertadas:,}\n'

@@ -1,4 +1,9 @@
 from datetime import timedelta
+import os
+import zipfile
+import io
+from django.conf import settings
+from django.http import HttpResponse, FileResponse
 from django.utils import timezone
 from django.db.models import Count, Avg
 from rest_framework import viewsets, permissions
@@ -11,6 +16,12 @@ from .serializers import (
     LoteImportacionFirmsSerializer,
     DeteccionSatelitalSerializer,
 )
+from .footprints import (
+    construir_geojson_pixeles,
+    reconstruir_isocronas_y_cicatrices,
+    fusionar_rastros_por_dia_y_proximidad
+)
+from .exportador_qgis import exportar_paquete_qgis_completo, generar_google_earth_kmz
 
 
 class DeteccionPagination(PageNumberPagination):
@@ -145,6 +156,95 @@ class DeteccionSatelitalViewSet(viewsets.ReadOnlyModelViewSet):
             'total_detecciones': total,
             'historial_mensual': historial
         })
+
+    @action(detail=False, methods=['get'])
+    def rastros_fusionados(self, request):
+        """
+        Retorna la colección GeoJSON con los rastros de fuego fusionados por día y proximidad
+        (Multi-Sensor MODIS + VIIRS disueltos sin solapamientos).
+        """
+        qs = self.get_queryset()
+        dist_m = float(request.query_params.get('distancia_rastro', 1200.0))
+        geojson_data = fusionar_rastros_por_dia_y_proximidad(qs, distancia_rastro_m=dist_m)
+        return Response(geojson_data)
+
+    @action(detail=False, methods=['get'])
+    def geojson_pixeles(self, request):
+        """
+        Retorna la colección GeoJSON con las huellas poligonales reales de cada foco individual (VIIRS/MODIS).
+        """
+        qs = self.get_queryset()
+        geojson_data = construir_geojson_pixeles(qs)
+        return Response(geojson_data)
+
+    @action(detail=False, methods=['get'])
+    def geojson_cicatrices(self, request):
+        """
+        Retorna las isócronas y cicatrices consolidadas de áreas quemadas detectadas.
+        """
+        qs = self.get_queryset()
+        geojson_isocronas, geojson_cicatrices = reconstruir_isocronas_y_cicatrices(qs)
+        tipo = request.query_params.get('tipo', 'cicatrices')
+        if tipo == 'isocronas':
+            return Response(geojson_isocronas)
+        return Response(geojson_cicatrices)
+
+    @action(detail=False, methods=['get'])
+    def exportar_kmz(self, request):
+        """
+        Genera y descarga directamente el archivo KMZ tridimensional para Google Earth
+        con rastros fusionados multi-sensor y extrusión 3D.
+        """
+        qs = self.get_queryset()
+        dist_m = float(request.query_params.get('distancia_rastro', 1200.0))
+        geojson_rastros = fusionar_rastros_por_dia_y_proximidad(qs, distancia_rastro_m=dist_m)
+
+        buffer = io.BytesIO()
+        kmz_temp = os.path.join(settings.BASE_DIR, 'data', 'temp_export.kmz')
+        generar_google_earth_kmz(geojson_rastros, kmz_temp)
+
+        with open(kmz_temp, 'rb') as f:
+            buffer.write(f.read())
+        try:
+            os.remove(kmz_temp)
+        except Exception:
+            pass
+
+        buffer.seek(0)
+        response = HttpResponse(buffer.getvalue(), content_type='application/vnd.google-earth.kmz')
+        response['Content-Disposition'] = 'attachment; filename="mapa_incendios_parinacochas.kmz"'
+        return response
+
+    @action(detail=False, methods=['get'])
+    def exportar_qgis(self, request):
+        """
+        Empaca el proyecto QGIS (.qgs) y todas las capas GeoJSON en un archivo ZIP descargable.
+        """
+        qs = self.get_queryset()
+        dist_m = float(request.query_params.get('distancia_rastro', 1200.0))
+        dir_salida = os.path.join(settings.BASE_DIR, 'data', 'temp_qgis_pack')
+        res = exportar_paquete_qgis_completo(dir_salida, detecciones=qs, distancia_rastro_m=dist_m)
+
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', compression=zipfile.ZIP_DEFLATED) as zip_file:
+            for archivo_nombre in [
+                '1_rastros_fuego_fusionados_dia.geojson',
+                '2_cicatrices_totales_incendios.geojson',
+                '3_isocronas_avance_fuego.geojson',
+                '4_pixeles_individuales_satelitales.geojson',
+                '5_demarcacion_distrital_parinacochas.geojson',
+                'proyecto_qgis_parinacochas.qgs',
+                'mapa_incendios_parinacochas.kmz',
+                'LEAME_INSTRUCCIONES_QGIS.txt'
+            ]:
+                ruta_completa = os.path.join(dir_salida, archivo_nombre)
+                if os.path.exists(ruta_completa):
+                    zip_file.write(ruta_completa, arcname=archivo_nombre)
+
+        zip_buffer.seek(0)
+        response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+        response['Content-Disposition'] = 'attachment; filename="paquete_qgis_parinacochas.zip"'
+        return response
 
 
 class LoteImportacionFirmsViewSet(viewsets.ReadOnlyModelViewSet):
