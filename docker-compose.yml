@@ -57,7 +57,7 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
       CELERY_TASK_ALWAYS_EAGER: "False"
-      NASA_FIRMS_MAP_KEY: a84d23a9aab653f18f15991290bd093e
+      NASA_FIRMS_MAP_KEY: ${NASA_FIRMS_MAP_KEY:-}
       SERFOR_API_URL: https://geo.serfor.gob.pe
       OPEN_METEO_API_URL: https://api.open-meteo.com/v1/forecast
     volumes:
@@ -92,7 +92,7 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
       CELERY_TASK_ALWAYS_EAGER: "False"
-      NASA_FIRMS_MAP_KEY: a84d23a9aab653f18f15991290bd093e
+      NASA_FIRMS_MAP_KEY: ${NASA_FIRMS_MAP_KEY:-}
       SERFOR_API_URL: https://geo.serfor.gob.pe
       OPEN_METEO_API_URL: https://api.open-meteo.com/v1/forecast
     volumes:
@@ -128,7 +128,7 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
       CELERY_TASK_ALWAYS_EAGER: "False"
-      NASA_FIRMS_MAP_KEY: a84d23a9aab653f18f15991290bd093e
+      NASA_FIRMS_MAP_KEY: ${NASA_FIRMS_MAP_KEY:-}
       SERFOR_API_URL: https://geo.serfor.gob.pe
       OPEN_METEO_API_URL: https://api.open-meteo.com/v1/forecast
     depends_on:

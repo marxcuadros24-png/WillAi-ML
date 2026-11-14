@@ -33,7 +33,7 @@
 
 ## 🌐 3. Integración de APIs Externas (100% REALES — CERO DATOS SINTÉTICOS O MOCK)
 1. **NASA FIRMS (Focos de calor satelitales VIIRS [375m] y MODIS [1km]):**
-   - API Key real configurada en `backend/.env`: `a84d23a9aab653f18f15991290bd093e`.
+   - API Key real configurada en `backend/.env` (no versionada por seguridad).
    - Sensores consumidos: Archivo histórico (`VIIRS_SNPP_SP`, `MODIS_SP`) y Tiempo casi-real (`VIIRS_NOAA20_NRT`, `VIIRS_NOAA21_NRT`, `MODIS_NRT`).
    - Tarea Celery: `importar_firms_multi_sensor_task` (cada 3 horas) y tarea unitaria `importar_firms_task`.
    - Descarga histórica 100% satelital: ventanas oficiales de 5 días con fecha específica hasta 2 años (730 días) en el Bounding Box provincial oficial (`[-74.30, -15.65, -72.85, -14.50]`).
@@ -175,9 +175,9 @@ npm run mobile
 ---
 
 ## 🔑 6. Accesos y Credenciales de Desarrollo
-* **Superusuario Admin:** `admin` / Contraseña: `admin12345` (Correo: `admin@willai.pe`).
-* **PostgreSQL:** Base de datos `alerta_incendios_coracora`, usuario `postgres`, contraseña `123456`.
-* **NASA FIRMS MAP_KEY:** `a84d23a9aab653f18f15991290bd093e`.
+* **Superusuario Admin:** `admin` (Credencial configurada localmente vía seed/createsuperuser).
+* **PostgreSQL:** Base de datos `alerta_incendios_coracora`, usuario `postgres` (Credenciales locales en `backend/.env`).
+* **NASA FIRMS MAP_KEY:** Configurada en `backend/.env` (no versionada en repositorio).
 * **Swagger UI Docs:** `http://127.0.0.1:8000/api/docs/`.
 * **Django Admin:** `http://127.0.0.1:8000/admin/`.
 * **Centro de Mando Web SPA:** `http://localhost:5173/`.

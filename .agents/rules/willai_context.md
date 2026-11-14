@@ -10,7 +10,7 @@ Al interactuar con este repositorio, ten en cuenta las siguientes directrices y 
    - La app móvil (React Native) es la interfaz principal para todos los usuarios.
 
 2. **APIs Externas Configuradas:**
-   - NASA FIRMS: MAP_KEY activa en `backend/.env` (`a84d23a9aab653f18f15991290bd093e`).
+   - NASA FIRMS: MAP_KEY activa en `backend/.env` (no versionada en repositorio).
    - SERFOR Perú: ArcGIS MapServer de focos de calor oficial.
    - Open-Meteo: Coordenadas Coracora (`-15.0189, -73.7806`).
 

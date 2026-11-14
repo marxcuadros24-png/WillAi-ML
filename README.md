@@ -189,9 +189,9 @@ cp .env.example .env
 Ejemplo de `backend/.env`:
 ```env
 DEBUG=True
-SECRET_KEY=clave-secreta-de-desarrollo-willai
-DATABASE_URL=postgresql://postgres:123456@127.0.0.1:5432/alerta_incendios_coracora
-NASA_FIRMS_MAP_KEY=a84d23a9aab653f18f15991290bd093e
+SECRET_KEY=tu-clave-secreta-django-cambiar-en-produccion
+DATABASE_URL=postgresql://tu_usuario:tu_password@127.0.0.1:5432/alerta_incendios_coracora
+NASA_FIRMS_MAP_KEY=tu_nasa_firms_map_key_aqui
 CELERY_TASK_ALWAYS_EAGER=True
 ```
 
@@ -210,7 +210,7 @@ python manage.py runserver 127.0.0.1:8000
 ```
 * **API REST & Swagger UI:** [http://127.0.0.1:8000/api/docs/](http://127.0.0.1:8000/api/docs/)
 * **Django Admin:** [http://127.0.0.1:8000/admin/](http://127.0.0.1:8000/admin/)
-  * *Usuario:* `admin` | *Contraseña:* `admin12345`
+  * *Usuario:* `admin` | *Contraseña:* (La configurada durante el seed inicial)
 
 ---
 
@@ -223,7 +223,6 @@ npm install
 npm run dev
 ```
 * **Centro de Mando Web:** [http://localhost:5173/](http://localhost:5173/)
-  * *Credenciales:* `admin@willai.pe` / `admin12345`
 
 ---
 
