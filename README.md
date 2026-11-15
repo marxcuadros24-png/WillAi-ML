@@ -1,5 +1,5 @@
-# 🔥 WillAI — Sistema Integral de Alerta Temprana y Gestión de Incendios Forestales
-### 📍 Provincia de Parinacochas, Ayacucho, Perú (Coracora)
+# WillAI — Sistema Integral de Alerta Temprana y Gestión de Incendios Forestales
+### Provincia de Parinacochas, Ayacucho, Perú (Coracora)
 
 [![Django](https://img.shields.io/badge/Backend-Django%205.1%20%7C%20DRF-092E20?logo=django&logoColor=white)](https://www.djangoproject.com/)
 [![React](https://img.shields.io/badge/Frontend-React%2018%20%7C%20Vite%20%7C%20TS-61DAFB?logo=react&logoColor=black)](https://react.dev/)
@@ -11,7 +11,7 @@
 
 ---
 
-## 📖 Visión General
+## Visión General
 
 **WillAI** es una plataforma tecnológica de teledetección satelital, modelado físico de propagación, reporte ciudadano georreferenciado y centro de mando táctico diseñada para la prevención, mitigación y respuesta ante **incendios forestales en la Provincia de Parinacochas (Ayacucho, Perú)**.
 
@@ -19,18 +19,18 @@ El sistema integra telemetría satelital multi-sensor de la NASA y SERFOR, meteo
 
 ---
 
-## 🏛️ Arquitectura del Sistema
+##  Arquitectura del Sistema
 
 ```mermaid
 flowchart TD
-    subgraph Satelites["🛰️ TELEDETECCIÓN & METEOROLOGÍA"]
+    subgraph Satelites[" TELEDETECCIÓN & METEOROLOGÍA"]
         Nasa["NASA FIRMS API\n(VIIRS 375m & MODIS 1km)"]
         Serfor["SERFOR Perú\n(ArcGIS MapServer)"]
         Meteo["Open-Meteo API\n(Vector de Viento Andino, Temp, Hum)"]
         Copernicus["Copernicus DEM GLO-30\n& Sentinel-2 L2A (STAC)"]
     end
 
-    subgraph Backend["⚙️ BACKEND CENTRAL (Django 5.1 + PostGIS)"]
+    subgraph Backend[" BACKEND CENTRAL (Django 5.1 + PostGIS)"]
         Ingesta["Ingesta & Fusión Multi-Sensor\n(VIIRS + MODIS Dissolve)"]
         FWI["Motor FWI Calibrado\n(PR-AUC: 0.78 | Pajonal Altoandino)"]
         ML["Machine Learning Susceptibilidad\n(Random Forest Platt Calibrated)"]
@@ -38,12 +38,12 @@ flowchart TD
         DB[(PostgreSQL + PostGIS)]
     end
 
-    subgraph ExportSIG["🗺️ CARTOGRAFÍA & SIG"]
+    subgraph ExportSIG["CARTOGRAFÍA & SIG"]
         QGIS["QGIS 3.x / 4.x\n(Proyecto .qgs + Controlador Temporal)"]
         GEarth["Google Earth Pro / Web\n(KMZ 3D + Time-Slider)"]
     end
 
-    subgraph Interfaces["💻 INTERFACES DE USUARIO"]
+    subgraph Interfaces[" INTERFACES DE USUARIO"]
         WebAdmin["Centro de Mando Táctico Web\n(React + Vite + TypeScript)\nPara Operadores, COEP & Bomberos B-12"]
         AppMovil["App Móvil WillAI (Expo + SQLite)\nOffline-First | Bilingüe (Quechua/Español)\nPara Brigadistas y Pobladores"]
     end
@@ -65,7 +65,7 @@ flowchart TD
 
 ---
 
-## ✨ Características Principales
+##  Características Principales
 
 ### 1. Ingesta Satelital Real & Fusión Multi-Sensor (NASA FIRMS)
 * **Datos 100% Reales (Sin Datos Sintéticos):** Descarga satelital oficial automatizada de **VIIRS (Suomi-NPP, NOAA-20, NOAA-21 a 375 m)** y **MODIS (Terra y Aqua a 1 km)** para Parinacochas (`-74.30, -15.65, -72.85, -14.50`).
@@ -107,7 +107,7 @@ flowchart TD
 
 ---
 
-## 📂 Estructura del Repositorio
+## Estructura del Repositorio
 
 ```text
 WillAi-ML/
@@ -146,7 +146,7 @@ WillAi-ML/
 
 ---
 
-## 🚀 Guía de Instalación y Despliegue Local
+##  Guía de Instalación y Despliegue Local
 
 ### Requisitos Previos
 * **Python 3.11** o superior (con `uv` o `venv`)
@@ -238,7 +238,7 @@ npm start
 
 ---
 
-## 🛰️ Comandos de Telemetría Satelital y SIG
+##  Comandos de Telemetría Satelital y SIG
 
 ```powershell
 cd backend
@@ -263,7 +263,7 @@ python manage.py exportar_mapa_quemado --salida data/qgis_parinacochas --distanc
 
 ---
 
-## 🗺️ Cómo Usar el Paquete en QGIS y Google Earth
+##  Cómo Usar el Paquete en QGIS y Google Earth
 
 Los archivos generados se encuentran en `backend/data/qgis_parinacochas/`:
 
@@ -281,7 +281,7 @@ Los archivos generados se encuentran en `backend/data/qgis_parinacochas/`:
 
 ---
 
-## 🧪 Pruebas Unitarias del Sistema
+##  Pruebas Unitarias del Sistema
 
 WillAI cuenta con una batería de pruebas automatizadas que cubren el 100% de los módulos críticos:
 
@@ -292,14 +292,14 @@ python manage.py test apps.usuarios.test_usuarios apps.geografia.test_geografia 
 
 ---
 
-## 🛡️ Políticas de Seguridad y Privacidad
+##  Políticas de Seguridad y Privacidad
 * **Evidencias Multimedia:** Almacenamiento seguro con URLs firmadas y metadatos forenses en base de datos.
 * **Privacidad de Pobladores:** Anonimización mediante hash criptográfico SHA-256 en registros de auditoría y protección estricta de coordenadas residenciales.
 * **Acceso de Emergencia:** Acceso ciudadano directo sin registro para reporte de emergencias vitales y visualización del mapa público de incidentes activos.
 
 ---
 
-## 👥 Contribuciones y Soporte
+##  Contribuciones y Soporte
 Este proyecto ha sido desarrollado como una solución integral para la gestión del riesgo de desastres en los Andes peruanos. Si deseas contribuir:
 1. Realiza un *Fork* del repositorio.
 2. Crea una rama para tu funcionalidad (`git checkout -b feature/nueva-funcionalidad`).
@@ -310,6 +310,6 @@ Para consultas institucionales o de investigación, contactar a `contacto@willai
 
 ---
 
-## 📄 Licencia
+##  Licencia
 Este proyecto se distribuye bajo la licencia **MIT**. Consulte el archivo `LICENSE` para más información.
 
